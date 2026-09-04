@@ -56,3 +56,21 @@ class DashboardStats(BaseModel):
     active_projects: int
     completed_projects: int
     delayed_projects: int
+
+
+class AlertOut(BaseModel):
+    """
+    Response shape for a single alert.
+
+    TEMPORARY / MOCK for Day 1: there is no `alerts` table yet. This
+    schema describes the shape the real ML risk engine's alerts will
+    eventually take once it exists, so the route contract stays the
+    same when the mock data is swapped for real data later.
+    """
+
+    alert_id: str
+    project_id: str
+    alert_type: str
+    severity: str
+    message: str
+    created_at: datetime
