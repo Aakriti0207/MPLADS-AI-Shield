@@ -1,8 +1,6 @@
 """
-FastAPI application entry point for the MPLADS AI backend.
-
 Day 1 scope: app instance, CORS (for the future React dashboard), and
-the `projects` router only. Dashboard and alerts routes come later.
+the projects, dashboard, and alerts routers.
 """
 
 from fastapi import FastAPI
@@ -22,7 +20,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,   # or just remove this line — False is the default
     allow_methods=["*"],
     allow_headers=["*"],
 )
