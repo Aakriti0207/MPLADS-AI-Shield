@@ -8,7 +8,7 @@ the `projects` router only. Dashboard and alerts routes come later.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import projects
+from app.routes import dashboard, projects
 
 app = FastAPI(
     title="MPLADS AI Shield",
@@ -28,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(projects.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/", tags=["health"])

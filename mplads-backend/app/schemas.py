@@ -43,3 +43,16 @@ class ProjectOut(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+
+class DashboardStats(BaseModel):
+    """Aggregate statistics computed live from the `projects` table."""
+
+    total_projects: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    average_financial_progress: Optional[Decimal] = None
+    average_physical_progress: Optional[Decimal] = None
+    active_projects: int
+    completed_projects: int
+    delayed_projects: int
