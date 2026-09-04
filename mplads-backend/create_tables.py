@@ -1,26 +1,15 @@
 """
-One-off script to verify the PostgreSQL connection and create the
-`projects` table from the SQLAlchemy model.
+CLI entry point to initialize the database: verifies the PostgreSQL
+connection and creates the `projects` table from the SQLAlchemy model
+(via app.init_db.init_db()).
 
 Run with: python create_tables.py
 
-This is a temporary Day 1 utility. Once Alembic migrations are
-introduced later in the project, this script can be retired.
+This is a Day 1 development utility, not a migration tool. See
+app/init_db.py for why Alembic isn't introduced yet.
 """
 
-from app.database import Base, engine
-from app import models  # noqa: F401  (import needed to register the model with Base)
-
-
-def main() -> None:
-    print(f"Connecting to: {engine.url}")
-    with engine.connect() as conn:
-        print("Connection successful.")
-
-    print("Creating tables (if they don't already exist)...")
-    Base.metadata.create_all(bind=engine)
-    print("Done. Tables created:", list(Base.metadata.tables.keys()))
-
+from app.init_db import init_db
 
 if __name__ == "__main__":
-    main()
+    init_db()
