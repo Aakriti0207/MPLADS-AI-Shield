@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { clearAuthToken, getAuthToken, setAuthToken } from '../lib/authToken'
+import { API_BASE, setUnauthorizedHandler } from '../lib/api'
 
 /**
  * Global authentication state.
@@ -13,8 +14,6 @@ import { clearAuthToken, getAuthToken, setAuthToken } from '../lib/authToken'
  * on the frontend -- the JWT itself is never decoded/trusted client-side
  * for this purpose.
  */
-
-const API_BASE = 'http://127.0.0.1:8000'
 
 const AuthContext = createContext(null)
 
@@ -138,6 +137,17 @@ export function AuthProvider({ children }) {
     setUser(null)
     setStatus('unauthenticated')
   }
+
+  // Phase 5: whenever any authenticated request made through
+  // lib/api.js's apiFetch() gets a 401 (token invalid/expired), route
+  // it through this exact same logout() -- not a separate/duplicate
+  // "clear auth" implementation. ProtectedRoute then reacts to the
+  // resulting status change and redirects to /login on its own; no
+  // navigation call is made from here.
+  useEffect(() => {
+    setUnauthorizedHandler(logout)
+    return () => setUnauthorizedHandler(null)
+  }, [])
 
   const value = {
     user,

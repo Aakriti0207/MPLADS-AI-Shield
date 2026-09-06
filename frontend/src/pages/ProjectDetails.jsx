@@ -4,7 +4,7 @@ import {AlertTriangle, ArrowLeft, Building2, IndianRupee, Loader2, MapPin, Shiel
 import {money} from '../data'
 import {RiskBadge,Progress,Section} from '../components/UI'
 
-const API_BASE = 'http://127.0.0.1:8000'
+import { API_BASE, apiFetch } from '../lib/api'
 
 const titleCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null
 
@@ -56,7 +56,7 @@ export default function ProjectDetails(){
   // real project_id like "WS/MP001/2023-2024/103702" is a plain string here.
   // Re-encode it before putting it in the API path so the slashes survive
   // as part of the path segment instead of being read as extra segments.
-  fetch(`${API_BASE}/projects/${encodeURIComponent(id)}`)
+  apiFetch(`/projects/${encodeURIComponent(id)}`)
    .then(res=>{
     if(res.status===404) { if(!cancelled) setNotFound(true); return null }
     if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
