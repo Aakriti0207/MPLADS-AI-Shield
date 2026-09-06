@@ -1,12 +1,17 @@
 """
 Day 1 scope: app instance, CORS (for the future React dashboard), and
 the projects, dashboard, and alerts routers.
+
+JWT-auth update: added the auth router (register/login/me). Those
+three endpoints stay open (no Depends(get_current_user)) -- everything
+else is unaffected here; per-route protection is added directly on the
+projects/dashboard/alerts routers themselves in Phase 3.
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import alerts, dashboard, projects
+from app.routes import alerts, auth, dashboard, projects
 
 app = FastAPI(
     title="MPLADS AI Shield",
@@ -25,6 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(dashboard.router)
 app.include_router(alerts.router)

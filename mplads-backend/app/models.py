@@ -26,14 +26,53 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Integer,
     Numeric,
     String,
     Text,
     false,
+    true,
 )
 from sqlalchemy.sql import func
 
 from app.database import Base
+
+
+class User(Base):
+    """
+    Application user for JWT authentication.
+
+    Added alongside the JWT-auth feature; does not touch or depend on
+    the `projects` table. Picked up automatically by
+    `Base.metadata.create_all()` in app/init_db.py -- no migration
+    framework change needed since this is a brand-new table with no
+    existing data to preserve (see app/init_db.py's docstring for why
+    create_all() is the project's chosen approach).
+
+    `role` is a free-text string rather than a DB-level enum so it can
+    keep using the same role labels already present in the frontend's
+    Login.jsx (e.g. "District Authority", "Administrator") without a
+    schema change if that list evolves.
+    """
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    email = Column(String(255), unique=True, index=True, nullable=False)
+
+    # bcrypt hash (via the `bcrypt` package directly -- see app/auth.py),
+    # never the plaintext password.
+    password_hash = Column(String(255), nullable=False)
+
+    role = Column(String(50), nullable=False)
+
+    is_active = Column(Boolean, nullable=False, default=True, server_default=true())
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<User id={self.id!r} email={self.email!r} role={self.role!r}>"
 
 
 class Project(Base):
