@@ -1,0 +1,60 @@
+{
+  "total_canonical_work_ids": 43863,
+  "stage_presence_counts": {
+    "recommended": 15482,
+    "sanctioned": 33000,
+    "completed": 22956,
+    "expenditure": 8950
+  },
+  "stage_presence_pct": {
+    "recommended": 35.3,
+    "sanctioned": 75.23,
+    "completed": 52.34,
+    "expenditure": 20.4
+  },
+  "n_stages_present_distribution": {
+    "1": 19015,
+    "2": 13602,
+    "3": 10815,
+    "4": 431
+  },
+  "house_membership": {
+    "LS_only": 12722,
+    "RS_only": 6461,
+    "both": 24680
+  },
+  "missing_state": 0,
+  "missing_constituency": 9697,
+  "missing_mp": 0,
+  "missing_sanction_amount": 10863,
+  "missing_sanction_date": 10863,
+  "missing_completion_date": 20907,
+  "missing_expenditure_record": 34913,
+  "conflicting_field_records": 22970,
+  "conflicts_by_field": {
+    "mp": 22381,
+    "elected_nominated": 589
+  },
+  "duplicate_canonical_work_ids": 0,
+  "unkeyed_recommended_records": {
+    "total": 518,
+    "by_house": {
+      "RS": 480,
+      "LS": 38
+    }
+  },
+  "expenditure_aggregation_sanity": {
+    "projects_with_expenditure_record": 8950,
+    "total_expenditure_transactions_aggregated": 13000,
+    "mean_transactions_per_project_with_expenditure": 1.45,
+    "max_transactions_single_project": 41
+  },
+  "lifecycle_sanity_flags": {
+    "completion_without_sanction": 4820,
+    "expenditure_without_sanction": 6211,
+    "sanction_without_recommendation": 17518,
+    "completion_before_sanction": 0,
+    "expenditure_before_recommendation": 0,
+    "recommendation_after_sanction": 0
+  }
+}

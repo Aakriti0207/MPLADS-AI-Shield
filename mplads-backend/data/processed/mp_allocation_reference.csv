@@ -1,0 +1,775 @@
+sr_no,state,mp,constituency,allocated_amount,work_id_canonical,work_id_status,house,source_file,elected_nominated
+1,Maharashtra,AASHTIKAR PATIL NAGESH BAPURAO,HINGOLI,190289442.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+2,Jammu And Kashmir,ABDUL RASHID SHEIKH,BARAMULLAH,154773472.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+3,Bihar,ABHAY KUMAR SINHA,AURANGABAD_BR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+4,West Bengal,ABHIJIT GANGOPADHYAY,TAMLUK,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+5,West Bengal,Abu Taher Khan,MURSHIDABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+6,West Bengal,ADHIKARI SOUMENDU,KANTHI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+7,Uttar Pradesh,ADITYA YADAV,BADAUN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+8,Kerala,Adv Adoor Prakash,ATTINGAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+9,Kerala,Adv Dean Kuriakose,IDUKKI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+10,Maharashtra,ADV GOWAAL KAGADA PADAVI,NANDURBAR(ST),147816309.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+11,Kerala,ADV K FRANCIS GEORGE,KOTTAYAM,188722256.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+12,Uttar Pradesh,AFZAL ANSARI,GHAZIPUR,220500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+13,Jammu And Kashmir,AGA SYED RUHULLAH MEHDI,SRINAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+14,Uttarakhand,Ajay Bhatt,NAINITAL UDHAM SINGH NAG.,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+15,Bihar,Ajay Kumar Mandal,BHAGALPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+16,Uttarakhand,Ajay Tamta,ALMORA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+17,Uttar Pradesh,AJENDRA SINGH LODHI,HAMIRPUR_UP,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+18,Uttar Pradesh,AKHILESH YADAV,KANNAUJ,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+19,Uttar Pradesh,AKSHAYA YADAV,FIROZABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+20,Manipur,ALFRED KANNGAM S ARTHUR,OUTER MANIPUR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+21,Bihar,Alok Kumar Suman,GOPALGANJ (SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+22,Madhya Pradesh,ALOK SHARMA,BHOPAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+23,Maharashtra,AMAR SHARADRAO KALE,WARDHA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+24,Assam,AMARSING TISSO,Diphu (ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+25,Andhra Pradesh,AMBICA G LAKSHMINARAYANA VALMIKI,ANANTAPUR,201899064.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+26,Maharashtra,Amol Ramsing Kolhe,SHIRUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+27,Rajasthan,AMRARAM,SIKAR,165691544.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+28,Punjab,AMRINDER SINGH RAJA WARRING,LUDHIANA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+29,Uttar Pradesh,ANAND BHADAURIYA,DHAURAHRA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+30,Uttar Pradesh,ANAND KUMAR,BAHRAICH(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+31,Odisha,ANANTA NAYAK,KEONJHAR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+32,Tamil Nadu,Andimuthu Raja,NILGIRIS(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+33,Meghalaya,ANDREW J. SYNGKON,SHILLONG,98000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+34,Manipur,ANGOMCHA BIMOL AKOIJAM,INNER MANIPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+35,Uttarakhand,ANIL BALUNI,GARHWAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+36,Maharashtra,ANIL YESHWANT DESAI,MUMBAI SOUTH CENTRAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+37,Madhya Pradesh,ANITA NAGARSINGH CHOUHAN,RATLAM(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+38,Odisha,ANITA SUBHADARSHINI,ASKA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+39,Jharkhand,Annpurna Devi,KODARMA,166665931.8,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+40,Uttar Pradesh,ANOOP PRADHAN BALMIKI,HATHRAS (SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+41,Kerala,Anto Antony,PATHANAMTHITTA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+42,Maharashtra,ANUP SANJAY DHOTRE,AKOLA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+43,Uttar Pradesh,Anurag Sharma,JHANSI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+44,Himachal Pradesh,Anurag Singh Thakur,HAMIRPUR_HP,149570117.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+45,Andhra Pradesh,Appalanaidu Kalisetti,VIZIANAGARAM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+46,Bihar,ARUN BHARTI,JAMUI(SC),194924621.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+47,Uttar Pradesh,ARUN GOVIL,MEERUT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+48,Tamil Nadu,ARUN NEHRU,PERAMBALUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+49,Telangana,ARUNA. D. K,MAHABUBNAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+50,West Bengal,ARUP CHAKRABORTY,BANKURA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+51,Telangana,Arvind Dharmapuri,NIZAMABAD,281396355.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+52,Maharashtra,Arvind Ganpat Sawant,MUMBAI SOUTH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+53,Telangana,Asaduddin Owaisi,HYDERABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+54,Madhya Pradesh,ASHISH DUBEY,JABALPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+55,Uttar Pradesh,Ashok Kumar Rawat,MISRIKH(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+56,Bihar,Ashok Kumar Yadav,MADHUBANI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+57,West Bengal,Asit Kumar Mal,BOLPUR(SC),275694456.74,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+58,Uttar Pradesh,ATUL GARG,GHAZIABAD,155336470.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+59,Odisha,AVIMANYU SETHI,BHADRAK(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+60,Uttar Pradesh,AWADHESH PRASAD,FAIZABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+61,West Bengal,AZAD KIRTI JHA,BARDHAMAN-DURGAPUR,179658399.98,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+62,Andhra Pradesh,B K PARTHASARATHI,HINDUPUR,160491894.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+63,Uttar Pradesh,BABU SINGH KUSHWAHA,JAUNPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+64,Maharashtra,BACHHAV SHOBHA DINESH,DHULE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+65,West Bengal,BAG MITALI,ARAMBAG(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+66,Odisha,BAIJAYANT PANDA,KENDRAPARA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+67,Maharashtra,BAJRANG MANOHAR SONWANE,BEED,165899107.19,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+68,Odisha,BALABHADRA MAJHI,NABARANGPUR(ST),147413962.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+69,Andhra Pradesh,Balashowry Vallabbhaneni,MACHILIPATNAM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+70,Telangana,BALRAM NAIK PORIKA,MAHABUBABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+71,Maharashtra,BALWANT BASWANT WANKHADE,AMRAVATI(SC),198293678.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+72,Maharashtra,BALYA MAMA SURESH GOPINATH MHATRE,BHIWANDI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+73,Delhi,Bansuri Swaraj,NEW DELHI,154306950.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+74,West Bengal,BAPI HALDAR,MATHURAPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+75,Karnataka,BASAVARAJ BOMMAI,HAVERI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+76,Andhra Pradesh,BASTIPATI NAGARAJU PANCHALINGALA,KURNOOL,159998515.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+77,Rajasthan,Bhagirath Chaudhary,AJMER,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+78,Rajasthan,BHAJAN LAL JATAV,KARAULI-DHOLPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+79,Madhya Pradesh,BHARAT SINGH KUSHWAH,GWALIOR,151455276.04,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+80,Gujarat,BHARATBHAI MANUBHAI SUTARIYA,AMRELI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+81,Gujarat,Bharatsinhji Shankarji Dabhi,PATAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+82,Madhya Pradesh,BHARTI PARDHI,BALAGHAT,154398389.01,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+83,Maharashtra,BHASKAR MURLIDHAR BHAGARE,DINDORI(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+84,Maharashtra,BHAUSAHEB RAJARAM WAKCHAURE,SHIRDI(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+85,Chhattisgarh,BHOJRAJ NAG,KANKER(ST),164672734.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+86,Uttar Pradesh,Bhola Singh,BULANDSHAHR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+87,Maharashtra,BHUMARE SANDIPANRAO ASARAM,AURANGABAD_MH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+88,Andhra Pradesh,Bhupathiraju Srinivasa varma,NARASAPURAM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+89,Rajasthan,BHUPENDER YADAV,ALWAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+90,Odisha,BIBHU PRASAD TARAI,JAGATSINGHPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+91,Jharkhand,Bidyut Baran Mahato,JAMSHEDPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+92,Assam,BIJULI KALITA MEDHI,GUWAHATI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+93,Tripura,BIPLAB KUMAR DEB,TRIPURA WEST,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+94,Andaman And Nicobar Islands,BISHNU PADA RAY,ANDAMAN AND NICOBAR ISLANDS,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+95,Rajasthan,BRIJENDRA SINGH OLA,JHUNJHUNU,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+96,Chhattisgarh,BRIJMOHAN AGRAWAL,RAIPUR,153766451.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+97,Madhya Pradesh,BUNTY VIVEK SAHU,CHHINDWARA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+98,Gujarat,C R Patil,NAVSARI,158532494.36,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+99,Andhra Pradesh,C.M.RAMESH,ANAKAPALLE,202531656.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+100,Karnataka,CAPTAIN BRIJESH CHOWTA,DAKSHINA KANNADA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+101,Goa,CAPTAIN VIRIATO FERNANDES,SOUTH GOA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+102,Telangana,CHAMALA KIRAN KUMAR REDDY,BHONGIR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+103,Uttar Pradesh,CHANDAN CHAUHAN,BIJNOR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+104,Rajasthan,Chandra Prakash Joshi,CHITTORGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+105,Uttar Pradesh,CHANDRA SHEKHAR,NAGINA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+106,Gujarat,CHANDUBHAI CHHAGANBHAI SHIHORA,SURENDRANAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+107,Punjab,CHARANJIT SINGH CHANNI,JALANDHAR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+108,Maharashtra,CHAVAN VASANTRAO BALWANTRAO,NANDED,,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+109,Uttar Pradesh,CHHATRA PAL SINGH GANGWAR,BAREILLY,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+110,Maharashtra,CHHATRAPATI SHAHU SHAHAJI,KOLHAPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+111,Uttar Pradesh,CHHOTELAL,ROBERTSGANJ(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+112,Chhattisgarh,CHINTAMANI MAHARAJ,SARGUJA(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+113,Bihar,CHIRAG PASWAN,HAJIPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+114,Tamil Nadu,CN Annadurai,TIRUVANNAMALAI,148579509.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+115,Tamil Nadu,D M Kathir Anand,VELLORE,160196941.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+116,Tamil Nadu,D Ravikumar,VILUPPURAM(SC),197598306.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+117,Andhra Pradesh,Daggubati Purandeshwari,RAJAHMUNDRY,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+118,Andhra Pradesh,DAGGUMALLA PRASADA RAO,CHITTOOR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+119,Rajasthan,DAMODAR AGARWAL,BHILWARA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+120,Uttar Pradesh,DAROGA PRASAD SAROJ,LALGANJ (SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+121,Madhya Pradesh,DARSHAN SINGH CHOUDHARY,HOSHANGABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+122,Haryana,DEEPENDER SINGH HOODA,ROHTAK,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+123,Uttar Pradesh,Devendra Alias Bhole Singh,AKBARPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+124,Bihar,DEVESH CHANDRA THAKUR,SITAMARHI,163809205.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+125,Uttar Pradesh,DEVESH SHAKYA,ETAH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+126,Gujarat,Devusinh Jesingbhai Chauhan,KHEDA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+127,Maharashtra,Dhairyasheel Sambhajirao Mane,HATKANANGLE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+128,Maharashtra,DHANORKAR PRATIBHA SURESH ALIAS BALUBHAU,CHANDRAPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+129,Odisha,DHARMENDRA PRADHAN,SAMBALPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+130,Uttar Pradesh,DHARMENDRA YADAV,AZAMGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+131,Gujarat,DHAVAL LAXMANBHAI PATEL,VALSAD(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+132,Bihar,Dileshwar Kamait,SUPAUL,150450930.89,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+133,Assam,Dilip Saikia,Darrang-Udalguri,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+134,Bihar,Dinesh Chandra Yadav,MADHEPURA,150070866.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+135,Gujarat,DINESHBHAI MAKWANA,AHMEDABAD WEST(SC),160434965.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+136,Andhra Pradesh,DR BYREDDY SHABARI,NANDYAL,150675889.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+137,Karnataka,DR C N MANJUNATH,BANGALORE RURAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+138,Andhra Pradesh,Dr Chandra Sekhar Pemmasani,GUNTUR,159774113.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+139,Punjab,DR DHARAMVIRA GANDHI,PATIALA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+140,West Bengal,Dr Jayanta Kumar Roy,JALPAIGURI(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+141,Maharashtra,DR KALGE SHIVAJI BANDAPPA,LATUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+142,Bihar,Dr Mohammad Jawed,KISHANGANJ,148669229.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+143,Uttar Pradesh,DR RAJKUMAR SANGWAN,BAGHPAT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+144,Tamil Nadu,DR RANI SRI KUMAR,TENKASI(SC),153060922.82,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+145,Kerala,Dr Shashi Tharoor,THIRUVANANTHAPURAM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+146,West Bengal,Dr Sukanta Majumdar,BALURGHAT,157085364.9,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+147,Gujarat,DR. HEMANG JOSHI,VADODARA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+148,Maharashtra,DR. HEMANT VISHNU SAVARA,PALGHAR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+149,Maharashtra,DR. KIRSAN NAMDEO,GADCHIROLI-CHIMUR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+150,Madhya Pradesh,DR. LATA WANKHEDE,SAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+151,Kerala,DR. M.P ABDUSSAMAD SAMADANI,PONNANI,170434031.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+152,Gujarat,DR. MANSUKH MANDAVIYA,PORBANDAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+153,Karnataka,DR. PRABHA MALLIKARJUN,DAVANAGERE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+154,Odisha,DR. PRADEEP KUMAR PANIGRAHY,BERHAMPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+155,Maharashtra,DR. PRASHANT YADAORAO PADOLE,BHANDARA-GONDIYA,159680283.39,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+156,Punjab,DR. RAJ KUMAR CHABBEWAL,HOSHIARPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+157,Madhya Pradesh,DR. RAJESH MISHRA,SIDHI,262724510.35,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+158,Uttar Pradesh,DR. S P SINGH,PRATAPGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+159,West Bengal,DR. SHARMILA SARKAR,BARDHAMAN PURBA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+160,Karnataka,DR.K.SUDHAKAR,CHIKBALLAPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+161,Telangana,DR.MALLU RAVI,NAGARKURNOOL(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+162,Jharkhand,DULU MAHATO,DHANBAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+163,Tamil Nadu,DURAI VAIKO,TIRUCHIRAPPALLI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+164,Madhya Pradesh,Durga Das Uikey,BETUL(ST),151569502.91,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+165,Rajasthan,Dushyant Singh,JHALAWAR-BARAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+166,Karnataka,E. TUKARAM,BELLARY(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+167,Kerala,E.T. MOHAMMED BASHEER,MALAPPURAM,163895872.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+168,Telangana,EATALA RAJENDER,MALKAJGIRI,327477390.86,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+169,Tamil Nadu,ESWARASAMY K,POLLACHI,162315106.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+170,Madhya Pradesh,Faggan Singh Kulaste,MANDLA(ST),151861648.41,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+171,Karnataka,G. KUMAR NAIK,RAICHUR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+172,Maharashtra,GAIKWAD VARSHA EKNATH,MUMBAI NORTH-CENTRAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+173,Madhya Pradesh,Gajendra Singh Patel,KHARGONE(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+174,Rajasthan,Gajendra Singh Shekhawat,JODHPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+175,Tamil Nadu,GANAPATHY RAJKUMAR P,COIMBATORE,147370490.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+176,Tamil Nadu,Ganesan Selvam,KANCHEEPURAM(SC),186508749.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+177,Madhya Pradesh,Ganesh Singh,SATNA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+178,Assam,GAURAV GOGOI,JORHAT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+179,Gujarat,GENIBEN NAGAJI THAKOR,BANASKANTHA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+180,Bihar,Giridhari Yadav,BANKA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+181,Bihar,Giriraj Singh,BEGUSARAI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+182,Andhra Pradesh,GM Harish Balayogi,AMALAPURAM(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+183,Telangana,GODAM NAGESH,ADILABAD(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+184,Tamil Nadu,GOPINATH K,KRISHNAGIRI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+185,Karnataka,GOVIND MAKTHAPPA KARJOL,CHITRADURGA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+186,Andhra Pradesh,Gumma Thanuja Rani,ARAKU(ST),149458905.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+187,Punjab,GURMEET SINGH MEET HAYER,SANGRUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+188,Madhya Pradesh,Gyaneshwar Patil,KHANDWA,155690684.77,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+189,Karnataka,H.D. KUMARASWAMY,MANDYA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+190,Uttar Pradesh,HARENDRA SINGH MALIK,MUZAFFARNAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+191,Gujarat,HARIBHAI PATEL,MAHESANA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+192,Rajasthan,HARISH CHANDRA MEENA,TONK-SAWAI MADHOPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+193,Delhi,Harsh Malhotra,EAST DELHI,147134131.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+194,Gujarat,Hasmukh Bhai Soma Bhai Patel,AHMEDABAD EAST,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+195,Uttar Pradesh,IMRAN MASOOD,SAHARANPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+196,Sikkim,Indra Hang Subba,SIKKIM,152003923.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+197,Uttar Pradesh,IQRA CHOUDHARY,KAIRANA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+198,West Bengal,ISHA KHAN CHOUDHURY,MALDAHA DAKSHIN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+199,West Bengal,JAGADISH CHANDRA BARMA BASUNIA,COOCHBEHAR(SC),168604641.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+200,Karnataka,JAGADISH SHETTAR,BELGAUM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+201,West Bengal,Jagannath Sarkar,RANAGHAT(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+202,Uttar Pradesh,Jagdambika Pal,DOMARIYAGANJ,160643957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+203,Haryana,JAI PARKASH,HISAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+204,Uttar Pradesh,Jai Prakash,HARDOI (SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+205,Madhya Pradesh,Janardan Mishra,REWA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+206,Gujarat,JASHUBHAI BHILUBHAI RATHVA,CHHOTA UDAIPUR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+207,Gujarat,Jaswantsinh Sumanbhai Bhabhor,DAHOD(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+208,Bihar,JITAN RAM MANJHI,GAYA (SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+209,Uttar Pradesh,JITENDRA KUMAR DOHARE,ETAWAH(SC),188747306.26,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+210,Jammu And Kashmir,Jitendra Singh,UDHAMPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+211,Uttar Pradesh,JITIN PRASADA,PILIBHIT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+212,Jharkhand,JOBA MAJHI,SINGHBHUM(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+213,Assam,JOYANTA BASUMATARY,KOKRAJHAR (ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+214,West Bengal,JUNE MALIAH,MEDINIPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+215,Madhya Pradesh,JYOTIRADITYA M. SCINDIA,GUNA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+216,Chhattisgarh,Jyotsna Charandas Mahant,KORBA,155153738.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+217,Tamil Nadu,K E PRAKASH,ERODE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+218,Kerala,K RADHAKRISHNAN,ALATHUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+219,Tamil Nadu,K Subbarayan,TIRUPPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+220,Kerala,K. C VENUGOPAL,ALAPPUZHA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+221,Karnataka,K. RAJASHEKAR BASAVARAJ HITNAL,KOPPAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+222,Telangana,KADIYAM KAVYA,WARANGEL(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+223,West Bengal,Kakoli Ghosh Dastidar,BARASAT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+224,The Dadra And Nagar Haveli And Daman And Diu,Kalaben Mohanbhai Delkar,DADRA & NAGAR HAVELI (ST),269500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+225,Tamil Nadu,Kalanidhi Veeraswamy,CHENNAI NORTH,171500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+226,Jharkhand,KALI CHARAN MUNDA,KHUNTI(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+227,Jharkhand,KALI CHARAN SINGH,CHATRA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+228,West Bengal,KALIPADA SAREN,JHARGRAM(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+229,West Bengal,Kalyan Banerjee,SREERAMPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+230,Maharashtra,KALYAN VAIJINATHRAO KALE,JALNA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+231,Assam,KAMAKHYA PRASAD TASA,Kaziranga,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+232,Delhi,Kamaljeet Sehrawat,WEST DELHI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+233,Chhattisgarh,KAMLESH JANGDE,JANJGIR CHAMPA(SC),150384382.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+234,Uttar Pradesh,Kamlesh Paswan,BANSGAON(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+235,Himachal Pradesh,Kangana Ranaut,MANDI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+236,Tamil Nadu,Kani K Navas,RAMANATHAPURAM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+237,Tamil Nadu,Kanimozhi Karunanidhi,THOOTHUKKUDI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+238,Uttar Pradesh,KANWAR SINGH TANWAR,AMROHA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+239,Uttar Pradesh,KARAN BHUSHAN SINGH,KAISERGANJ,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+240,West Bengal,KARTICK CHANDRA PAUL,RAIGANJ,202677986.56,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+241,Bihar,Kaushalendra Kumar,NALANDA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+242,West Bengal,Khagen Murmu,MALDAHA UTTAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+243,West Bengal,Khalilur Rahaman,JANGIPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+244,Andhra Pradesh,Kinjarapu Ram Mohan Naidu,SRIKAKULAM,171200630.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+245,Arunachal Pradesh,Kiren Rijiju,ARUNACHAL WEST,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+246,Uttar Pradesh,Kirti Vardhan Singh,GONDA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+247,Telangana,Kishan Reddy Gangapuram,SECUNDERABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+248,Uttar Pradesh,KISHORI LAL,AMETHI,171500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+249,Telangana,KONDA VISHWESHWAR REDDY,CHELVELLA,233721420.96,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+250,Karnataka,KOTA SRINIVAS POOJARY,UDUPI CHIKMAGALUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+251,Assam,Kripanath Mallah,KARIMGANJ (SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+252,Haryana,Krishan Pal Gurjar,FARIDABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+253,Uttar Pradesh,KRISHNA DEVI SHIVSHANKER PATEL,BANDA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+254,Andhra Pradesh,Krishna Prasad Tenneti,BAPATLA,167796849.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+255,Tripura,KRITI DEVI DEBBARMAN,TRIPURA EAST(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+256,Rajasthan,KULDEEP INDORA,GANGANAGAR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+257,Telangana,KUNDURU RAGHUVEER,NALGONDA,162952022.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+258,Uttar Pradesh,LALJI VERMA,AMBEDKAR NAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+259,Andhra Pradesh,Lavu Sri Krishna Devarayalu,NARASARAOPET,174009663.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+260,Uttar Pradesh,LAXMIKANT PAPPU NISHAD,SANT KABIR NAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+261,Bihar,LOVELY ANAND,SHEOHAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+262,Rajasthan,LUMBARAM,JALORE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+263,Karnataka,M. MALLESH BABU,KOLAR(SC),147065957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+264,Tamil Nadu,M.K. VISHNUPRASAD,CUDDALORE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+265,Andhra Pradesh,Maddila Gurumoorthy,TIRUPATI(SC),180399007.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+266,Telangana,MADHAVANENI RAGHUNANDAN RAO,MEDAK,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+267,Andhra Pradesh,Magunta Sreenivasulu Reddy,ONGOLE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+268,Madhya Pradesh,Mahendra Singh Solanky,DEWAS(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+269,Chhattisgarh,MAHESH KASHYAP,BASTAR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+270,Uttar Pradesh,Mahesh Sharma,GAUTAM BUDDHA NAGAR,148816284.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+271,Rajasthan,MAHIMA KUMARI MEWAR,RAJSAMAND,183892143.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+272,Uttarakhand,Mala Rajya Laxmi Shah,TEHRI GARHWAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+273,West Bengal,Mala Roy,KOLKATA DAKSHIN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+274,Tamil Nadu,MALAIYARASAN D,KALLAKURICHI,201599593.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+275,Odisha,MALVIKA DEVI,KALAHANDI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+276,Punjab,MALVINDER SINGH KANG,ANANDPUR SAHIB,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+277,Tamil Nadu,MANI. A.,DHARAMAPURI,164515071.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+278,Tamil Nadu,Manickam Tagore B,VIRUDHUNAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+279,Jharkhand,MANISH JAISWAL,HAZARIBAGH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+280,Chandigarh,MANISH TEWARI,CHANDIGARH,178351443.75,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+281,Rajasthan,MANJU SHARMA,JAIPUR,167082901.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+282,Rajasthan,MANNA LAL RAWAT,UDAIPUR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+283,Haryana,MANOHAR LAL,KARNAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+284,Bihar,MANOJ KUMAR,SASARAM(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+285,West Bengal,MANOJ TIGGA,ALIPURDUARS(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+286,Delhi,Manoj Tiwari,NORTH EAST DELHI,225843858.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+287,Gujarat,Mansukhbhai Dhanjibhai Vasava,BHARUCH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+288,Jammu And Kashmir,MIAN ALTAF AHMAD,ANANTNAG,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+289,Andhra Pradesh,Midhun Reddy,RAJAMPET,178951477.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+290,Bihar,MISHA BHARTI,PATALIPUTRA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+291,Gujarat,Mitesh Rameshbhai Bakabhai Patel,ANAND,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+292,Ladakh,Mohamed Haneefa,LADAKH,161114542.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+293,Uttar Pradesh,MOHIBBULLAH,RAMPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+294,Maharashtra,MOHITE PATIL DHAIRYASHEEL RAJSINH,MADHA,195613601.7,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+295,Bihar,Mr Gopal Jee Thakur,DARBHANGA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+296,West Bengal,Ms Mahua Moitra,KRISHNANAGAR,159865046.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+297,Lakshadweep,MUHAMMED HAMDULLAH SAYEED,LAKSHADWEEP(ST),153942460.41,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+298,Uttar Pradesh,Mukesh Rajput,FARRUKHABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+299,Gujarat,MUKESHKUMAR CHANDRAKAANT DALAL,SURAT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+300,Rajasthan,MURARI LAL MEENA,DAUSA(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+301,Tamil Nadu,MURASOLI S,THANJAVUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+302,Maharashtra,MURLIDHAR MOHOL,PUNE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+303,Odisha,NABA CHARAN MAJHI,MAYURBHANJ (ST),147563957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+304,Jharkhand,NALIN SOREN,DUMKA(ST),147364097.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+305,Uttar Pradesh,NARAYAN DAS AHIRWAR,JALAUN(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+306,Maharashtra,NARAYAN TATU RANE,RATNAGIRI-SINDHUDURG,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+307,Uttar Pradesh,NARESH CHANDRA UTTAM PATEL,FATEHPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+308,Maharashtra,NARESH GANPAT MHASKE,THANE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+309,Haryana,NAVEEN JINDAL,KURUKSHETRA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+310,Uttar Pradesh,NEERAJ MAURYA,AONLA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+311,Maharashtra,NILESH DNYANDEV LANKE,AHMEDNAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+312,Gujarat,NIMUBEN JAYANTIBHAI BAMBHANIYA,BHAVNAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+313,Jharkhand,Nishikant Dubey,GODDA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+314,Maharashtra,Nitin Jairam Gadkari,NAGPUR,168195086.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+315,Bihar,Nityanand Rai,UJJARPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+316,Rajasthan,Om Birla,KOTA,163906956.6,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+317,Maharashtra,Omprakash Bhupalsinh Alias Pawan Rajenimbalkar,OSMANABAD,184758519.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+318,Karnataka,P C Mohan,BANGALORE CENTRAL,159995711.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+319,Uttar Pradesh,Pankaj Chowdhary,MAHARAJGANJ_UP,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+320,Assam,PARIMAL SUKLABAIDYA,SILCHAR,148300157.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+321,Gujarat,PARSHOTTAMBHAI RUPALA,RAJKOT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+322,West Bengal,PARTHA BHOWMICK,BARRACKPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+323,Karnataka,Parvatagouda Chandanagouda Gaddigoudar,BAGALKOT,167541747.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+324,The Dadra And Nagar Haveli And Daman And Diu,PATEL UMESHBHAI BABUBHAI,DAMAN and DIU,245063957.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+325,West Bengal,PATHAN YUSUF,BAHARAMPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+326,Assam,PHANI BHUSAN CHOUDHURY,BARPETA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+327,Maharashtra,Piyush Vedprakash Goyal,MUMBAI NORTH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+328,Andhra Pradesh,PRABHAKAR REDDY VEMIREDDY,NELLORE(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+329,Gujarat,Prabhubhai Nagarbhai Vasava,BARDOLI(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+330,Assam,Pradan Baruah,LAKHIMPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+331,Bihar,Pradeep Kumar Singh,ARARIA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+332,Odisha,PRADEEP PUROHIT,BARGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+333,Assam,Pradyut Bordoloi,NOWGONG,98000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+334,Karnataka,Pralhad Venkatesh Joshi,DHARWAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+335,Maharashtra,PRANITI SUSHILKUMAR SHINDE,SOLAPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+336,West Bengal,Prasun Banerjee,HOWRAH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+337,Odisha,Pratap Chandra Sarangi,BALASORE,147064254.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+338,Maharashtra,Prataprao Jadhav,BULDHANA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+339,West Bengal,Pratima Mondal,JOYNAGAR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+340,Delhi,Praveen Khandelwal,CHANDINI CHOWK,147470276.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+341,Uttar Pradesh,PRAVEEN PATEL,PHULPUR,151559884.09,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+342,Uttar Pradesh,PRIYA SAROJ,MACHHLISHAHR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+343,Kerala,Priyanka Gandhi Vadra,WAYANAD,122500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+344,Karnataka,PRIYANKA SATISH JARKIHOLI,CHIKKODI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+345,West Bengal,Prof Sougata Ray,DUM DUM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+346,Uttar Pradesh,Prof SP Singh Baghel,AGRA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+347,Uttar Pradesh,PUSHPENDRA SAROJ,KAUSHAMBI(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+348,Andhra Pradesh,Putta Mahesh Kumar,ELURU,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+349,Uttar Pradesh,R.K. CHAUDHARY,MOHANLALGANJ(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+350,Odisha,RABINDRA NARAYAN BEHERA,JAJPUR(SC),147064617.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+351,West Bengal,RACHNA BANERJEE,HOOGHLY,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+352,Bihar,Radha Mohan Singh,PURVI CHAMPARAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+353,Karnataka,RADHAKRISHNA,GULBARGA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+354,Chhattisgarh,RADHE SHYAM RATHIYA,RAIGARH(ST),159706972.09,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+355,Uttar Pradesh,RAHUL GANDHI,RAE BARELI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+356,Rajasthan,Rahul Kaswan,CHURU,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+357,Madhya Pradesh,RAHUL SINGH LODHI,DAMOH,163058785.37,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+358,Bihar,RAJ BHUSHAN CHOUDHARY,MUZAFFARPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+359,Rajasthan,RAJ KUMAR ROAT,BANSWARA(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+360,Bihar,RAJA RAM SINGH,KARAKAT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+361,Maharashtra,RAJABHAU,NASHIK,152878682.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+362,Himachal Pradesh,RAJEEV BHARDWAJ,KANGRA,179388967.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+363,Uttar Pradesh,RAJEEV RAI,GHOSI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+364,Bihar,RAJESH RANJAN ALIAS PAPPU YADAV,PURNEA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+365,Bihar,RAJESH VERMA,KHAGARIA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+366,Gujarat,Rajeshbhai Naranbhai Chudasama,JUNAGADH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+367,Bihar,Rajiv Pratap Rudy,SARAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+368,Bihar,Rajiv Ranjan (Lalan) Singh,MUNGER,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+369,Uttar Pradesh,Rajkumar Chahar,FATEHPUR SIKRI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+370,Uttar Pradesh,Rajnath Singh,LUCKNOW,154808797.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+371,Gujarat,RAJPALSINH MAHENDRASINH JADAV,PANCHMAHAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+372,West Bengal,Raju Bista,DARJEELING,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+373,Uttar Pradesh,RAKESH RATHOR,SITAPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+374,Assam,RAKIBUL HUSSAIN,DHUBRI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+375,Uttar Pradesh,RAM PRASAD CHAUDHARY,BASTI,204176957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+376,Uttar Pradesh,Ram Shiromani,SHRAWASTI,151746878.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+377,Telangana,RAMASAHAYAM RAGHURAM REDDY,KHAMMAM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+378,Uttar Pradesh,RAMASHANKAR RAJBHAR,SALEMPUR,160056927.07,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+379,Uttar Pradesh,RAMBHUAL NISHAD,SULTANPUR,151231957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+380,Uttar Pradesh,RAMESH AWASTHI,KANPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+381,Karnataka,Ramesh Chandappa Jigajinagi,BIJAPUR(SC),269500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+382,Bihar,Ramprit Mandal,JHANJHARPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+383,Delhi,Ramvir Singh Bidhuri,SOUTH DELHI,147559100.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+384,Assam,RANJIT DUTTA,Sonitpur,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+385,Haryana,Rao Inderjit Singh,GURGAON,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+386,Rajasthan,Rao Rajendra Singh,JAIPUR RURAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+387,Bihar,Ravi Shankar Prasad,PATNA SAHIB,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+388,Maharashtra,RAVINDRA DATTARAM WAIKAR,MUMBAI NORTH WEST,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+389,Uttar Pradesh,Ravindra Shyamnarayan Alias Ravi Kishan Shukla,GORAKHPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+390,Maharashtra,Ravindra Vasantrao Chavan,NANDED,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+391,Mizoram,RICHARD VANLALHMANGAIHA,MIZORAM (ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+392,Tamil Nadu,ROBERT BRUCE C,TIRUNELVELI,147475440.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+393,Madhya Pradesh,Rodmal Nagar,RAJGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+394,Chhattisgarh,ROOP KUMARI CHOUDHARY,MAHASAMUND,153035414.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+395,Uttar Pradesh,RUCHI VIRA,MORADABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+396,Odisha,RUDRA NARAYAN PANY,DHENKANAL,155013957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+397,Nagaland,S SUPONGMEREN JAMIR,NAGALAND,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+398,Tamil Nadu,S Venkatesan,MADURAI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+399,Tamil Nadu,S. Jagathrakshakan,ARAKKONAM,180589332.34,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+400,Tamil Nadu,SACHITHANANTHAM R,DINDIGUL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+401,Karnataka,SAGAR ESHWAR KHANDRE,BIDAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+402,Meghalaya,SALENG A SANGMA,TURA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+403,Odisha,SAMBIT PATRA,PURI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+404,Uttar Pradesh,SANATAN PANDEY,BALLIA,180420041.4,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+405,Maharashtra,SANJAY DINA PATIL,MUMBAI NORTH EAST,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+406,Maharashtra,Sanjay Haribhau Jadhav,PARBHANI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+407,Bihar,Sanjay Jaiswal,PASCHIM CHAMPARAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+408,Telangana,Sanjay Kumar Bandi,KARIMNAGAR,172775317.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+409,Jharkhand,Sanjay Seth,RANCHI,147064357.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+410,Maharashtra,Sanjay Uttamrao Deshmukh,YAVATMAL-WASHIM,185640423.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+411,Rajasthan,SANJNA JATAV,BHARATPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+412,Chhattisgarh,Santosh Pandey,RAJNANDGAON,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+413,Odisha,Saptagiri Sankar Ulaka,KORAPUT(ST),269500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+414,Punjab,SARABJEET SINGH KHALSA,FARIDKOT(SC),150850348.15,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+415,Tamil Nadu,Sasikanth Senthil,TIRUVALLUR(SC),171500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+416,Haryana,SATPAL BRAHAMCHARI,SONEPAT,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+417,West Bengal,Saumitra khan,BISHNUPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+418,Madhya Pradesh,SAVITRI THAKUR,DHAR(ST),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+419,West Bengal,SAYANI GHOSH,JADAVPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+420,Haryana,SELJA,SIRSA(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+421,Tamil Nadu,SELVAGANAPATHI T M,SALEM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+422,Tamil Nadu,SELVARAJ V,NAGAPATTINAM(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+423,Kerala,SHAFI PARAMBIL,VADAKARA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+424,Bihar,SHAMBHAVI,SAMASTIPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+425,Madhya Pradesh,Shankar Lalwani,INDORE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+426,Uttar Pradesh,SHASHANK MANI,DEORIA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+427,West Bengal,Shatrughan Sinha,ASANSOL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+428,Punjab,SHER SINGH GHUBAYA,FIROZPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+429,Madhya Pradesh,SHIVMANGAL SINGH TOMAR,MORENA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+430,Madhya Pradesh,SHIVRAJ SINGH CHOUHAN,VIDISHA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+431,Karnataka,SHOBHA KARANDLAJE,BANGALORE NORTH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+432,Gujarat,SHOBHANABEN MAHENDRASINH BARAIYA,SABARKANTHA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+433,Karnataka,SHREYAS. M. PATEL,HASSAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+434,Haryana,Shri Dharambir Singh,BHIWANI MAHENDRAGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+435,West Bengal,Shri Abhishek Banerjee,DIAMOND HARBOUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+436,Punjab,Shri Amar Singh,FATEHGARH SAHIB(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+437,Gujarat,Shri Amit Shah,GANDHINAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+438,Madhya Pradesh,Shri Anil Firojiya,UJJAIN(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+439,Rajasthan,Shri Arjun Ram Meghwal,BIKANER(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+440,Uttar Pradesh,Shri Arun Kumar Sagar,SHAHJAHANPUR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+441,Karnataka,Shri B Y Raghavendra,SHIMOGA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+442,Kerala,Shri Benny Behanan,CHALAKUDY,164674770.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+443,Odisha,Shri Bhartruhari Mahtab,CUTTACK,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+444,Jharkhand,Shri Chandra Prakash Choudhary,GIRIDIH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+445,West Bengal,Shri Deepak (Dev) Adhikari,GHATAL,200747364.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+446,Punjab,Shri Gurjeet Singh Aujla,AMRITSAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+447,Rajasthan,Shri Hanuman Beniwal,NAGAUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+448,Kerala,Shri Hibi Eden,ERNAKULAM,162177260.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+449,Bihar,Shri Janardan Singh Sigriwal,MAHARAJGANJ_BR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+450,Odisha,Shri Jual Oram,SUNDARGARH (ST),173096756.91,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+451,Jammu And Kashmir,Shri Jugal Kishore Sharma,JAMMU,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+452,West Bengal,Shri Jyotirmay Singh Mahato,PURULIA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+453,Tamil Nadu,Shri Karti P Chidambaram,SIVAGANGA,159049284.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+454,Kerala,Shri Kumbakudi Sudhakaran,KANNUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+455,Karnataka,Shri LS Tejasvi Surya,BANGALORE SOUTH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+456,Kerala,Shri M K Raghavan,KOZHIKODE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+457,Uttar Pradesh,Shri Narendra Modi,VARANASI,162070276.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+458,Kerala,Shri NK Premachandran,KOLLAM,171477994.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+459,Rajasthan,Shri PP Chaudhary,PALI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+460,Kerala,Shri Rajmohan Unnithan,KASARAGOD,156754633.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+461,Assam,Shri Sarbananda Sonowal (18LS),DIBRUGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+462,Uttar Pradesh,Shri Satish Kumar Gautam,ALIGARH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+463,West Bengal,Shri Shantanu Thakur,BANGAON(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+464,Madhya Pradesh,Shri Sudheer Gupta,MANDSOUR,148988014.83,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+465,Kerala,Shri Suresh Kodikunnil,MAVELIKKARA(SC),172429519.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+466,Arunachal Pradesh,Shri Tapir Gao,ARUNACHAL EAST,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+467,Tamil Nadu,Shri vijayakumar Vasanth,KANNIYAKUMARI,171500000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+468,Maharashtra,Shrikant Eknath Shinde,KALYAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+469,Maharashtra,SHRIMANT CHH UDAYANRAJE PRATAPSINHAMAHARAJ BHONSLE,SATARA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+470,Goa,Shripad Yesso Naik,NORTH GOA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+471,Maharashtra,Shrirang Appa Barne,MAVAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+472,Maharashtra,Shyamkumar,RAMTEK(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+473,Andhra Pradesh,Sivanath Kesineni,VIJAYAWADA,159864032.49,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+474,West Bengal,SK NURUL ISLAM,BASIRHAT,49000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+475,Maharashtra,SMITA UDAY WAGH,JALGAON,148107373.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+476,Uttar Pradesh,Smt Anupriya Patel,MIRZAPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+477,Odisha,Smt Aparajita Sarangi,BHUBANESWAR,147420861.41,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+478,Uttar Pradesh,Smt Dimple Yadav,MAINPURI,192042469.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+479,Punjab,Smt Harsimrat Kaur Badal,BHATINDA,159775982.39,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+480,Uttar Pradesh,Smt Hema Malini,MATHURA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+481,Madhya Pradesh,Smt Himadri Singh,SHAHDOL (ST),150724861.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+482,Gujarat,Smt Poonamben Hematbhai Maadam,JAMNAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+483,Maharashtra,Smt Raksha Nikhil Khadse,RAVER,153112586.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+484,Tamil Nadu,Smt S Jothimani,KARUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+485,West Bengal,Smt Sajda Ahmed,ULUBERIA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+486,Madhya Pradesh,Smt Sandhya Ray,BHIND(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+487,Odisha,Smt Sangeeta Kumari Singh Deo,BOLANGIR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+488,West Bengal,Smt Satabdi Roy (Banerjee),BIRBHUM,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+489,Maharashtra,Smt Supriya Sadanand Sule,BARAMATI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+490,Bihar,Smt Veena Devi,VAISHALI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+491,Andhra Pradesh,Sribharat MathuKumli,VISAKHAPATNAM,164841922.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+492,Bihar,SUDAMA PRASAD,ARRAH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+493,Tamil Nadu,SUDHA R,MAYILADUTHURAI,147332315.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+494,Bihar,SUDHAKAR SINGH,BUXAR,185211956.54,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+495,West Bengal,Sudip Bandyopadhyay,KOLKATA UTTAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+496,Odisha,SUKANTA KUMAR PANIGRAHI,KANDHAMAL,190712424.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+497,Jharkhand,SUKHDEO BHAGAT,LOHARDAGA(ST),171821957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+498,Punjab,SUKHJINDER SINGH RANDHAWA,GURDASPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+499,Karnataka,SUNIL BOSE,CHAMARAJANAGAR(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+500,Maharashtra,Sunil Dattatray Tatkare,RAIGAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+501,Bihar,Sunil Kumar,VALMIKI NAGAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+502,Bihar,SURENDRA PRASAD YADAV,JAHANABAD,155325714.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+503,Kerala,SURESH GOPI,THRISSUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+504,Himachal Pradesh,Suresh Kumar Kashyap,SHIMLA (SC),153563957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+505,Telangana,SURESH KUMAR SHETKAR,ZAHIRABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+506,Uttar Pradesh,Swami Sachchidanandhari Sakshi ji Maharaj,UNNAO,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+507,Tamil Nadu,T Sumathy (A) Thamizhachi Thangapandian,CHENNAI SOUTH,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+508,Andhra Pradesh,TANGELLA UDAY SRINIVAS,KAKINADA,199417886.76,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+509,Uttar Pradesh,TANUJ PUNIA,BARABANKI(SC),148198170.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+510,Bihar,TARIQ ANWAR,KATIHAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+511,Tamil Nadu,Thalikkottai Rajuthevar Baalu,SRIPERUMBUDUR,196905535.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+512,Tamil Nadu,THANGA TAMILSELVAN,THENI,167755939.81,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+513,Tamil Nadu,THARANIVENTHAN M S,ARANI,168337124.35,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+514,Tamil Nadu,Thiru Dayanidhi Maran,CHENNAI CENTRAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+515,Tamil Nadu,Thirumaa Valavan Thol,CHIDAMBARAM(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+516,Chhattisgarh,TOKHAN SAHU,BILASPUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+517,Uttarakhand,TRIVENDRA SINGH RAWAT,HARDWAR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+518,Uttar Pradesh,UJJWAL RAMAN SINGH,ALLAHABAD,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+519,Rajasthan,UMMEDA RAM BENIWAL,BARMER,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+520,Uttar Pradesh,UTKARSH VERMA MADHUR,KHERI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+521,Tamil Nadu,V S Matheswaran,NAMAKKAL,162539930.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+522,Karnataka,V. SOMANNA,TUMKUR,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+523,Puducherry,Vaithilingam Ve,Puducherry,209368972.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+524,Telangana,VAMSI KRISHNA GADDAM,PEDDAPALLE,148451721.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+525,Haryana,VARUN CHAUDHRY,AMBALA (SC),255454264.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+526,Kerala,Vellalath Kochukrishnan Nair Sreekandan,PALAKKAD,167807990.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+527,Chhattisgarh,Vijay Baghel,DURG,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+528,Uttar Pradesh,Vijay Kumar Dubey,KUSHI NAGAR,148900000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+529,Jharkhand,Vijay Kumar Hansdak,RAJMAHAL(ST),147223957.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+530,Bihar,VIJAYLAKSHMI DEVI,SIWAN,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+531,Gujarat,Vinod Chavda,KACHCHH(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+532,Uttar Pradesh,VINOD KUMAR BIND,BHADOHI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+533,Madhya Pradesh,Virendra Kumar,TIKAMGARH(SC),147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+534,Uttar Pradesh,VIRENDRA SINGH,CHANDAULI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+535,Maharashtra,VISHAL,SANGLI,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+536,Jharkhand,Vishnu Dayal Ram,PALAMU(SC),158176083.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+537,Madhya Pradesh,Vishnu Dutt Sharma,KHAJURAHO,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+538,Karnataka,VISHWESHWAR HEGDE KAGERI,UTTARA KANNADA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+539,Bihar,VIVEK THAKUR,NAWADA,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+540,Andhra Pradesh,Y S Avinash Reddy,KADAPA,156430260.11,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+541,Karnataka,YADUVEER KRISHNADATTA CHAMARAJA WADIYAR,MYSORE,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+542,Delhi,Yogendra Chandoliya,NORTH WEST DELHI(SC),147876307.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+543,Uttar Pradesh,ZIA UR REHMAN,SAMBHAL,147000000.0,,missing,LS,LS_Allocated_Limit_for_Honble_MPs.csv,
+1,Telangana,Dr. Abhishek Manu Singhvi (2026-32) (2026-2032),,73421449.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+2,Maharashtra,Dr. Ajeet Madhavrao Gopchade (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+3,Rajasthan,Dr. Alka Singh (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+4,Tamil Nadu,Dr. Anbumani Ramadoss (2026-32) (2026-2032),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+5,Maharashtra,Dr. Anil Sukhdeorao Bonde (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+6,Punjab,Dr. Ashok Kumar Mittal (2022-28) (2022-2028),,222487632.14,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+7,Bihar,Dr. Bhim Singh (2024-30) (2024-2030),,186200000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+8,Karnataka,Dr. Dharmasthala Veerendra Heggade (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+9,Bihar,Dr. Dharmshila Gupta (2024-30) (2024-2030),,186200000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+10,Uttar Pradesh,Dr. Dinesh Sharma (2023-26) (2023-2026),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+11,Bihar,Dr. Faiyaz Ahmad (2022-28) (2022-2028),,235263957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+12,Kerala,Dr. John Brittas (2021-27) (2021-2027),,245063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+13,Maharashtra,Dr. Jyoti Nagnath Waghmare (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+14,Uttar Pradesh,Dr. K. Laxman (2022-28) (2022-2028),,197637007.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+15,Uttarakhand,Dr. Kalpana Saini (2022-28) (2022-2028),,200830405.8,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+16,Madhya Pradesh,Dr. Kavita Patidar (2022-28) (2022-2028),,197118521.35000002,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+17,Madhya Pradesh,Dr. L. Murugan (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+18,Uttar Pradesh,Dr. Laxmikant Bajpayee (2022-28) (2022-2028),,196000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+19,Tamil Nadu,Dr. M. Dhanapal (2025-31) (2025-2031),,89248285.42,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+20,Tamil Nadu,Dr. M. Thambi Durai (2026-32) (2026-2032),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+21,Maharashtra,Dr. Medha Vishram Kulkarni (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+22,Delhi,Dr. Meenakshi Jain (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+23,Gujarat,Dr. Mukeshbhai J. Rathwa (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+24,Gujarat,Dr. Parmar Jashvantsinh Salamsinh (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+25,Uttar Pradesh,Dr. Radha Mohan Das Agrawal (2022-28) (2022-2028),,203626524.67000002,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+26,Punjab,Dr. Sandeep Kumar Pathak (2022-28) (2022-2028),,232203454.24,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+27,Uttar Pradesh,Dr. Sangeeta Balwant (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+28,Odisha,Dr. Santrupt Misra (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+29,Jharkhand,Dr. Sarfraz Ahmad (2024-30) (2024-2030),,178564551.09,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+30,Odisha,Dr. Sasmit Patra (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+31,Rajasthan,Dr. Satish Poonia (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+32,Himachal Pradesh,Dr. Sikander Kumar (2022-28) (2022-2028),,207863957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+33,Uttar Pradesh,Dr. Sudhanshu Trivedi (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+34,Karnataka,Dr. Syed Naseer Hussain (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+35,Kerala,Dr. V. Sivadasan (2021-27) (2021-2027),,276720323.27,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+36,Punjab,Dr. Vikramjit Singh Sahney (2022-28) (2022-2028),,198656208.57000002,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+37,West Bengal,Ms. Dola Sen (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+38,Delhi,Ms. Swati Maliwal (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+39,Bihar,Prof. Manoj Kumar Jha (2024-30) (2024-2030),,191620112.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+40,Uttar Pradesh,Prof. Ram Gopal Yadav (2020-26) (2020-2026),,221271395.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+41,Kerala,Shri A. A. Rahim (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+42,Kerala,Shri Abdul Wahab (2021-27) (2021-2027),,310898953.29,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+43,Jharkhand,Shri Aditya Prasad (2022-28) (2022-2028),,227628508.2,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+44,Karnataka,Shri Ajay Makan (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+45,Bihar,Shri Akhilesh Prasad Singh (2024-30) (2024-2030),,186200000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+46,Uttar Pradesh,Shri Amar Pal Maurya (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+47,Telangana,Shri Anil Kumar Yadav Mandadi (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+48,Himachal Pradesh,Shri Anurag Sharma (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+49,Uttar Pradesh,Shri Arun Singh (2020-26) (2020-2026),,223492764.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+50,Madhya Pradesh,Shri Ashok Singh (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+51,Maharashtra,Shri Ashokrao Shankarrao Chavan (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+52,Odisha,Shri Ashwini Vaishnaw (2024-30) (2024-2030),,265563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+53,Telangana,Shri B. Parthasaradhi Reddy (2022-28) (2022-2028),,244365104.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+54,Uttar Pradesh,Shri B.L. Verma (2020-26) (2020-2026),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+55,Gujarat,Shri Babubhai Jesangbhai Desai (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+56,Uttar Pradesh,Shri Baburam Nishad (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+57,Jharkhand,Shri Baidyanath Ram (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+58,Madhya Pradesh,Shri Balyogi Umeshnath (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+59,Madhya Pradesh,Shri Banshilal Gurjar (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+60,Andhra Pradesh,Shri Bhashyam Rama Krishna (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+61,Assam,Shri Birendra Prasad Baishya (2025-31) (2025-2031),,98000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+62,Uttar Pradesh,Shri Brij Lal (2020-26) (2020-2026),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+63,Kerala,Shri C. Sadanandan Master (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+64,Maharashtra,Shri Chandrakant Damodar Handore (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+65,Jammu And Kashmir,Shri Chowdry Mohammad Ramzan (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+66,Tamil Nadu,Shri Christopher Manickam (2026-32) (2026-2032),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+67,Rajasthan,Shri Chunnilal Garasiya (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+68,Tamil Nadu,Shri Constandine Ravindran (2026-32) (2026-2032),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+69,Telangana,Shri Damodar Rao Divakonda (2022-28) (2022-2028),,239919406.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+70,Odisha,Shri Debashish Samantaray (2026-30) (2026-2030),,23800006.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+71,West Bengal,Shri Derek O' Brien (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+72,Chhattisgarh,Shri Devendra Pratap Singh (2024-30) (2024-2030),,170837637.76,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+73,Maharashtra,Shri Dhananjay Bhimrao Mahadik (2022-28) (2022-2028),,220383643.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+74,Odisha,Shri Dilip Kumar Ray (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+75,Sikkim,Shri Dorjee Tshering Lepcha (2024-30) (2024-2030),,150170726.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+76,Karnataka,Shri G.C. Chandrashekhar (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+77,Rajasthan,Shri Ghanshyam Tiwari (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+78,Andhra Pradesh,Shri Golla Baburao (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+79,Gujarat,Shri Govindbhai Laljibhai Dholakia (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+80,Jammu And Kashmir,Shri Gulam Ali (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+81,Jammu And Kashmir,Shri Gurwinder Singh Oberoi (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+82,Punjab,Shri Harbhajan Singh (2022-28) (2022-2028),,220984094.27,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+83,Uttar Pradesh,Shri Hardeep Singh Puri (2020-26) (2020-2026),,226801049.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+84,Kerala,Shri Haris Beeran (2024-30) (2024-2030),,122500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+85,Himachal Pradesh,Shri Harsh Mahajan (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+86,West Bengal,Shri Harsh Vardhan Shringla (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+87,Tamil Nadu,Shri I.S. Inbadurai (2025-31) (2025-2031),,89248285.42,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+88,Tamil Nadu,Shri Ilaiyaraaja (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+89,Maharashtra,Shri Imran Pratapgarhi (2022-28) (2022-2028),,196000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+90,Gujarat,Shri Jagat Prakash Nadda (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+91,Karnataka,Shri Jaggesh (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+92,Karnataka,Shri Jairam Ramesh (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+93,Meghalaya,Shri James Pangsang Kongkal Sangma (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+94,Uttar Pradesh,Shri Javed Ali Khan (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+95,Uttar Pradesh,Shri Jayant Chaudhary (2022-28) (2022-2028),,214074707.67000002,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+96,Assam,Shri Jogen Mohan (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+97,Kerala,Shri Jose K. Mani (2024-30) (2024-2030),,122500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+98,Tamil Nadu,Shri K.R.N. Rajeshkumar (2022-28) (2022-2028),,238513975.53,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+99,Tamil Nadu,Shri Kamal Haasan (2025-31) (2025-2031),,89248285.42,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+100,Assam,Shri Kanad Purkayastha (2025-31) (2025-2031),,98000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+101,Uttar Pradesh,Shri Kapil Sibal (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+102,Haryana,Shri Karamvir Singh Singh Boudh (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+103,Haryana,Shri Kartikeya Sharma (2022-28) (2022-2028),,196000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+104,Gujarat,Shri Kesridevsinh Jhala (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+105,Mizoram,Shri Khiangte Laltluangkima (2026-32) (2026-2032),,24500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+106,Bihar,Shri Khiru Mahto (2022-28) (2022-2028),,235770091.81,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+107,Tamil Nadu,Shri L. K. Sudhish (2026-32) (2026-2032),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+108,Karnataka,Shri Lahar Singh Siroya (2022-28) (2022-2028),,206278088.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+109,Andhra Pradesh,Shri Lingamaneni Ramesh (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+110,Karnataka,Shri M. Nagaraja (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+111,Rajasthan,Shri Madan Rathore (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+112,Uttarakhand,Shri Mahendra Bhatt (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+113,Madhya Pradesh,Shri Mahesh Kewat (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+114,Karnataka,Shri Mallikarjun Kharge (2026-32) (2026-2032),,49063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+115,Bihar,Shri Manan Kumar Mishra (2024-28) (2024-2028),,235263957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+116,Odisha,Shri Manas Ranjan Mangaraj (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+117,Odisha,Shri Manmohan Samal (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+118,Karnataka,Shri Mansoor Ali Khan (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+119,Andhra Pradesh,Shri Masthan Rao Yadav Beedha (2024-28) (2024-2028),,171296045.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+120,Gujarat,Shri Mayankkumar Nayak (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+121,Andhra Pradesh,Shri Meda Raghunadha Reddy (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+122,Maharashtra,Shri Milind Murli Deora (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+123,Uttar Pradesh,Shri Mithlesh Kumar (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+124,West Bengal,Shri Mohammed Nadimul Haque (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+125,Rajasthan,Shri Mukul Wasnik (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+126,West Bengal,Shri Nagendra Ray (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+127,Delhi,Shri Narain Dass Gupta (2024-30) (2024-2030),,160837070.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+128,Karnataka,Shri Narayanasa K. Bhandage (2024-30) (2024-2030),,147450000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+129,Uttarakhand,Shri Naresh Bansal (2020-26) (2020-2026),,222043184.71,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+130,Uttar Pradesh,Shri Naveen Jain (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+131,Rajasthan,Shri Neeraj Dangi (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+132,Uttar Pradesh,Shri Neeraj Shekhar (2020-26) (2020-2026),,236483662.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+133,Maharashtra,Shri Nitin Laxmanrao Jadhav Patil (2024-28) (2024-2028),,122500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+134,Bihar,Shri Nitin Nabin (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+135,Tamil Nadu,Shri P. Chidambaram (2022-28) (2022-2028),,236312242.52,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+136,Kerala,Shri P. P. Suneer (2024-30) (2024-2030),,122500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+137,Tamil Nadu,Shri P. Wilson (2025-31) (2025-2031),,89248285.42,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+138,Assam,Shri Pabitra Margherita (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+139,Andhra Pradesh,Shri Paka Venkata Satyanarayana (2025-28) (2025-2028),,98000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+140,Maharashtra,Shri Parth Ajit Pawar (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+141,Karnataka,Shri Pawan Khera (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+142,Jharkhand,Shri Pradip Kumar Varma (2024-30) (2024-2030),,178564551.09,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+143,Maharashtra,Shri Praful Patel (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+144,West Bengal,Shri Prakash Chik Baraik (2026-29) (2026-2029),,49662892.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+145,Assam,Shri Pramod Boro (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+146,Rajasthan,Shri Pramod Tiwari (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+147,Tamil Nadu,Shri Praveen Chakravarthy (2026-28) (2026-2028),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+148,Tamil Nadu,Shri R. Dharmar (2022-28) (2022-2028),,260812242.52,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+149,Tamil Nadu,Shri R. Girirajan (2022-28) (2022-2028),,236312242.52,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+150,Punjab,Shri Raghav Chadha (2022-28) (2022-2028),,237229207.25,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+151,West Bengal,Shri Rajeev Kumar (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+152,Chhattisgarh,Shri Rajeev Shukla (2022-28) (2022-2028),,271174394.23,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+153,Gujarat,Shri Rajesh Parmanand Shukla (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+154,Tripura,Shri Rajib Bhattacharjee (2024-28) (2024-2028),,122500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+155,Punjab,Shri Rajinder Gupta (2025-28) (2025-2028),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+156,Madhya Pradesh,Shri Rajneesh Kumar Agrawal (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+157,Bihar,Shri Ram Nath Thakur (2026-32) (2026-2032),,65673638.730000004,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+158,Maharashtra,Shri Ramdas Bandu Athawale (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+159,Uttar Pradesh,Shri Ramji (2020-26) (2020-2026),,174518577.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+160,Uttar Pradesh,Shri Ramji Lal Suman (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+161,Maharashtra,Shri Ramrao Sakharam Wadkute (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+162,Rajasthan,Shri Randeep Singh Surjewala (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+163,Uttar Pradesh,Shri Ratanjit Pratap Narain Singh (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+164,Telangana,Shri Ravi Chandra Vaddiraju (2024-30) (2024-2030),,152732534.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+165,Assam,Shri Rwngwra Narzary (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+166,Andhra Pradesh,Shri Ryaga Krishnaiah (2024-28) (2024-2028),,170413583.79,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+167,Andhra Pradesh,Shri S Niranjan Reddy (2022-28) (2022-2028),,224621383.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+168,Gujarat,Shri S. Jaishankar (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+169,Tamil Nadu,Shri S. Kalyanasundaram (2022-28) (2022-2028),,239763792.52,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+170,Puducherry,Shri S. Selvaganabathy (2021-27) (2021-2027),,292881856.49,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+171,Tamil Nadu,Shri S.R. Sivalingam (2025-31) (2025-2031),,89248285.42,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+172,Goa,Shri Sadanand Mhalu Shet Tanavade (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+173,Jammu And Kashmir,Shri Sajjad Ahmad Kichloo (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+174,West Bengal,Shri Samik Bhattacharya (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+175,West Bengal,Shri Samirul Islam (2023-29) (2023-2029),,171500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+176,Andhra Pradesh,Shri Sana Sathish Babu (2026-32) (2026-2032),,49063978.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+177,Kerala,Shri Sandosh Kumar P (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+178,Haryana,Shri Sanjay Bhatia (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+179,Bihar,Shri Sanjay Kumar Jha (2024-30) (2024-2030),,186200000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+180,Maharashtra,Shri Sanjay Raut (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+181,Uttar Pradesh,Shri Sanjay Seth (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+182,Delhi,Shri Sanjay Singh (2024-30) (2024-2030),,184466426.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+183,Bihar,Shri Sanjay Yadav (2024-30) (2024-2030),,186200000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+184,Punjab,Shri Sant Balbir Singh (2022-28) (2022-2028),,196359074.44000003,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+185,Jammu And Kashmir,Shri Sat Paul Sharma (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+186,Bihar,Shri Satish Chandra Dubey (2022-28) (2022-2028),,235263957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+187,Chandigarh,Shri Satnam Singh Sandhu (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+188,Bihar,Shri Shambhu Sharan Patel (2022-28) (2022-2028),,237168443.49,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+189,Bihar,Shri Shivesh Kumar (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+190,Haryana,Shri Subhash Barala (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+191,Odisha,Shri Subhasish Khuntia (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+192,Odisha,Shri Sujeet Kumar (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+193,Uttar Pradesh,Shri Surendra Singh Nagar (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+194,Arunachal Pradesh,Shri Tai Tagak (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+195,Madhya Pradesh,Shri Tarun Chugh (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+196,Uttar Pradesh,Shri Tejveer Singh (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+197,Assam,Shri Terash Gowalla (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+198,Tamil Nadu,Shri Tiruchi Siva (2026-32) (2026-2032),,49356476.5,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+199,Maharashtra,Shri Ujjwal Deorao Nikam (2025-31) (2025-2031),,73500000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+200,Bihar,Shri Upendra Kushwaha (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+201,Andhra Pradesh,Shri V. Vijayendra Prasad (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+202,Andhra Pradesh,Shri Vijay Chintakayala (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+203,Maharashtra,Shri Vinod Shridhar Tawde (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+204,Madhya Pradesh,Shri Vivek K. Tankha (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+205,Andhra Pradesh,Shri Yerram Venkata Subba Reddy (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+206,Manipur,Smt. Adhikarimayum Sharda Devi (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+207,Uttar Pradesh,Smt. Darshana Singh (2022-28) (2022-2028),,196994373.87,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+208,Uttar Pradesh,Smt. Geeta alias Chandraprabha (2020-26) (2020-2026),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+209,Uttar Pradesh,Smt. Jaya Amitabh Bachchan (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+210,Kerala,Smt. Jebi Mather Hisham (2022-28) (2022-2028),,220563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+211,Chhattisgarh,Smt. Laxmi Verma (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+212,Jharkhand,Smt. Mahua Maji (2022-28) (2022-2028),,232524001.2,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+213,West Bengal,Smt. Mamata Thakur (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+214,Maharashtra,Smt. Maya Chintaman Ivnate (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+215,Madhya Pradesh,Smt. Maya Naroliya (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+216,Karnataka,Smt. Nirmala Sitharaman (2022-28) (2022-2028),,215972051.45,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+217,Kerala,Smt. P. T. Usha (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+218,Chhattisgarh,Smt. Phulo Devi Netam (2026-32) (2026-2032),,49000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+219,Tamil Nadu,Smt. Rajathi (2025-31) (2025-2031),,89248285.42,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+220,Chhattisgarh,Smt. Ranjeet Ranjan (2022-28) (2022-2028),,246780257.87,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+221,Haryana,Smt. Rekha Sharma (2024-28) (2024-2028),,98000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+222,Telangana,Smt. Renuka Chowdhury (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+223,Nagaland,Smt. S. Phangnon Konyak (2022-28) (2022-2028),,206563957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+224,Uttar Pradesh,Smt. Sadhna Singh (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+225,West Bengal,Smt. Sagarika Ghose (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+226,Uttar Pradesh,Smt. Sangeeta Yadav (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+227,Uttar Pradesh,Smt. Seema Dwivedi (2020-26) (2020-2026),,173830159.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+228,Rajasthan,Smt. Sonia Gandhi (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+229,Karnataka,Smt. Sudha Murty (2024-30) (2024-2030),,147000000.0,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Nominated MP
+230,Odisha,Smt. Sulata Deo (2022-28) (2022-2028),,196084721.4,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP
+231,Madhya Pradesh,Smt. Sumitra Balmik (2022-28) (2022-2028),,196063957.11,,missing,RS,RS_Allocated_Limit_for_Honble_MPs__4_.csv,Elected MP

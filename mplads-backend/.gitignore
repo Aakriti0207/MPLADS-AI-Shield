@@ -10,3 +10,9 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Generated datasets
+data/processed/canonical_projects.csv
+data/processed/canonical_conflicts.csv
+data/processed/work_id_global_index.csv
+
