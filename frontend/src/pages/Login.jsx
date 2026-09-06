@@ -1,9 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, LockKeyhole, Loader2, ShieldCheck } from 'lucide-react'
-import { setAuthToken } from '../lib/authToken'
-
-const API_BASE = 'http://127.0.0.1:8000'
+import { useAuth } from '../context/AuthContext'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -14,11 +12,9 @@ export default function Login() {
   const [formError, setFormError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const { login } = useAuth()
   const nav = useNavigate()
   const location = useLocation()
-  // No ProtectedRoute exists yet (Phase 5), so location.state?.from is
-  // never set today -- this just makes Login forward-compatible with
-  // that later phase without any change needed here.
   const redirectTo = location.state?.from?.pathname || '/dashboard'
 
   function validate() {
@@ -45,28 +41,18 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        setAuthToken(data.access_token)
-        nav(redirectTo, { replace: true })
-        return
-      }
-
-      if (res.status === 401) {
+      await login(email.trim(), password)
+      nav(redirectTo, { replace: true })
+    } catch (err) {
+      if (err.status === 401) {
         setFormError('Incorrect email or password.')
-      } else if (res.status === 422) {
+      } else if (err.status === 422) {
         setFormError('Please check your email and password and try again.')
+      } else if (err.status === null) {
+        setFormError('Unable to reach the server. Check that the backend is running and try again.')
       } else {
         setFormError('Something went wrong. Please try again in a moment.')
       }
-    } catch (err) {
-      setFormError('Unable to reach the server. Check that the backend is running and try again.')
     } finally {
       setLoading(false)
     }
