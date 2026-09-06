@@ -33,10 +33,15 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.auth import get_current_user
 from app.models import Project
 from app.schemas import AlertOut
 
-router = APIRouter(prefix="/alerts", tags=["alerts"])
+router = APIRouter(
+    prefix="/alerts",
+    tags=["alerts"],
+    dependencies=[Depends(get_current_user)],
+)
 
 # --- Thresholds -------------------------------------------------------
 # Rule B: only a strong text/feature similarity match counts as a
