@@ -26,12 +26,12 @@ Status/date rule used consistently throughout this module:
 """
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Project
-from app.schemas import DashboardStats
+from app.schemas import ByStateStat, ByWorkTypeStat, DashboardStats
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -74,6 +74,58 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         .scalar()
     )
 
+    # --- Phase 3C: real risk_level breakdown for the Dashboard's risk
+    # overview card. Straight GROUP BY count over the existing Phase 2
+    # risk_level column -- no new table, no change to how risk_level is
+    # calculated. A NULL risk_level (project not yet scored) is dropped
+    # rather than counted under any bucket, since it isn't one of
+    # LOW/MEDIUM/HIGH/CRITICAL.
+    risk_level_rows = (
+        db.query(Project.risk_level, func.count(Project.project_id))
+        .group_by(Project.risk_level)
+        .all()
+    )
+    risk_level_counts = {
+        level: count for level, count in risk_level_rows if level is not None
+    }
+
+    # --- Phase 3E: state-level financial aggregate for Analytics. ---
+    # NULL state (real for ~41% of Phase 2 rows) is grouped under
+    # "Not specified" rather than dropped, so the totals still reconcile
+    # with total_sanctioned_amount/total_expenditure above. Sorted by
+    # expenditure desc so the frontend can take a straightforward top-N.
+    state_label = func.coalesce(Project.state, "Not specified")
+    state_rows = (
+        db.query(
+            state_label.label("state"),
+            func.coalesce(func.sum(Project.sanctioned_amount), 0),
+            func.coalesce(func.sum(Project.expenditure), 0),
+        )
+        .group_by(state_label)
+        .order_by(desc(func.coalesce(func.sum(Project.expenditure), 0)))
+        .all()
+    )
+    by_state = [
+        ByStateStat(state=state, total_sanctioned_amount=sanctioned, total_expenditure=expenditure)
+        for state, sanctioned, expenditure in state_rows
+    ]
+
+    # --- Phase 3E: work-type breakdown for Analytics. ---
+    # NULL and blank/whitespace-only work_type are both folded into
+    # "Not specified" (real Phase 2 rows can have either). Sorted by
+    # count desc so the frontend can take a top-N + "Other" straightforwardly.
+    work_type_label = func.coalesce(func.nullif(func.trim(Project.work_type), ""), "Not specified")
+    work_type_rows = (
+        db.query(work_type_label.label("work_type"), func.count(Project.project_id))
+        .group_by(work_type_label)
+        .order_by(desc(func.count(Project.project_id)))
+        .all()
+    )
+    by_work_type = [
+        ByWorkTypeStat(work_type=work_type, count=count)
+        for work_type, count in work_type_rows
+    ]
+
     return DashboardStats(
         total_projects=total_projects,
         total_sanctioned_amount=total_sanctioned_amount,
@@ -83,4 +135,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         active_projects=active_projects,
         completed_projects=completed_projects,
         delayed_projects=delayed_projects,
+        risk_level_counts=risk_level_counts,
+        by_state=by_state,
+        by_work_type=by_work_type,
     )

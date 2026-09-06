@@ -1,14 +1,107 @@
-import React from 'react'
-import {BarChart3,TrendingUp,Wallet} from 'lucide-react'
-import {BarChart,Bar,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis,LineChart,Line} from 'recharts'
-import {projects,money} from '../data'
+import React,{useEffect,useState} from 'react'
+import {AlertTriangle,BarChart3,FolderKanban,Loader2,Wallet} from 'lucide-react'
+import {BarChart,Bar,CartesianGrid,Cell,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts'
 import {Section,Stat} from '../components/UI'
+
+const API_BASE = 'http://127.0.0.1:8000'
+const TOP_N = 9
+
+const toNumber = v => {
+ if (v === null || v === undefined || v === '') return null
+ const n = Number(v)
+ return Number.isFinite(n) ? n : null
+}
+
+// Sort desc by value, keep the top N, fold the remainder into a single
+// "Other" bucket (summed) rather than letting the chart run off-screen
+// with dozens of thin bars when there are many states/work types.
+function topNWithOther(rows, valueKey, labelKey, n){
+ const sorted = [...rows].sort((a,b)=>b[valueKey]-a[valueKey])
+ if (sorted.length<=n) return sorted
+ const top = sorted.slice(0,n)
+ const restSum = sorted.slice(n).reduce((a,r)=>a+r[valueKey],0)
+ return [...top, {[labelKey]:'Other', [valueKey]:restSum}]
+}
+
 export default function Analytics(){
- const states=Object.entries(projects.reduce((a,p)=>{a[p.state]=(a[p.state]||0)+p.utilized;return a},{})).map(([state,utilized])=>({state:state.length>10?state.slice(0,9)+'…':state,utilized:Number((utilized/10000000).toFixed(2))})).slice(0,10)
- const trend=[{month:'Apr',value:42},{month:'May',value:49},{month:'Jun',value:57},{month:'Jul',value:64},{month:'Aug',value:71},{month:'Sep',value:76}]
- return <div className="p-4 md:p-8 max-w-[1400px] mx-auto"><div className="mb-6"><div className="eyebrow">Portfolio intelligence</div><h1 className="text-3xl font-extrabold mt-1">Analytics</h1><p className="text-slate-500 mt-1">Compare utilization, delivery and portfolio trends.</p></div>
- <div className="grid md:grid-cols-3 gap-4 mb-6"><Stat label="Average physical progress" value={`${Math.round(projects.reduce((a,p)=>a+p.physical,0)/projects.length)}%`} icon={TrendingUp}/><Stat label="Average financial progress" value={`${Math.round(projects.reduce((a,p)=>a+p.financial,0)/projects.length)}%`} icon={Wallet}/><Stat label="Delayed projects" value={projects.filter(p=>p.status==='Delayed').length} icon={BarChart3}/></div>
- <div className="grid lg:grid-cols-2 gap-5"><div className="card p-5"><Section title="Utilization by state" subtitle="₹ Crore, demo portfolio"/><div className="h-80"><ResponsiveContainer><BarChart data={states} layout="vertical"><CartesianGrid horizontal={false} strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="state" type="category" width={90}/><Tooltip/><Bar dataKey="utilized" radius={[0,7,7,0]}/></BarChart></ResponsiveContainer></div></div><div className="card p-5"><Section title="Portfolio utilization trend" subtitle="Illustrative monthly trend"/><div className="h-80"><ResponsiveContainer><LineChart data={trend}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis unit="%"/><Tooltip/><Line type="monotone" dataKey="value" strokeWidth={3}/></LineChart></ResponsiveContainer></div></div></div>
- <div className="card mt-5 p-5"><Section title="How to use this view" subtitle="For the SIH demonstration"/><div className="grid md:grid-cols-3 gap-4 text-sm"><div className="rounded-xl bg-slate-50 p-4"><b>1. Detect</b><p className="text-slate-500 mt-1">Find states/categories with weaker progress or utilization.</p></div><div className="rounded-xl bg-slate-50 p-4"><b>2. Prioritize</b><p className="text-slate-500 mt-1">Open high-risk projects and inspect their evidence.</p></div><div className="rounded-xl bg-slate-50 p-4"><b>3. Verify</b><p className="text-slate-500 mt-1">Authorized officials validate the signal before action.</p></div></div></div>
+ const [stats,setStats]=useState(null)
+ const [loading,setLoading]=useState(true)
+ const [error,setError]=useState(null)
+
+ useEffect(()=>{
+  let cancelled=false
+  setLoading(true)
+  setError(null)
+  fetch(`${API_BASE}/dashboard/stats`)
+   .then(res=>{
+    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
+    return res.json()
+   })
+   .then(data=>{ if(!cancelled) setStats(data) })
+   .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
+   .finally(()=>{ if(!cancelled) setLoading(false) })
+  return ()=>{ cancelled=true }
+ },[])
+
+ if (loading) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+  <div className="card p-14 flex flex-col items-center gap-2 text-slate-500"><Loader2 className="animate-spin" size={22}/><span className="text-sm">Loading analytics…</span></div>
+ </div>
+
+ if (error) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+  <div className="card p-10 text-center">
+   <AlertTriangle className="mx-auto text-rose-600 mb-2" size={22}/>
+   <div className="font-semibold text-rose-700">Could not load analytics</div>
+   <p className="text-sm text-slate-500 mt-1">{error}</p>
+   <p className="text-xs text-slate-400 mt-1">Check that the FastAPI backend is running at {API_BASE}.</p>
+  </div>
+ </div>
+
+ const totalProjects = stats.total_projects ?? null
+ const avgFinancialProgress = toNumber(stats.average_financial_progress)
+ const riskCounts = stats.risk_level_counts || {}
+ const highPlusCritical = (riskCounts.HIGH||0) + (riskCounts.CRITICAL||0)
+ const hasRiskCounts = Object.keys(riskCounts).length>0
+
+ const stateRows = (stats.by_state||[])
+  .map(r=>({
+   state: r.state,
+   utilized: (()=>{ const n=toNumber(r.total_expenditure); return n!==null ? Number((n/10000000).toFixed(2)) : 0 })()
+  }))
+ const stateChartData = topNWithOther(stateRows,'utilized','state',TOP_N)
+  .map(r=>({...r, state: r.state.length>12 ? r.state.slice(0,11)+'…' : r.state}))
+
+ const workTypeRows = (stats.by_work_type||[]).map(r=>({work_type:r.work_type, count: r.count ?? 0}))
+ const workTypeChartData = topNWithOther(workTypeRows,'count','work_type',TOP_N)
+  .map(r=>({...r, work_type: r.work_type.length>16 ? r.work_type.slice(0,15)+'…' : r.work_type}))
+
+ return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+  <div className="mb-6"><div className="eyebrow">Portfolio intelligence</div><h1 className="text-3xl font-extrabold mt-1">Analytics</h1><p className="text-slate-500 mt-1">Real aggregate figures across the full Phase 2 project portfolio.</p></div>
+
+  <div className="grid md:grid-cols-3 gap-4 mb-6">
+   <Stat label="Average financial progress" value={avgFinancialProgress!==null ? `${Math.round(avgFinancialProgress)}%` : 'Not available'} icon={Wallet}/>
+   <Stat label="High + Critical risk projects" value={hasRiskCounts ? highPlusCritical.toLocaleString() : 'Not available'} icon={AlertTriangle}/>
+   <Stat label="Total projects" value={totalProjects!==null ? totalProjects.toLocaleString() : 'Not available'} icon={FolderKanban}/>
+  </div>
+
+  <div className="grid lg:grid-cols-2 gap-5">
+   <div className="card p-5">
+    <Section title="Expenditure by state" subtitle="₹ Crore, top states by expenditure"/>
+    <div className="h-80">
+     {stateChartData.length>0
+      ? <ResponsiveContainer><BarChart data={stateChartData} layout="vertical"><CartesianGrid horizontal={false} strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="state" type="category" width={90}/><Tooltip/><Bar dataKey="utilized" radius={[0,7,7,0]}>{stateChartData.map((_,i)=><Cell key={i}/>)}</Bar></BarChart></ResponsiveContainer>
+      : <div className="h-full flex items-center justify-center text-sm text-slate-400">State breakdown not available.</div>}
+    </div>
+   </div>
+   <div className="card p-5">
+    <Section title="Work-type breakdown" subtitle="Project count by work type"/>
+    <div className="h-80">
+     {workTypeChartData.length>0
+      ? <ResponsiveContainer><BarChart data={workTypeChartData} layout="vertical"><CartesianGrid horizontal={false} strokeDasharray="3 3"/><XAxis type="number" allowDecimals={false}/><YAxis dataKey="work_type" type="category" width={110}/><Tooltip/><Bar dataKey="count" radius={[0,7,7,0]}>{workTypeChartData.map((_,i)=><Cell key={i}/>)}</Bar></BarChart></ResponsiveContainer>
+      : <div className="h-full flex items-center justify-center text-sm text-slate-400">Work-type breakdown not available.</div>}
+    </div>
+   </div>
+  </div>
+
+  <div className="card mt-5 p-5"><Section title="How to use this view" subtitle="Reading the portfolio intelligence view"/><div className="grid md:grid-cols-3 gap-4 text-sm"><div className="rounded-xl bg-slate-50 p-4"><b>1. Detect</b><p className="text-slate-500 mt-1">Find states or work types with concentrated spend or volume.</p></div><div className="rounded-xl bg-slate-50 p-4"><b>2. Prioritize</b><p className="text-slate-500 mt-1">Open high-risk projects and inspect their evidence.</p></div><div className="rounded-xl bg-slate-50 p-4"><b>3. Verify</b><p className="text-slate-500 mt-1">Authorized officials validate the signal before action.</p></div></div></div>
  </div>
 }
