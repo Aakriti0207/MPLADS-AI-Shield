@@ -16,3 +16,5 @@ data/processed/canonical_projects.csv
 data/processed/canonical_conflicts.csv
 data/processed/work_id_global_index.csv
 data/processed/ml_features.csv
+data/processed/compliance_findings.csv
+data/processed/compliance_summary.csv
