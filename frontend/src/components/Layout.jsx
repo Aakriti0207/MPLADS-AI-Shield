@@ -1,13 +1,16 @@
 import React from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BarChart3, BellRing, FileText, FolderKanban, Home, LayoutDashboard, LogIn, Map, Menu, ShieldCheck, X } from 'lucide-react'
 import { navItems } from '../data'
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 const icons = {Dashboard:LayoutDashboard,Projects:FolderKanban,Alerts:BellRing,Analytics:BarChart3,'Map View':Map,Reports:FileText}
 export default function Layout(){
   const [open,setOpen]=useState(false)
   const loc=useLocation()
+  const nav=useNavigate()
+  const { logout } = useAuth()
   const title = loc.pathname==='/dashboard'?'Overview':loc.pathname.includes('/projects/')?'Project Intelligence':navItems.find(x=>x[1]===loc.pathname)?.[0] || 'MPLADS Insight'
   return <div className="min-h-screen">
     <aside className={`fixed z-40 inset-y-0 left-0 w-64 bg-[#082f57] text-white p-5 transform transition md:translate-x-0 ${open?'translate-x-0':'-translate-x-full'}`}>
@@ -26,7 +29,11 @@ export default function Layout(){
         <div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={16}/> AI Advisory Layer</div>
         <p className="text-xs text-blue-100 mt-2 leading-5">Risk signals are advisory and support—not replace—authorized government review.</p>
       </div>
-      <NavLink to="/login" className="absolute bottom-5 left-5 right-5 btn bg-white/10 hover:bg-white/20 text-white"><LogIn size={16}/> Sign out</NavLink>
+      <button
+        type="button"
+        onClick={() => { logout(); nav('/login') }}
+        className="absolute bottom-5 left-5 right-5 btn bg-white/10 hover:bg-white/20 text-white"
+      ><LogIn size={16}/> Sign out</button>
     </aside>
     {open && <div className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={()=>setOpen(false)}/>}
     <main className="md:ml-64">

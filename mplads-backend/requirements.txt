@@ -4,4 +4,11 @@ sqlalchemy
 psycopg2-binary
 pydantic
 python-dotenv
+bcrypt
+pyjwt
+email-validator
+
+# --- Dev / testing only ---
+pytest
+httpx
 pandas

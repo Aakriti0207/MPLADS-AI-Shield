@@ -5,7 +5,7 @@ import { money } from '../data'
 import { Stat, Section, Progress, EmptyState } from '../components/UI'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-const API_BASE = 'http://127.0.0.1:8000'
+import { API_BASE, apiFetch } from '../lib/api'
 
 const toNumber = v => {
  if (v === null || v === undefined || v === '') return null
@@ -25,7 +25,7 @@ export default function Dashboard(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  fetch(`${API_BASE}/dashboard/stats`)
+    apiFetch(`/dashboard/stats`)
    .then(res=>{
     if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
     return res.json()

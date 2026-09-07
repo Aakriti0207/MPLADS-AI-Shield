@@ -24,7 +24,46 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+
+# --- Authentication -----------------------------------------------------
+# Added alongside JWT authentication. Kept in this same module rather
+# than a separate file since the project doesn't otherwise split
+# schemas.py by resource.
+
+class RegisterRequest(BaseModel):
+    """Request body for POST /auth/register."""
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    role: str = Field(min_length=1, max_length=50)
+
+
+class LoginRequest(BaseModel):
+    """Request body for POST /auth/login."""
+
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    """Response body for a successful login."""
+
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    """Safe, public-facing user profile. Never includes password_hash."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: EmailStr
+    role: str
+    is_active: bool
+    created_at: datetime
 
 
 class ProjectOut(BaseModel):

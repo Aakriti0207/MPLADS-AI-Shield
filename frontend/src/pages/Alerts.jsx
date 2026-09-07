@@ -3,7 +3,7 @@ import {Link} from 'react-router-dom'
 import {AlertTriangle,BellRing,ChevronLeft,ChevronRight,Loader2} from 'lucide-react'
 import {Badge} from '../components/UI'
 
-const API_BASE = 'http://127.0.0.1:8000'
+import { API_BASE, apiFetch } from '../lib/api'
 const PAGE_SIZE = 50
 
 const SEVERITY_STYLES = {
@@ -36,7 +36,7 @@ export default function Alerts(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  fetch(`${API_BASE}/alerts?skip=${skip}&limit=${PAGE_SIZE}`)
+  apiFetch(`/alerts?skip=${skip}&limit=${PAGE_SIZE}`)
    .then(res=>{
     if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
     return res.json()

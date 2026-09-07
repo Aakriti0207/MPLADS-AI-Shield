@@ -4,7 +4,7 @@ import {AlertTriangle, ChevronLeft, ChevronRight, Eye, Loader2, Search, SlidersH
 import {money} from '../data'
 import {RiskBadge,Progress} from '../components/UI'
 
-const API_BASE = 'http://127.0.0.1:8000'
+import { API_BASE, apiFetch } from '../lib/api'
 const PAGE_SIZE = 50
 
 // Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
@@ -30,7 +30,7 @@ export default function Projects(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  fetch(`${API_BASE}/projects?skip=${skip}&limit=${PAGE_SIZE}`)
+  apiFetch(`/projects?skip=${skip}&limit=${PAGE_SIZE}`)
    .then(res=>{
     if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
     return res.json()

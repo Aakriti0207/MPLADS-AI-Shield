@@ -3,7 +3,7 @@ import {AlertTriangle,BarChart3,FolderKanban,Loader2,Wallet} from 'lucide-react'
 import {BarChart,Bar,CartesianGrid,Cell,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts'
 import {Section,Stat} from '../components/UI'
 
-const API_BASE = 'http://127.0.0.1:8000'
+import { API_BASE, apiFetch } from '../lib/api'
 const TOP_N = 9
 
 const toNumber = v => {
@@ -32,7 +32,7 @@ export default function Analytics(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  fetch(`${API_BASE}/dashboard/stats`)
+  apiFetch(`/dashboard/stats`)
    .then(res=>{
     if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
     return res.json()
