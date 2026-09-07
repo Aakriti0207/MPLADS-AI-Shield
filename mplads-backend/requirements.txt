@@ -11,3 +11,4 @@ email-validator
 # --- Dev / testing only ---
 pytest
 httpx
+pandas

@@ -1,0 +1,33 @@
+sr_no,calamity_type,calamity_name,mp,date_of_consent,consent_amount,work_id_canonical,work_id_status,house,source_file
+1,National Calamity,Flood 2025 in Punjab,Shri Gurjeet Singh Aujla,2025-12-07,7067400.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+2,National Calamity,Flood 2025 in Punjab,GURMEET SINGH MEET HAYER,2025-11-03,7500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+3,National Calamity,Flood 2025 in Punjab,Shri Jual Oram,2025-10-10,10000000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+4,National Calamity,Andhra Pradesh rainfall and consequent floods - 2024,Krishna Prasad Tenneti,2025-03-26,1000000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+5,National Calamity,Meppadi landslides 2024,SHAFI PARAMBIL,2025-03-02,2500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+6,State Calamity,Vilangad Landslides 2024,SHAFI PARAMBIL,2025-03-01,2500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+7,National Calamity,Meppadi landslides 2024,DR C N MANJUNATH,2025-02-17,500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+8,National Calamity,Meppadi landslides 2024,Andimuthu Raja,2025-02-05,2500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+9,State Calamity,Wayanad landslides 2024,Shri NK Premachandran,2024-12-07,1000000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+10,State Calamity,Vilangad Landslides 2024,Shri NK Premachandran,2024-12-07,1000000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+11,State Calamity,Wayanad landslides 2024,K RADHAKRISHNAN,2024-12-04,2500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+12,State Calamity,Natural Calamity Affected Area,BIPLAB KUMAR DEB,2024-09-03,2500000.0,,missing,LS,LS_Amount_consented_for_Calamity.csv
+1,National Calamity,Flood 2025 in Punjab,Shri Hardeep Singh Puri (2020-26) (2020-2026),2025-11-17,10000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+2,National Calamity,Flood 2025 in Punjab,Dr. Ashok Kumar Mittal (2022-28) (2022-2028),2025-11-04,10000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+3,National Calamity,Flood 2025 in Punjab,Shri Narain Dass Gupta (2024-30) (2024-2030),2025-11-03,7500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+4,National Calamity,Flood 2025 in Punjab,Shri Sanjay Singh (2024-30) (2024-2030),2025-11-03,10000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+5,National Calamity,Flood 2025 in Punjab,Shri Harbhajan Singh (2022-28) (2022-2028),2025-11-03,10000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+6,National Calamity,Flood 2025 in Punjab,Dr. Sandeep Kumar Pathak (2022-28) (2022-2028),2025-10-29,10000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+7,National Calamity,Flood 2025 in Punjab,Dr. Parmar Jashvantsinh Salamsinh (2024-30) (2024-2030),2025-10-07,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+8,National Calamity,Flood 2025 in Punjab,Shri Narain Dass Gupta (2024-30) (2024-2030),2025-10-06,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+9,National Calamity,Flood 2025 in Punjab,Dr. Vikramjit Singh Sahney (2022-28) (2022-2028),2025-09-19,10000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+10,National Calamity,Meppadi landslides 2024,Shri P. P. Suneer (2024-30) (2024-2030),2025-04-21,7500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+11,National Calamity,Meppadi landslides 2024,Dr. John Brittas (2021-27) (2021-2027),2025-02-17,7500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+12,National Calamity,Meppadi landslides 2024,Shri P. P. Suneer (2024-30) (2024-2030),2025-02-03,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+13,State Calamity,Vilangad Landslides 2024,Shri Abdul Wahab (2021-27) (2021-2027),2024-12-08,1000000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+14,State Calamity,Wayanad landslides 2024,Smt. P. T. Usha (2022-28) (2022-2028),2024-12-07,500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+15,State Calamity,Vilangad Landslides 2024,Smt. P. T. Usha (2022-28) (2022-2028),2024-12-07,500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+16,State Calamity,Wayanad landslides 2024,Dr. V. Sivadasan (2021-27) (2021-2027),2024-12-04,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+17,State Calamity,Wayanad landslides 2024,Shri A. A. Rahim (2022-28) (2022-2028),2024-12-04,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+18,State Calamity,Wayanad landslides 2024,Shri Jose K. Mani (2024-30) (2024-2030),2024-11-25,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+19,State Calamity,Wayanad landslides 2024,Shri Sandosh Kumar P (2022-28) (2022-2028),2024-10-17,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
+20,State Calamity,Wayanad landslides 2024,Dr. John Brittas (2021-27) (2021-2027),2024-09-10,2500000.0,,missing,RS,RS_Amount_consented_for_Calamity__1_.csv
