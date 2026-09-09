@@ -186,10 +186,9 @@ class AlertOut(BaseModel):
     """
     Response shape for a single alert.
 
-    TEMPORARY / MOCK for Day 1: there is no `alerts` table yet. This
-    schema describes the shape the real ML risk engine's alerts will
-    eventually take once it exists, so the route contract stays the
-    same when the mock data is swapped for real data later.
+    Alerts are dynamically generated from real, DB-derived project risk
+    data (see app/routes/alerts.py) -- there is no separate `alerts`
+    table, and nothing in this response is mock/placeholder data.
     """
 
     alert_id: str
