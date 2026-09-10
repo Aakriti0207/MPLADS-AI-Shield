@@ -2,7 +2,9 @@
 
 ## Overview
 
-The MPLADS AI Shield frontend is a web-based monitoring and analytics interface designed to provide a centralized view of MPLADS projects, their progress, alerts, reports, and analytics.
+The MPLADS AI Shield frontend is a web-based monitoring and analytics interface for managing and monitoring MPLADS projects, including project progress, alerts, analytics, maps, reports, and risk information.
+
+The frontend is developed using React.js and Vite and is integrated with the FastAPI backend and PostgreSQL database.
 
 ## Run Locally
 
@@ -11,34 +13,31 @@ npm install
 npm run dev
 ```
 
-Open the local development URL provided by Vite, typically:
+Open:
 
-```text
 http://localhost:5173/
-```
+
+Make sure the FastAPI backend is running before accessing live project data.
 
 ## Implemented Features
 
 * 🏠 Home Page
-* 🔐 Login Page
+* 🔐 Login & Authentication
 * 📊 Monitoring Dashboard
 * 📁 Projects Listing
 * 📋 Project Details
 * 🚨 Alerts & Notifications
 * 📈 Analytics Dashboard
-* 🗺️ Project Map View
+* 🗺️ Project Map
 * 📑 Reports
 * 📱 Responsive UI
-* 🧩 Reusable UI Components
-* 📊 Mock Data for Frontend Demonstration
-
-## Current Status
-
-The frontend UI, navigation, reusable components, and major application pages have been implemented using mock data.
-
-Backend integration and additional intelligent monitoring capabilities will be developed as part of the next stages of the project.
+* 🔗 FastAPI Backend Integration
+* 🗄️ PostgreSQL Database Integration
+* 🤖 ML-based Risk & Anomaly Analysis
 
 ## Tech Stack
+
+Frontend
 
 * React.js
 * Vite
@@ -46,6 +45,30 @@ Backend integration and additional intelligent monitoring capabilities will be d
 * Tailwind CSS
 * HTML5
 * CSS3
+
+Backend
+
+* Python
+* FastAPI
+* SQLAlchemy
+* JWT Authentication
+
+Database
+
+* PostgreSQL
+
+  Machine Learning
+
+* Data Preprocessing
+* Feature Engineering
+* Compliance Analysis
+* Anomaly Detection
+* Duplicate Analysis
+* Risk Scoring
+
+
+
+
 
 ## Project Structure
 
@@ -79,19 +102,21 @@ frontend/
 └── index.html
 ```
 
-## Future Development
-
-* Backend integration with the project's selected backend technology
-* REST API integration
-* Real project data integration
-* Database integration
-* Authentication and authorization
-* Advanced monitoring and analytics
-* AI-based project risk and anomaly detection
-* Intelligent alerts and project prioritization
-
 ## Current Project Milestone
 
-**Frontend Prototype — Completed ✅**
+##Current Status
 
-The major frontend screens, navigation, and reusable UI components have been implemented and are currently demonstrated using mock data.
+**Integrated Application Development — In Progress 🚧**
+
+The frontend, FastAPI backend, and PostgreSQL database have been integrated successfully. Major monitoring, analytics, alerts, project, map, and report modules are implemented.
+
+The ML pipeline is currently being connected with the final project risk-scoring workflow so that risk scores and risk levels are reflected consistently in the database and frontend.
+
+## Future Development
+
+* Advanced risk prediction
+* Improved anomaly detection
+* Automated project prioritization
+* Historical risk analysis
+* Automated report generation
+* Production deployment
