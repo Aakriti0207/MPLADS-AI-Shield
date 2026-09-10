@@ -1,43 +1,57 @@
-# MPLADS AI Shield Frontend
+# MPLADS AI Shield
 
 ## Overview
 
-The MPLADS AI Shield frontend is a web-based monitoring and analytics interface for managing and monitoring MPLADS projects, including project progress, alerts, analytics, maps, reports, and risk information.
+MPLADS AI Shield is a web-based project monitoring and analytics system designed to monitor MPLADS projects, identify potential risks and anomalies, and provide useful insights through dashboards, alerts, analytics, maps, and reports.
 
-The frontend is developed using React.js and Vite and is integrated with the FastAPI backend and PostgreSQL database.
+The system combines a React.js frontend, FastAPI backend, PostgreSQL database, and machine learning modules for project analysis and risk assessment.
+### Frontend
 
-## Run Locally
+Open another PowerShell window and navigate to the frontend folder:
 
-```bash
+```powershell
+cd frontend
+```
+
+Install dependencies:
+
+```powershell
 npm install
+```
+
+Start the development server:
+
+```powershell
 npm run dev
 ```
 
-Open:
+Frontend will run at:
 
+```text
 http://localhost:5173/
+```
 
-Make sure the FastAPI backend is running before accessing live project data.
+## Features
 
-## Implemented Features
-
-* 🏠 Home Page
-* 🔐 Login & Authentication
-* 📊 Monitoring Dashboard
-* 📁 Projects Listing
-* 📋 Project Details
-* 🚨 Alerts & Notifications
-* 📈 Analytics Dashboard
-* 🗺️ Project Map
-* 📑 Reports
-* 📱 Responsive UI
-* 🔗 FastAPI Backend Integration
-* 🗄️ PostgreSQL Database Integration
-* 🤖 ML-based Risk & Anomaly Analysis
+* Project Monitoring
+* User Login & Authentication
+* Dashboard & Statistics
+* Project Listing
+* Project Details
+* Alerts & Notifications
+* Analytics
+* Project Map
+* Reports
+* Risk Analysis
+* Anomaly Detection
+* Duplicate Project Analysis
+* Compliance Analysis
+* ML-based Risk Scoring
+* Responsive User Interface
 
 ## Tech Stack
 
-Frontend
+### Frontend
 
 * React.js
 * Vite
@@ -46,18 +60,18 @@ Frontend
 * HTML5
 * CSS3
 
-Backend
+### Backend
 
 * Python
 * FastAPI
 * SQLAlchemy
 * JWT Authentication
 
-Database
+### Database
 
 * PostgreSQL
 
-  Machine Learning
+### Machine Learning
 
 * Data Preprocessing
 * Feature Engineering
@@ -66,57 +80,72 @@ Database
 * Duplicate Analysis
 * Risk Scoring
 
-
-
-
-
 ## Project Structure
 
 ```text
-frontend/
-├── src/
-│   ├── components/
-│   │   ├── Layout.jsx
-│   │   └── UI.jsx
-│   │
-│   ├── pages/
-│   │   ├── Home.jsx
-│   │   ├── Login.jsx
-│   │   ├── Dashboard.jsx
-│   │   ├── Projects.jsx
-│   │   ├── ProjectDetails.jsx
-│   │   ├── Alerts.jsx
-│   │   ├── Analytics.jsx
-│   │   ├── MapPage.jsx
-│   │   └── Reports.jsx
-│   │
-│   ├── App.jsx
-│   ├── data.js
-│   ├── index.css
-│   └── main.jsx
+MPLADS-AI-Shield/
+├── backend/
+│   ├── app/
+│   ├── ml/
+│   ├── tests/
+│   ├── create_tables.py
+│   ├── seed_data.py
+│   └── requirements.txt
 │
-├── package.json
-├── package-lock.json
-├── vite.config.js
-├── tailwind.config.js
-└── index.html
-```
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── App.jsx
+│   │   ├── data.js
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── package.json
+│   ├── vite.config.js
+│   └── index.html
+│
+├── docs/
+└── README.md
+````
 
-## Current Project Milestone
+## Machine Learning Pipeline
 
-##Current Status
+The project includes multiple ML and analytical phases for processing and evaluating project data.
 
-**Integrated Application Development — In Progress 🚧**
+* Data Inventory
+* Data Preprocessing
+* Canonical Data Preparation
+* Feature Engineering
+* Compliance Analysis
+* Anomaly Detection
+* Duplicate Detection
+* Risk Scoring
 
-The frontend, FastAPI backend, and PostgreSQL database have been integrated successfully. Major monitoring, analytics, alerts, project, map, and report modules are implemented.
+The ML pipeline is designed to generate risk-related information that can be used by the backend and frontend for project monitoring and prioritization.
 
-The ML pipeline is currently being connected with the final project risk-scoring workflow so that risk scores and risk levels are reflected consistently in the database and frontend.
+## Current Status
+
+**Integrated Application Development — In Progress**
+
+The React.js frontend, FastAPI backend, and PostgreSQL database have been integrated successfully.
+
+The major project monitoring modules, authentication, dashboard, projects, alerts, analytics, maps, and reports have been implemented.
+
+The ML pipeline and final risk-scoring workflow are currently being integrated and validated with the project database and frontend.
 
 ## Future Development
 
-* Advanced risk prediction
-* Improved anomaly detection
-* Automated project prioritization
-* Historical risk analysis
-* Automated report generation
-* Production deployment
+* Advanced Risk Prediction
+* Improved Anomaly Detection
+* Automated Project Prioritization
+* Historical Risk Analysis
+* Automated Report Generation
+* Advanced Analytics
+* Production Deployment
+
+## Project Goal
+
+The main goal of MPLADS AI Shield is to provide an intelligent monitoring system that helps identify suspicious project patterns, assess project risks, and support transparent and data-driven monitoring of MPLADS projects.
+
+```
+```
