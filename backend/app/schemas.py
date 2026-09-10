@@ -182,13 +182,102 @@ class DashboardStats(BaseModel):
     by_work_type: Optional[list[ByWorkTypeStat]] = None
 
 
+class StatusCount(BaseModel):
+    """One row of the Phase 4 status-distribution aggregate. `status` is
+    "Not specified" for NULL/blank values rather than dropping those
+    projects from the breakdown (see app/aggregations.py)."""
+
+    status: str
+    count: int
+
+
+class RiskScoreSummary(BaseModel):
+    """Phase 4: summary statistics over Project.risk_score.
+
+    All three of average/minimum/maximum are None only when
+    scored_project_count is 0 (no project in the table has a risk_score
+    yet) -- SQL AVG/MIN/MAX already skip NULL rows on their own, so this
+    never silently substitutes 0 for "no data".
+    """
+
+    average: Optional[Decimal] = None
+    minimum: Optional[Decimal] = None
+    maximum: Optional[Decimal] = None
+    scored_project_count: int
+
+
+class EstimatedCostSummary(BaseModel):
+    """Phase 4: summary statistics over Project.estimated_cost.
+
+    NOTE: real Phase 2 rows have no source value for estimated_cost at
+    all (see app/models.py / import_phase2.py) -- so on the real
+    dataset, project_count_with_data will legitimately be 0 (or close to
+    it) and total/average/minimum/maximum will be None. That is reported
+    as-is here rather than defaulted to 0, per Phase 4's NULL-handling
+    requirement.
+    """
+
+    total: Optional[Decimal] = None
+    average: Optional[Decimal] = None
+    minimum: Optional[Decimal] = None
+    maximum: Optional[Decimal] = None
+    project_count_with_data: int
+
+
+class ProgressSummary(BaseModel):
+    """Phase 4: summary statistics for a progress field (financial_progress
+    or physical_progress). Same None-means-no-data semantics as
+    RiskScoreSummary/EstimatedCostSummary above."""
+
+    average: Optional[Decimal] = None
+    minimum: Optional[Decimal] = None
+    maximum: Optional[Decimal] = None
+    project_count_with_data: int
+
+
+class AnalyticsResponse(BaseModel):
+    """Response shape for GET /analytics.
+
+    Phase 4: the more complete analytics contract for the project
+    portfolio. Deliberately built on the SAME aggregation functions
+    (app/aggregations.py) that back GET /dashboard/stats for the fields
+    they share (total_projects through by_work_type below), so the two
+    endpoints can never quietly disagree with each other -- plus the
+    additional risk-score, cost, progress, and status aggregates that
+    /dashboard/stats does not expose. GET /dashboard/stats is unchanged
+    and remains the existing frontend Dashboard/Analytics page's data
+    source; this endpoint is additive, not a replacement.
+    """
+
+    # --- Shared with DashboardStats (same aggregation functions) ---
+    total_projects: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    average_financial_progress: Optional[Decimal] = None
+    average_physical_progress: Optional[Decimal] = None
+    active_projects: int
+    completed_projects: int
+    delayed_projects: int
+    risk_level_counts: dict[str, int]
+    by_state: list[ByStateStat]
+    by_work_type: list[ByWorkTypeStat]
+
+    # --- New Phase 4 aggregates ---
+    risk_score_summary: RiskScoreSummary
+    estimated_cost_summary: EstimatedCostSummary
+    financial_progress_summary: ProgressSummary
+    physical_progress_summary: ProgressSummary
+    status_distribution: list[StatusCount]
+
+
 class AlertOut(BaseModel):
     """
     Response shape for a single alert.
 
-    Alerts are dynamically generated from real, DB-derived project risk
-    data (see app/routes/alerts.py) -- there is no separate `alerts`
-    table, and nothing in this response is mock/placeholder data.
+    TEMPORARY / MOCK for Day 1: there is no `alerts` table yet. This
+    schema describes the shape the real ML risk engine's alerts will
+    eventually take once it exists, so the route contract stays the
+    same when the mock data is swapped for real data later.
     """
 
     alert_id: str

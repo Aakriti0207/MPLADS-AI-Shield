@@ -6,12 +6,15 @@ JWT-auth update: added the auth router (register/login/me). Those
 three endpoints stay open (no Depends(get_current_user)) -- everything
 else is unaffected here; per-route protection is added directly on the
 projects/dashboard/alerts routers themselves in Phase 3.
+
+Phase 4: registered the new analytics router (GET /analytics), protected
+the same way as projects/dashboard/alerts.
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import alerts, auth, dashboard, projects
+from app.routes import alerts, analytics, auth, dashboard, projects
 
 app = FastAPI(
     title="MPLADS AI Shield",
@@ -34,6 +37,7 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(dashboard.router)
 app.include_router(alerts.router)
+app.include_router(analytics.router)
 
 
 @app.get("/", tags=["health"])
