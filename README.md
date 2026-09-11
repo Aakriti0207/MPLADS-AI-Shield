@@ -65,6 +65,11 @@ MPLADS data is spread across recommendation, sanction, completion, payment and e
 | Data Quality | 10 |
 
 ---
+### Risk Fusion
+Weighted evidence from:
+Compliance 28 | Financial 20 | Timeline 12 |
+Duplicate 12 | Data Quality 8 | Payment AI 10 |
+Isolation Forest 10
 
 ## 📊 Current Results
 
