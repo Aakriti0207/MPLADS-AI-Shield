@@ -282,7 +282,7 @@ def main() -> int:
     output = build_output(inputs)
     missing_row = row_for(output, "W_MISSING")
     clean_row = row_for(output, "W_CLEAN")
-    check(missing_row["risk_level"] == "LOW", "7. missing-evidence project scores LOW (no fabricated risk)")
+    check(missing_row["risk_level"] == "UNASSESSED", "7. missing-evidence project is UNASSESSED, not falsely LOW")
     check(missing_row["evidence_status"] == "INSUFFICIENT", "7. missing-evidence project is flagged INSUFFICIENT, distinct from a clean LOW")
     check(clean_row["evidence_status"] != "INSUFFICIENT", "7. a project with evaluable-but-clean evidence is not INSUFFICIENT")
 
