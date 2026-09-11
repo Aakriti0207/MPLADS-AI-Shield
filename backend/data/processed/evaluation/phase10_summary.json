@@ -1,0 +1,15 @@
+{
+  "evaluation_type": "SYNTHETIC_EVALUATION",
+  "total_scenarios": 10,
+  "passed_scenarios": 10,
+  "failed_scenarios": 0,
+  "pass_rate": 1.0,
+  "expected_anomaly_detections": 7,
+  "actual_anomaly_detections": 8,
+  "false_positives_on_clean_controls": 0,
+  "explanation_coverage": 1.0,
+  "multi_evidence_increases_over_single_signal": true,
+  "deterministic": true,
+  "final_status": "PASS",
+  "limitations": "Synthetic controlled scenarios validate pipeline behavior, not real-world fraud accuracy."
+}
