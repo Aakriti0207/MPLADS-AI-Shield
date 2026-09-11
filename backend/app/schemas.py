@@ -286,3 +286,101 @@ class AlertOut(BaseModel):
     severity: str
     message: str
     created_at: datetime
+
+
+# --- Phase 5: POST /upload-analyze --------------------------------------
+#
+# IMPORTANT SCOPE NOTE: the real Project.risk_score / risk_level (Phase 2)
+# are produced by an OFFLINE pipeline that combines compliance, anomaly,
+# and duplicate-detection signals with a weighting step that exists only
+# outside this repository (verified during the Phase 5 audit -- nothing
+# in backend/ml computes a final risk_score/risk_level; only
+# import_phase2.py reads it from project_risk_scores.csv). That
+# combination step is NOT reproduced here. What genuinely IS reused,
+# unchanged, at request time is the Phase 4 compliance rule engine
+# (ml/compliance/rules.py + ml/compliance/engine.py's
+# build_compliance_outputs) -- those 12 rules are pure, deterministic,
+# and operate on a single project's fields, so they are safe to run on
+# a newly uploaded project with no offline/corpus-wide step required.
+# See app/upload_analysis.py for the glue that adapts uploaded fields
+# into what those rules expect.
+
+class ComplianceFindingOut(BaseModel):
+    """One rule's real, unmodified output from ml/compliance/rules.py's
+    RULE_EVALUATORS for this uploaded project. Nothing here is generated
+    by this schema -- it's a direct pass-through of that engine's result."""
+
+    rule_id: str
+    category: str
+    status: str  # PASS | FLAG | NOT_EVALUABLE
+    severity: str  # WARNING | HIGH
+    message: str
+    evidence: dict[str, Any]
+
+
+class ComplianceSummaryOut(BaseModel):
+    """Same aggregate fields ml/compliance/engine.py computes per project
+    in its offline batch mode (compliance_summary.csv) -- computed the
+    same way here, just for one project at request time."""
+
+    compliance_status: str  # PASS | WARNING | REVIEW_REQUIRED | NOT_EVALUABLE
+    high_severity_count: int
+    warning_count: int
+    data_quality_issue_count: int
+    rules_evaluated: int
+    rules_flagged: int
+    findings: list[ComplianceFindingOut]
+
+
+class UploadRowValidationError(BaseModel):
+    """One field-level problem found while parsing/validating an
+    uploaded CSV row. Row-level, so one bad row never fails the rest of
+    the file."""
+
+    field: str
+    message: str
+
+
+class BasicMetricsOut(BaseModel):
+    """Simple arithmetic computed directly from the fields the uploader
+    supplied -- NOT part of the compliance rule engine and NOT a risk
+    score. None when the inputs needed for that specific calculation
+    weren't supplied."""
+
+    financial_progress_percent: Optional[Decimal] = None
+    expenditure_exceeds_sanctioned_amount: Optional[bool] = None
+
+
+class UploadRowResult(BaseModel):
+    """Analysis result for one row of the uploaded CSV."""
+
+    row_number: int  # 1-based, matches the row's position in the CSV (excluding header)
+    work_id: Optional[str] = None
+    is_valid: bool
+    validation_errors: list[UploadRowValidationError] = []
+
+    # True if this work_id already exists in the real `projects` table --
+    # a genuine DB lookup, not a fabricated similarity score. False for
+    # every row when is_valid is False (not checked).
+    matches_existing_project_id: Optional[bool] = None
+
+    basic_metrics: Optional[BasicMetricsOut] = None
+    compliance: Optional[ComplianceSummaryOut] = None
+
+    # Deliberately present and always null: see the module-level note
+    # above and UploadAnalyzeResponse.risk_scoring_note below.
+    risk_score: None = None
+    risk_level: None = None
+
+
+class UploadAnalyzeResponse(BaseModel):
+    """Response shape for POST /upload-analyze."""
+
+    filename: str
+    total_rows: int
+    valid_rows: int
+    rows_with_errors: int
+    persisted_to_database: bool  # always False -- see persistence_note
+    persistence_note: str
+    risk_scoring_note: str
+    results: list[UploadRowResult]
