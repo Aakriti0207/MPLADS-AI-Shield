@@ -31,6 +31,10 @@ Negative values and zero sanctioned amounts do not become suspicious by
 themselves; affected signals are treated as missing. Scores are deterministic,
 bounded to 0-100, and accompanied by JSON evidence and human-readable reasons.
 
+Risk Fusion consumes the public `payment_risk_score`, `payment_status`,
+`payment_reasons`, and `payment_evidence` output without duplicating Payment AI
+detection logic. Application/API wiring remains deferred.
+
 Baselines require at least `PaymentConfig.min_training_values` valid historical
 observations per signal and at least two stable signal families overall.
 Zero-variation signals are recorded as unstable and are not fitted. Signals

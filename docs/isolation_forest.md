@@ -68,6 +68,8 @@ does not provide historical as-of detection, transaction ordering, causality,
 or proof of misconduct. Sparse rows may be `NOT_EVALUABLE`, and median
 imputation can reduce the information available for highly incomplete rows.
 
-Future Risk Fusion may consume this module's evidence as one independent
-review-priority signal. Isolation Forest itself must remain unaware of Risk
-Fusion and must never consume other AI scores.
+Risk Fusion now consumes this module's public score, status, reasons, and
+evidence as one independent review-priority signal. Isolation Forest itself
+remains unaware of Risk Fusion and never consumes other AI scores. API,
+database, and dashboard wiring is deferred to the later application
+integration phase.
