@@ -9,29 +9,29 @@ Phases 4-6.
 ==============================================================================
 WHY THESE DEFAULTS (evidence-category caps, sum to 100)
 ==============================================================================
-The five caps below were chosen, after inspecting the actual Phase 4-6
+The legacy caps below were chosen, after inspecting the actual Phase 4-6
 outputs on the full dataset (43,863 canonical projects), in this priority
 order:
 
-1. COMPLIANCE (cap 35) is weighted highest because it is the only evidence
+1. COMPLIANCE remains weighted highest because it is the only evidence
    category grounded in explicit, documented MPLADS rules (see
    ``RULE_METADATA`` in ``ml/compliance/rules.py``) rather than a statistical
    comparison. A rule breach (e.g. expenditure exceeding the sanctioned
    amount) is the most defensible, most explainable signal available.
 
-2. FINANCIAL_ANOMALY (cap 25) is next because peer-relative statistical
+2. FINANCIAL_ANOMALY remains next because peer-relative statistical
    outliers in amounts are a strong independent corroborating signal, but
    they are not an explicit rule breach -- a project can be a financial
    outlier for legitimate reasons (e.g. an unusually large but fully
    justified public work).
 
-3. TIMELINE_ANOMALY (cap 15) is weighted below financial anomalies because,
+3. TIMELINE_ANOMALY remains below financial anomalies because,
    on the real data, timeline deviations are far more common and far less
    discriminating: 2,984 of ~263k evaluated timeline-metric rows (~1.1%) are
    flagged ANOMALY vs. 4,334 of ~438k financial rows, but administrative
    delay is a weaker indicator of irregularity than an unusual amount.
 
-4. DUPLICATE (cap 15) is capped at the same level as timeline anomalies
+4. DUPLICATE remains capped at the same level as timeline anomalies
    deliberately. Inspecting the actual Phase 6 output showed that the
    overwhelming majority of EXACT_MATCH pairs (116,479 of 121,273 pairs) are
    generic, highly-repeated boilerplate descriptions (median
@@ -42,12 +42,13 @@ order:
    as a second safeguard against a single noisy detector dominating the
    score (see Section 27 "dominance check" in the Phase 7 brief).
 
-5. DATA_QUALITY (cap 10) is deliberately the smallest cap. Source/field
+5. DATA_QUALITY remains the smallest cap. Source/field
    conflicts (rule DQ01) describe data-collection inconsistency, not
    suspicious project behaviour, and must never be allowed to compete with
    real anomaly/compliance evidence for the top of the score.
 
-These are defaults, not laws of nature -- they are declared as named
+The legacy values are scaled to 80% to reserve 10 points each for Payment AI
+and Isolation Forest. These are defaults, not laws of nature -- they are declared as named
 constants below specifically so they can be revisited if
 ``risk_quality_report.json``'s dominance/distribution sections show an
 unintended concentration.
@@ -56,16 +57,28 @@ unintended concentration.
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# 1. Evidence-category caps (points out of 100). Must sum to <= 100.
+# 1. Evidence-component caps (points out of 100). Must sum to exactly 100.
 # ---------------------------------------------------------------------------
-COMPLIANCE_CAP = 35.0
-FINANCIAL_ANOMALY_CAP = 25.0
-TIMELINE_ANOMALY_CAP = 15.0
-DUPLICATE_CAP = 15.0
-DATA_QUALITY_CAP = 10.0
+COMPLIANCE_CAP = 28.0
+FINANCIAL_ANOMALY_CAP = 20.0
+TIMELINE_ANOMALY_CAP = 12.0
+DUPLICATE_CAP = 12.0
+DATA_QUALITY_CAP = 8.0
+PAYMENT_CAP = 10.0
+ISOLATION_FOREST_CAP = 10.0
 
-TOTAL_CAP = COMPLIANCE_CAP + FINANCIAL_ANOMALY_CAP + TIMELINE_ANOMALY_CAP + DUPLICATE_CAP + DATA_QUALITY_CAP
-assert TOTAL_CAP <= 100.0, "Evidence-category caps must not exceed the 0-100 score range"
+RISK_COMPONENT_CAPS = {
+    "compliance": COMPLIANCE_CAP,
+    "financial_anomaly": FINANCIAL_ANOMALY_CAP,
+    "timeline_anomaly": TIMELINE_ANOMALY_CAP,
+    "duplicate": DUPLICATE_CAP,
+    "data_quality": DATA_QUALITY_CAP,
+    "payment": PAYMENT_CAP,
+    "isolation_forest": ISOLATION_FOREST_CAP,
+}
+
+TOTAL_CAP = sum(RISK_COMPONENT_CAPS.values())
+assert TOTAL_CAP == 100.0, "Risk component caps must sum to exactly 100"
 
 # ---------------------------------------------------------------------------
 # 2. Compliance (Phase 4) point values.
@@ -172,9 +185,9 @@ RISK_LEVEL_THRESHOLDS = (
 # read the same as a LOW score with SUFFICIENT evidence (Section 11).
 # ---------------------------------------------------------------------------
 EVIDENCE_STATUS_THRESHOLDS = (
-    (0, "INSUFFICIENT"),  # 0 of 4 domains evaluable
-    (2, "LIMITED"),       # 1-2 of 4 domains evaluable
-    (4, "SUFFICIENT"),    # 3-4 of 4 domains evaluable
+    (0, "INSUFFICIENT"),  # 0 of 6 domains evaluable
+    (2, "LIMITED"),       # 1-2 of 6 domains evaluable
+    (6, "SUFFICIENT"),    # 3-6 of 6 domains evaluable
 )
 
 

@@ -66,6 +66,8 @@ from ml.risk_config import (
     DUPLICATE_SIMILARITY_THRESHOLD,
     FINANCIAL_ANOMALY_CAP,
     FINANCIAL_OVERLAP_RULE_IDS,
+    ISOLATION_FOREST_CAP,
+    PAYMENT_CAP,
     TIMELINE_ANOMALY_CAP,
     TIMELINE_OVERLAP_RULE_IDS,
     anomaly_points,
@@ -102,6 +104,8 @@ OUTPUT_COLUMNS = [
     "timeline_anomaly_contribution",
     "duplicate_contribution",
     "data_quality_contribution",
+    "payment_contribution",
+    "isolation_forest_contribution",
     "total_evidence_signals",
     "high_severity_signal_count",
     "medium_severity_signal_count",
@@ -111,6 +115,8 @@ OUTPUT_COLUMNS = [
     "has_timeline_anomaly",
     "has_duplicate_signal",
     "has_data_quality_signal",
+    "has_payment_signal",
+    "has_isolation_forest_signal",
     "top_reason_1",
     "top_reason_2",
     "top_reason_3",
@@ -141,6 +147,17 @@ REQUIRED_DUPLICATE_MATCH_COLUMNS = frozenset(
 REQUIRED_DUPLICATE_SUMMARY_COLUMNS = frozenset(
     {"work_id", "exact_match_count", "similar_match_count", "highest_similarity_score", "phase6_status"}
 )
+REQUIRED_PAYMENT_COLUMNS = frozenset({
+    "work_id", "payment_status", "payment_risk_score", "payment_anomaly_status",
+    "payment_reasons", "payment_evidence",
+})
+REQUIRED_ISOLATION_FOREST_COLUMNS = frozenset({
+    "work_id", "isolation_forest_risk_score", "isolation_forest_status",
+    "isolation_forest_reasons", "isolation_forest_evidence",
+})
+VALID_PAYMENT_STATUSES = frozenset({"EVALUABLE", "NOT_EVALUABLE"})
+VALID_PAYMENT_ANOMALY_STATUSES = frozenset({"NORMAL", "ANOMALY", "NOT_EVALUABLE"})
+VALID_ISOLATION_STATUSES = frozenset({"NORMAL", "ANOMALY", "NOT_EVALUABLE"})
 
 # Human-readable labels for Phase 5 metrics, used only when composing
 # risk_reasons text. Purely cosmetic -- never used for scoring.
@@ -194,7 +211,7 @@ def load_inputs(processed_dir: Path | str = PROCESSED_DIR) -> dict[str, pd.DataF
             )
         return pd.read_csv(path)
 
-    return {
+    inputs = {
         "canonical": _read("the Phase 2 canonical dataset (canonical_projects.csv)", "canonical_projects.csv"),
         "compliance_findings": _read("the Phase 4 compliance findings (compliance_findings.csv)", "compliance_findings.csv"),
         "compliance_summary": _read("the Phase 4 compliance summary (compliance_summary.csv)", "compliance_summary.csv"),
@@ -204,6 +221,15 @@ def load_inputs(processed_dir: Path | str = PROCESSED_DIR) -> dict[str, pd.DataF
         "duplicate_matches": _read("the Phase 6 duplicate matches (duplicate_matches.csv)", "duplicate_matches.csv"),
         "duplicate_summary": _read("the Phase 6 duplicate summary (duplicate_summary.csv)", "duplicate_summary.csv"),
     }
+    optional_outputs = {
+        "payment": ("payment_scores.csv", "Payment AI outputs", REQUIRED_PAYMENT_COLUMNS),
+        "isolation_forest": ("isolation_forest_scores.csv", "Isolation Forest outputs", REQUIRED_ISOLATION_FOREST_COLUMNS),
+    }
+    for key, (filename, _label, _required) in optional_outputs.items():
+        path = processed_dir / filename
+        if path.exists():
+            inputs[key] = pd.read_csv(path)
+    return inputs
 
 
 def _require_columns(frame: pd.DataFrame, required: frozenset, label: str) -> None:
@@ -230,6 +256,8 @@ def validate_inputs(inputs: dict[str, pd.DataFrame]) -> None:
 
     canonical_ids = set(canonical["work_id"].astype(str))
     for name in ("compliance_summary", "phase5_summary", "duplicate_summary"):
+        if not inputs[name]["work_id"].is_unique:
+            raise ValueError(f"{name} must contain one unique row per work_id")
         ids = set(inputs[name]["work_id"].astype(str))
         if ids != canonical_ids:
             missing = len(canonical_ids - ids)
@@ -239,6 +267,45 @@ def validate_inputs(inputs: dict[str, pd.DataFrame]) -> None:
                 f"({missing} canonical IDs missing from it, {extra} unexpected IDs in it). "
                 f"Phase 7 requires every earlier phase to have run on the same canonical dataset."
             )
+
+    matches = inputs["duplicate_matches"]
+    if not matches.empty:
+        match_ids = matches[["work_id_a", "work_id_b"]].astype(str)
+        if (match_ids["work_id_a"] == match_ids["work_id_b"]).any():
+            raise ValueError("duplicate_matches.csv cannot contain self-matches")
+        if not set(match_ids.to_numpy().ravel()).issubset(canonical_ids):
+            raise ValueError("duplicate_matches.csv contains foreign work_id values")
+        if not set(matches["match_type"].dropna()).issubset({"EXACT_MATCH", "SIMILAR_MATCH"}):
+            raise ValueError("duplicate_matches.csv contains an unexpected match_type")
+        similarity = pd.to_numeric(matches["similarity_score"], errors="coerce")
+        if similarity.isna().any() or not np.isfinite(similarity.to_numpy()).all() or (similarity.lt(0) | similarity.gt(1.0 + 1e-9)).any():
+            raise ValueError("duplicate_matches.csv contains invalid similarity_score values")
+        for column in ("description_frequency_a", "description_frequency_b"):
+            frequencies = pd.to_numeric(matches[column], errors="coerce")
+            if frequencies.isna().any() or not np.isfinite(frequencies.to_numpy()).all() or frequencies.lt(1).any():
+                raise ValueError(f"duplicate_matches.csv contains invalid {column} values")
+
+    for key, required, label, statuses, anomaly_statuses, score_column in (
+        ("payment", REQUIRED_PAYMENT_COLUMNS, "Payment AI output", VALID_PAYMENT_STATUSES, VALID_PAYMENT_ANOMALY_STATUSES, "payment_risk_score"),
+        ("isolation_forest", REQUIRED_ISOLATION_FOREST_COLUMNS, "Isolation Forest output", VALID_ISOLATION_STATUSES, VALID_ISOLATION_STATUSES, "isolation_forest_risk_score"),
+    ):
+        if key not in inputs:
+            continue
+        frame = inputs[key]
+        _require_columns(frame, required, label)
+        if frame["work_id"].isna().any() or not frame["work_id"].is_unique:
+            raise ValueError(f"{label} must have non-null, unique work_id values")
+        if not set(frame["work_id"].astype(str)).issubset(canonical_ids):
+            raise ValueError(f"{label} contains foreign work_id values")
+        scores = pd.to_numeric(frame[score_column], errors="coerce")
+        if scores.isna().any() or not np.isfinite(scores.to_numpy()).all() or not scores.between(0, 100).all():
+            raise ValueError(f"{label} contains invalid {score_column} values; expected finite numbers in [0, 100]")
+        status_column = "payment_status" if key == "payment" else "isolation_forest_status"
+        anomaly_column = "payment_anomaly_status" if key == "payment" else "isolation_forest_status"
+        if not set(frame[status_column].dropna()).issubset(statuses):
+            raise ValueError(f"{label} contains unexpected {status_column} values")
+        if not set(frame[anomaly_column].dropna()).issubset(anomaly_statuses):
+            raise ValueError(f"{label} contains unexpected {anomaly_column} values")
 
 
 # ==========================================================================
@@ -363,7 +430,7 @@ def _duplicate_evidence(matches: pd.DataFrame) -> dict[str, Any]:
 
     exact = long_form[long_form["match_type"] == "EXACT_MATCH"]
     best_exact = (
-        exact.sort_values(["description_frequency", "matched_work_id"], kind="mergesort")
+        exact.sort_values(["description_frequency", "matched_work_id", "similarity_score"], kind="mergesort")
         .groupby("work_id", as_index=True)
         .first()
         if not exact.empty else _empty_best()
@@ -371,7 +438,10 @@ def _duplicate_evidence(matches: pd.DataFrame) -> dict[str, Any]:
 
     similar = long_form[long_form["match_type"] == "SIMILAR_MATCH"]
     best_similar = (
-        similar.sort_values(["similarity_score", "description_frequency"], ascending=[False, True], kind="mergesort")
+        similar.sort_values(
+            ["similarity_score", "description_frequency", "matched_work_id"],
+            ascending=[False, True, True], kind="mergesort",
+        )
         .groupby("work_id", as_index=True)
         .first()
         if not similar.empty else _empty_best()
@@ -382,12 +452,15 @@ def _duplicate_evidence(matches: pd.DataFrame) -> dict[str, Any]:
 
 def build_evidence_records(inputs: dict[str, pd.DataFrame]) -> dict[str, Any]:
     """Build every per-category evidence aggregate Phase 7 scores from."""
-    return {
+    records = {
         "compliance": _compliance_evidence(inputs["compliance_findings"]),
         "financial": _anomaly_evidence(inputs["financial_anomalies"]),
         "timeline": _anomaly_evidence(inputs["timeline_anomalies"]),
         "duplicate": _duplicate_evidence(inputs["duplicate_matches"]),
     }
+    records["payment"] = inputs.get("payment", pd.DataFrame()).copy(deep=True)
+    records["isolation_forest"] = inputs.get("isolation_forest", pd.DataFrame()).copy(deep=True)
+    return records
 
 
 # ==========================================================================
@@ -436,6 +509,21 @@ def calculate_contributions(evidence: dict[str, Any], work_ids: pd.Index) -> pd.
 
     contributions["duplicate_raw"] = (match_strength * rarity_weight * DUPLICATE_CAP).clip(lower=0.0, upper=DUPLICATE_CAP).astype("float64")
 
+    for name, score_column, status_column, cap in (
+        ("payment", "payment_risk_score", "payment_status", PAYMENT_CAP),
+        ("isolation_forest", "isolation_forest_risk_score", "isolation_forest_status", ISOLATION_FOREST_CAP),
+    ):
+        frame = evidence[name]
+        contribution = pd.Series(0.0, index=work_ids, dtype="float64")
+        if not frame.empty:
+            source = frame.copy(deep=True)
+            source["work_id"] = source["work_id"].astype(str)
+            source = source.set_index("work_id").reindex(work_ids)
+            score = pd.to_numeric(source[score_column], errors="coerce")
+            evaluable = source[status_column].ne("NOT_EVALUABLE") & score.notna() & np.isfinite(score)
+            contribution.loc[evaluable] = (score.loc[evaluable].clip(0.0, 100.0) / 100.0 * cap)
+        contributions[f"{name}_contribution"] = contribution.clip(0.0, cap)
+
     return contributions
 
 
@@ -470,13 +558,16 @@ def handle_overlapping_evidence(contributions: pd.DataFrame, evidence: dict[str,
     result["compliance_contribution"] = result["compliance_raw"].clip(lower=0.0, upper=COMPLIANCE_CAP)
     result["data_quality_contribution"] = result["data_quality_raw"].clip(lower=0.0, upper=DATA_QUALITY_CAP)
     result["duplicate_contribution"] = result["duplicate_raw"].clip(lower=0.0, upper=DUPLICATE_CAP)
+    result["payment_contribution"] = result["payment_contribution"].clip(lower=0.0, upper=PAYMENT_CAP)
+    result["isolation_forest_contribution"] = result["isolation_forest_contribution"].clip(lower=0.0, upper=ISOLATION_FOREST_CAP)
 
     result["financial_overlap_applied"] = financial_overlap_mask
     result["timeline_overlap_applied"] = timeline_overlap_mask
 
     return result[[
         "compliance_contribution", "financial_anomaly_contribution", "timeline_anomaly_contribution",
-        "duplicate_contribution", "data_quality_contribution", "financial_overlap_applied", "timeline_overlap_applied",
+        "duplicate_contribution", "data_quality_contribution", "payment_contribution", "isolation_forest_contribution",
+        "financial_overlap_applied", "timeline_overlap_applied",
     ]]
 
 
@@ -485,13 +576,15 @@ def handle_overlapping_evidence(contributions: pd.DataFrame, evidence: dict[str,
 # ==========================================================================
 
 def calculate_risk_score(contributions: pd.DataFrame) -> pd.Series:
-    """Sum the five capped, overlap-adjusted contributions and clip to [0, 100]."""
+    """Sum capped, overlap-adjusted contributions and clip to [0, 100]."""
     total = (
         contributions["compliance_contribution"]
         + contributions["financial_anomaly_contribution"]
         + contributions["timeline_anomaly_contribution"]
         + contributions["duplicate_contribution"]
         + contributions["data_quality_contribution"]
+        + contributions["payment_contribution"]
+        + contributions["isolation_forest_contribution"]
     )
     total = total.replace([np.inf, -np.inf], np.nan).fillna(0.0)
     return total.clip(lower=0.0, upper=100.0)
@@ -502,7 +595,7 @@ def assign_risk_level(risk_score: pd.Series) -> pd.Series:
 
 
 def assign_evidence_status(inputs: dict[str, pd.DataFrame], work_ids: pd.Index) -> pd.DataFrame:
-    """Determine, per project, whether each of the 4 evidence domains was
+    """Determine, per project, whether each of the 6 evidence domains was
     evaluable, and derive the overall SUFFICIENT/LIMITED/INSUFFICIENT status.
 
     A domain being "evaluable" means Phase 4-6 had enough valid data to
@@ -523,11 +616,25 @@ def assign_evidence_status(inputs: dict[str, pd.DataFrame], work_ids: pd.Index) 
     duplicate_summary["work_id"] = duplicate_summary["work_id"].astype(str)
     duplicate_evaluable = duplicate_summary.set_index("work_id")["phase6_status"].reindex(work_ids).ne("NOT_EVALUABLE")
 
+    optional_evaluable = {}
+    for name, status_column in (("payment", "payment_status"), ("isolation_forest", "isolation_forest_status")):
+        frame = inputs.get(name)
+        if frame is None or frame.empty:
+            optional_evaluable[name] = pd.Series(False, index=work_ids)
+            continue
+        indexed = frame.copy()
+        indexed["work_id"] = indexed["work_id"].astype(str)
+        optional_evaluable[name] = indexed.set_index("work_id")[status_column].reindex(work_ids).eq("EVALUABLE")
+        if name == "isolation_forest":
+            optional_evaluable[name] = indexed.set_index("work_id")[status_column].reindex(work_ids).isin({"NORMAL", "ANOMALY"})
+
     evaluable_count = (
         compliance_evaluable.astype(int)
         + financial_evaluable.astype(int)
         + timeline_evaluable.astype(int)
         + duplicate_evaluable.astype(int)
+        + optional_evaluable["payment"].astype(int)
+        + optional_evaluable["isolation_forest"].astype(int)
     )
     evidence_status = evaluable_count.map(evidence_status_for)
 
@@ -536,6 +643,8 @@ def assign_evidence_status(inputs: dict[str, pd.DataFrame], work_ids: pd.Index) 
         "financial_evaluable": financial_evaluable,
         "timeline_evaluable": timeline_evaluable,
         "duplicate_evaluable": duplicate_evaluable,
+        "payment_evaluable": optional_evaluable["payment"],
+        "isolation_forest_evaluable": optional_evaluable["isolation_forest"],
         "evaluable_domain_count": evaluable_count,
         "evidence_status": evidence_status,
     }, index=work_ids)
@@ -633,7 +742,9 @@ def _duplicate_reason_rows(best_exact: pd.DataFrame, best_similar: pd.DataFrame)
         exact = best_exact.reset_index().dropna(subset=["matched_work_id"]).copy()
         if not exact.empty:
             exact["severity_tier"] = 3
-            exact["points"] = DUPLICATE_CAP
+            exact["points"] = exact["description_frequency"].map(
+                lambda value: duplicate_rarity_weight(value) * DUPLICATE_CAP
+            )
             exact["source_order"] = 3
             exact["sub_order"] = "EXACT_MATCH"
             exact["reason_text"] = exact.apply(
@@ -648,6 +759,9 @@ def _duplicate_reason_rows(best_exact: pd.DataFrame, best_similar: pd.DataFrame)
             frames.append(exact[["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]])
     if not best_similar.empty:
         similar = best_similar.reset_index().dropna(subset=["matched_work_id"]).copy()
+        if not best_exact.empty:
+            exact_ids = set(best_exact.index.astype(str))
+            similar = similar[~similar["work_id"].astype(str).isin(exact_ids)]
         if not similar.empty:
             similar["severity_tier"] = np.where(similar["similarity_score"] >= 0.95, 2, 1)
             similar["points"] = ((similar["similarity_score"] - DUPLICATE_SIMILARITY_THRESHOLD) / (1 - DUPLICATE_SIMILARITY_THRESHOLD)).clip(lower=0, upper=1) * DUPLICATE_CAP
@@ -668,7 +782,45 @@ def _duplicate_reason_rows(best_exact: pd.DataFrame, best_similar: pd.DataFrame)
     return pd.concat(frames, ignore_index=True)
 
 
-def generate_reasons(evidence: dict[str, Any], work_ids: pd.Index) -> pd.DataFrame:
+def _upstream_reason_rows(
+    frame: pd.DataFrame,
+    work_ids: pd.Index,
+    reason_column: str,
+    evidence_column: str,
+    score_column: str,
+    status_column: str,
+    cap: float,
+    source_order: int,
+    source_name: str,
+) -> pd.DataFrame:
+    columns = ["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]
+    if frame.empty:
+        return pd.DataFrame(columns=columns)
+    rows = []
+    for _, row in frame.copy().sort_values("work_id", kind="mergesort").iterrows():
+        score = float(row[score_column])
+        if row[status_column] == "NOT_EVALUABLE" or score <= 0:
+            continue
+        try:
+            reasons = json.loads(row[reason_column])
+        except (TypeError, json.JSONDecodeError):
+            reasons = []
+        if not isinstance(reasons, list) or not reasons:
+            reasons = [f"{source_name} contributed a score of {score:.2f} based on its upstream evidence."]
+        points = score / 100.0 * cap
+        severity_tier = 3 if score >= 75 else 2 if score >= 50 else 1
+        for index, reason in enumerate(reasons):
+            rows.append({
+                "work_id": str(row["work_id"]), "severity_tier": severity_tier,
+                "points": points, "source_order": source_order,
+                "sub_order": f"{source_name}:{index}", "reason_text": str(reason),
+            })
+    return pd.DataFrame(rows, columns=columns)
+
+
+def generate_reasons(
+    evidence: dict[str, Any], work_ids: pd.Index, contributions: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     """Build ranked, human-readable reasons and a source_signal_summary per project.
 
     Ranking is deterministic: severity tier (HIGH=3/MEDIUM=2/LOW=1) first,
@@ -687,9 +839,31 @@ def generate_reasons(evidence: dict[str, Any], work_ids: pd.Index) -> pd.DataFra
             _anomaly_reason_rows(timeline["anomaly_rows"], "timeline", TIMELINE_METRIC_LABELS, source_order=2),
             _duplicate_reason_rows(duplicate["best_exact"], duplicate["best_similar"]),
             _dq_reason_rows(compliance["dq_flags"]),
+            _upstream_reason_rows(evidence["payment"], work_ids, "payment_reasons", "payment_evidence", "payment_risk_score", "payment_status", PAYMENT_CAP, 5, "payment"),
+            _upstream_reason_rows(evidence["isolation_forest"], work_ids, "isolation_forest_reasons", "isolation_forest_evidence", "isolation_forest_risk_score", "isolation_forest_status", ISOLATION_FOREST_CAP, 6, "isolation_forest"),
         ],
         ignore_index=True,
     )
+
+    if contributions is not None and not reason_rows.empty:
+        contribution_by_source = {
+            0: "compliance_contribution", 1: "financial_anomaly_contribution",
+            2: "timeline_anomaly_contribution", 3: "duplicate_contribution",
+            4: "data_quality_contribution", 5: "payment_contribution",
+            6: "isolation_forest_contribution",
+        }
+        adjusted_groups = []
+        for (work_id, source_order), group in reason_rows.groupby(["work_id", "source_order"], sort=False):
+            if work_id not in contributions.index:
+                continue
+            target = float(contributions.loc[work_id, contribution_by_source[source_order]])
+            raw_total = float(group["points"].sum())
+            if target <= 0 or raw_total <= 0:
+                continue
+            group = group.copy()
+            group["points"] = group["points"] * target / raw_total
+            adjusted_groups.append(group)
+        reason_rows = pd.concat(adjusted_groups, ignore_index=True) if adjusted_groups else reason_rows.iloc[0:0]
 
     top_reasons = {work_id: ["", "", ""] for work_id in work_ids}
     all_reasons: dict[str, list[str]] = {work_id: [] for work_id in work_ids}
@@ -708,7 +882,10 @@ def generate_reasons(evidence: dict[str, Any], work_ids: pd.Index) -> pd.DataFra
             top_reasons[work_id] = padded
             summaries[work_id] = group[["source_order", "sub_order", "severity_tier", "points"]].to_dict("records")
 
-    source_names = {0: "compliance", 1: "financial_anomaly", 2: "timeline_anomaly", 3: "duplicate", 4: "data_quality"}
+    source_names = {
+        0: "compliance", 1: "financial_anomaly", 2: "timeline_anomaly", 3: "duplicate",
+        4: "data_quality", 5: "payment", 6: "isolation_forest",
+    }
 
     result = pd.DataFrame(index=work_ids)
     result["top_reason_1"] = [top_reasons[w][0] or None for w in work_ids]
@@ -753,7 +930,7 @@ def build_output(inputs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     risk_score = calculate_risk_score(contributions)
     risk_level = assign_risk_level(risk_score)
     evidence_status_frame = assign_evidence_status(inputs, work_ids)
-    reasons = generate_reasons(evidence, work_ids)
+    reasons = generate_reasons(evidence, work_ids, contributions)
 
     compliance = evidence["compliance"]
     financial = evidence["financial"]
@@ -770,6 +947,19 @@ def build_output(inputs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     timeline_medium = timeline["medium_by_work"].reindex(work_ids).fillna(0)
     timeline_low = timeline["low_by_work"].reindex(work_ids).fillna(0)
 
+    payment_scores = pd.Series(0.0, index=work_ids)
+    isolation_scores = pd.Series(0.0, index=work_ids)
+    for name, score_column in (("payment", "payment_risk_score"), ("isolation_forest", "isolation_forest_risk_score")):
+        frame = evidence[name]
+        if not frame.empty:
+            indexed = frame.copy()
+            indexed["work_id"] = indexed["work_id"].astype(str)
+            scores = pd.to_numeric(indexed.set_index("work_id")[score_column], errors="coerce").reindex(work_ids).fillna(0.0)
+            if name == "payment":
+                payment_scores = scores
+            else:
+                isolation_scores = scores
+
     duplicate_summary = inputs["duplicate_summary"].copy()
     duplicate_summary["work_id"] = duplicate_summary["work_id"].astype(str)
     duplicate_summary_indexed = duplicate_summary.set_index("work_id").reindex(work_ids)
@@ -780,21 +970,32 @@ def build_output(inputs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     duplicate_medium = (exact_match_count.eq(0) & similar_match_count.gt(0) & highest_similarity.fillna(0).ge(0.95)).astype(int)
     duplicate_low = (exact_match_count.eq(0) & similar_match_count.gt(0) & highest_similarity.fillna(0).lt(0.95)).astype(int)
 
-    high_severity_signal_count = high_compliance + financial_high + timeline_high + duplicate_high
-    medium_severity_signal_count = warning_compliance + financial_medium + timeline_medium + duplicate_medium
-    low_severity_signal_count = financial_low + timeline_low + duplicate_low + dq_count.gt(0).astype(int)
+    payment_high = payment_scores.ge(75).astype(int)
+    payment_medium = payment_scores.ge(50).astype(int) - payment_high
+    payment_low = payment_scores.gt(0).astype(int) - payment_high - payment_medium
+    isolation_high = isolation_scores.ge(75).astype(int)
+    isolation_medium = isolation_scores.ge(50).astype(int) - isolation_high
+    isolation_low = isolation_scores.gt(0).astype(int) - isolation_high - isolation_medium
+
+    high_severity_signal_count = high_compliance + financial_high + timeline_high + duplicate_high + payment_high + isolation_high
+    medium_severity_signal_count = warning_compliance + financial_medium + timeline_medium + duplicate_medium + payment_medium + isolation_medium
+    low_severity_signal_count = financial_low + timeline_low + duplicate_low + dq_count.gt(0).astype(int) + payment_low + isolation_low
     total_evidence_signals = high_severity_signal_count + medium_severity_signal_count + low_severity_signal_count
 
     output = pd.DataFrame(index=work_ids)
     output["work_id"] = work_ids
     output["risk_score"] = risk_score.round(2).to_numpy()
-    output["risk_level"] = risk_level.to_numpy()
+    output["risk_level"] = np.where(
+        evidence_status_frame["evidence_status"].eq("INSUFFICIENT"), "UNASSESSED", risk_level
+    )
     output["evidence_status"] = evidence_status_frame["evidence_status"].to_numpy()
     output["compliance_contribution"] = contributions["compliance_contribution"].round(2).to_numpy()
     output["financial_anomaly_contribution"] = contributions["financial_anomaly_contribution"].round(2).to_numpy()
     output["timeline_anomaly_contribution"] = contributions["timeline_anomaly_contribution"].round(2).to_numpy()
     output["duplicate_contribution"] = contributions["duplicate_contribution"].round(2).to_numpy()
     output["data_quality_contribution"] = contributions["data_quality_contribution"].round(2).to_numpy()
+    output["payment_contribution"] = contributions["payment_contribution"].round(2).to_numpy()
+    output["isolation_forest_contribution"] = contributions["isolation_forest_contribution"].round(2).to_numpy()
     output["total_evidence_signals"] = total_evidence_signals.astype(int).to_numpy()
     output["high_severity_signal_count"] = high_severity_signal_count.astype(int).to_numpy()
     output["medium_severity_signal_count"] = medium_severity_signal_count.astype(int).to_numpy()
@@ -804,6 +1005,8 @@ def build_output(inputs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     output["has_timeline_anomaly"] = (timeline_high + timeline_medium + timeline_low).gt(0).to_numpy()
     output["has_duplicate_signal"] = (exact_match_count + similar_match_count).gt(0).to_numpy()
     output["has_data_quality_signal"] = dq_count.gt(0).to_numpy()
+    output["has_payment_signal"] = payment_scores.gt(0).to_numpy()
+    output["has_isolation_forest_signal"] = isolation_scores.gt(0).to_numpy()
     output["top_reason_1"] = reasons["top_reason_1"].to_numpy()
     output["top_reason_2"] = reasons["top_reason_2"].to_numpy()
     output["top_reason_3"] = reasons["top_reason_3"].to_numpy()
@@ -865,7 +1068,7 @@ def generate_quality_report(output: pd.DataFrame) -> dict[str, Any]:
     total_projects = len(output)
     contribution_columns = [
         "compliance_contribution", "financial_anomaly_contribution", "timeline_anomaly_contribution",
-        "duplicate_contribution", "data_quality_contribution",
+        "duplicate_contribution", "data_quality_contribution", "payment_contribution", "isolation_forest_contribution",
     ]
     contributions = output[contribution_columns]
     largest_contributor = contributions.idxmax(axis=1)
@@ -928,6 +1131,8 @@ def generate_quality_report(output: pd.DataFrame) -> dict[str, Any]:
                 "timeline_anomaly": TIMELINE_ANOMALY_CAP,
                 "duplicate": DUPLICATE_CAP,
                 "data_quality": DATA_QUALITY_CAP,
+                        "payment": PAYMENT_CAP,
+                        "isolation_forest": ISOLATION_FOREST_CAP,
             },
             "compliance_severity_points": COMPLIANCE_SEVERITY_POINTS,
             "data_quality_rule_points": DATA_QUALITY_RULE_POINTS,
@@ -936,7 +1141,7 @@ def generate_quality_report(output: pd.DataFrame) -> dict[str, Any]:
             "timeline_overlap_rule_ids": sorted(TIMELINE_OVERLAP_RULE_IDS),
             "duplicate_similarity_threshold": DUPLICATE_SIMILARITY_THRESHOLD,
             "risk_level_thresholds": "LOW < 25, 25 <= MEDIUM < 50, 50 <= HIGH < 75, CRITICAL >= 75",
-            "evidence_status_thresholds": "0 evaluable domains = INSUFFICIENT, 1-2 = LIMITED, 3-4 = SUFFICIENT",
+            "evidence_status_thresholds": "0 evaluable domains = INSUFFICIENT, 1-2 = LIMITED, 3-6 = SUFFICIENT",
         },
     }
 
