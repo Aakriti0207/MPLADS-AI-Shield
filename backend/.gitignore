@@ -23,3 +23,5 @@ data/processed/timeline_anomalies.csv
 data/processed/phase5_anomaly_summary.csv
 data/processed/duplicate_matches.csv
 data/processed/duplicate_summary.csv
+data/processed/project_risk_scores.csv
+data/processed/risk_quality_report.json
