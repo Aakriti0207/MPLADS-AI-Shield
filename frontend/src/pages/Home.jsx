@@ -1,8 +1,8 @@
 import React,{useEffect,useState} from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, BarChart3, BellRing, CheckCircle2, FileSearch, Loader2, Map, ShieldCheck, Sparkles } from 'lucide-react'
-
-const API_BASE = 'http://127.0.0.1:8000'
+import { apiFetch } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 const money = n => `₹${(n/10000000).toFixed(2)} Cr`
 
@@ -13,15 +13,27 @@ const toNumber = v => {
 }
 
 export default function Home(){
+ const { isAuthenticated, status } = useAuth()
  const [stats,setStats]=useState(null)
  const [loading,setLoading]=useState(true)
  const [error,setError]=useState(null)
 
  useEffect(()=>{
+  // /dashboard/stats is a protected endpoint. Home is the public landing
+  // page, so anonymous visitors must never trigger a request to it (that
+  // would just be a guaranteed 401) -- backend protection stays intact,
+  // and only authenticated visitors see live figures here.
+  if (status === 'loading') return
+  if (!isAuthenticated) {
+   setLoading(false)
+   setError(null)
+   setStats(null)
+   return
+  }
   let cancelled=false
   setLoading(true)
   setError(null)
-  fetch(`${API_BASE}/dashboard/stats`)
+  apiFetch('/dashboard/stats')
    .then(res=>{
     if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
     return res.json()
@@ -30,7 +42,7 @@ export default function Home(){
    .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
    .finally(()=>{ if(!cancelled) setLoading(false) })
   return ()=>{ cancelled=true }
- },[])
+ },[isAuthenticated,status])
 
  const totalProjects = stats ? (stats.total_projects ?? null) : null
  const totalSanctioned = stats ? toNumber(stats.total_sanctioned_amount) : null
@@ -58,14 +70,19 @@ export default function Home(){
     <div className="card bg-white/10 border-white/20 p-5 backdrop-blur">
      <div className="text-sm text-blue-100 mb-4">Live portfolio snapshot</div>
 
-     {loading && <div className="rounded-xl bg-white/10 p-6 flex items-center justify-center gap-2 text-blue-100"><Loader2 className="animate-spin" size={18}/><span className="text-sm">Loading live figures…</span></div>}
+     {(loading || status==='loading') && <div className="rounded-xl bg-white/10 p-6 flex items-center justify-center gap-2 text-blue-100"><Loader2 className="animate-spin" size={18}/><span className="text-sm">Loading live figures…</span></div>}
 
-     {!loading && error && <div className="rounded-xl bg-white/10 p-4 text-sm text-blue-100">
+     {!loading && status!=='loading' && !isAuthenticated && <div className="rounded-xl bg-white/10 p-4 text-sm text-blue-100">
+      <div className="font-semibold text-white">Sign in to view live figures</div>
+      <p className="mt-1 text-xs">Portfolio snapshot data is only shown to authenticated users. <Link to="/login" className="underline">Login</Link> to see it here.</p>
+     </div>}
+
+     {!loading && status!=='loading' && isAuthenticated && error && <div className="rounded-xl bg-white/10 p-4 text-sm text-blue-100">
       <div className="flex items-center gap-2 font-semibold text-white"><AlertTriangle size={16}/> Could not load live figures</div>
       <p className="mt-1 text-xs">{error}</p>
      </div>}
 
-     {!loading && !error && <>
+     {!loading && status!=='loading' && isAuthenticated && !error && <>
       <div className="grid grid-cols-2 gap-3">{snapshotItems.map(x=><div key={x[0]} className="rounded-xl bg-white/10 p-4"><div className="text-xs text-blue-100">{x[0]}</div><div className="text-xl font-extrabold mt-1">{x[1]}</div></div>)}</div>
       <div className="mt-4 rounded-xl bg-white p-4 text-slate-800"><div className="flex justify-between text-sm"><span>Overall utilization</span><b>{utilizationPct!==null ? `${utilizationPct}%` : 'Not available'}</b></div><div className="h-2 bg-slate-100 rounded-full mt-2"><div className="h-full bg-navy rounded-full" style={{width:`${utilizationPct ?? 0}%`}}/></div></div>
      </>}

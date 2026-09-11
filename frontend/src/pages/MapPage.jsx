@@ -9,6 +9,12 @@ import {
 import L from 'leaflet'
 import { Link } from 'react-router-dom'
 import { RiskBadge, StatusBadge } from '../components/UI'
+import { apiFetch } from '../lib/api'
+
+// Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
+// RiskBadge / the risk filter expect Title case -- same normalization
+// pattern already used in Projects.jsx / ProjectDetails.jsx.
+const titleCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null
 
 delete L.Icon.Default.prototype._getIconUrl
 
@@ -56,16 +62,17 @@ export default function MapPage() {
         setLoading(true)
         setError('')
 
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/projects?skip=0&limit=100`
-        )
+        const response = await apiFetch('/projects?skip=0&limit=100')
 
         if (!response.ok) {
           throw new Error(`Failed to fetch projects (${response.status})`)
         }
 
         const data = await response.json()
-        setProjects(data)
+        const list = Array.isArray(data) ? data : (data.items || data.projects || data.results || [])
+        // Normalize risk_level once here so both the risk filter and
+        // RiskBadge below always see the Title-cased form.
+        setProjects(list.map(p => ({ ...p, risk_level: titleCase(p.risk_level) })))
       } catch (err) {
         console.error('Map projects error:', err)
         setError('Unable to load project locations.')

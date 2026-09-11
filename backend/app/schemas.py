@@ -182,6 +182,94 @@ class DashboardStats(BaseModel):
     by_work_type: Optional[list[ByWorkTypeStat]] = None
 
 
+class StatusCount(BaseModel):
+    """One row of the Phase 4 status-distribution aggregate. `status` is
+    "Not specified" for NULL/blank values rather than dropping those
+    projects from the breakdown (see app/aggregations.py)."""
+
+    status: str
+    count: int
+
+
+class RiskScoreSummary(BaseModel):
+    """Phase 4: summary statistics over Project.risk_score.
+
+    All three of average/minimum/maximum are None only when
+    scored_project_count is 0 (no project in the table has a risk_score
+    yet) -- SQL AVG/MIN/MAX already skip NULL rows on their own, so this
+    never silently substitutes 0 for "no data".
+    """
+
+    average: Optional[Decimal] = None
+    minimum: Optional[Decimal] = None
+    maximum: Optional[Decimal] = None
+    scored_project_count: int
+
+
+class EstimatedCostSummary(BaseModel):
+    """Phase 4: summary statistics over Project.estimated_cost.
+
+    NOTE: real Phase 2 rows have no source value for estimated_cost at
+    all (see app/models.py / import_phase2.py) -- so on the real
+    dataset, project_count_with_data will legitimately be 0 (or close to
+    it) and total/average/minimum/maximum will be None. That is reported
+    as-is here rather than defaulted to 0, per Phase 4's NULL-handling
+    requirement.
+    """
+
+    total: Optional[Decimal] = None
+    average: Optional[Decimal] = None
+    minimum: Optional[Decimal] = None
+    maximum: Optional[Decimal] = None
+    project_count_with_data: int
+
+
+class ProgressSummary(BaseModel):
+    """Phase 4: summary statistics for a progress field (financial_progress
+    or physical_progress). Same None-means-no-data semantics as
+    RiskScoreSummary/EstimatedCostSummary above."""
+
+    average: Optional[Decimal] = None
+    minimum: Optional[Decimal] = None
+    maximum: Optional[Decimal] = None
+    project_count_with_data: int
+
+
+class AnalyticsResponse(BaseModel):
+    """Response shape for GET /analytics.
+
+    Phase 4: the more complete analytics contract for the project
+    portfolio. Deliberately built on the SAME aggregation functions
+    (app/aggregations.py) that back GET /dashboard/stats for the fields
+    they share (total_projects through by_work_type below), so the two
+    endpoints can never quietly disagree with each other -- plus the
+    additional risk-score, cost, progress, and status aggregates that
+    /dashboard/stats does not expose. GET /dashboard/stats is unchanged
+    and remains the existing frontend Dashboard/Analytics page's data
+    source; this endpoint is additive, not a replacement.
+    """
+
+    # --- Shared with DashboardStats (same aggregation functions) ---
+    total_projects: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    average_financial_progress: Optional[Decimal] = None
+    average_physical_progress: Optional[Decimal] = None
+    active_projects: int
+    completed_projects: int
+    delayed_projects: int
+    risk_level_counts: dict[str, int]
+    by_state: list[ByStateStat]
+    by_work_type: list[ByWorkTypeStat]
+
+    # --- New Phase 4 aggregates ---
+    risk_score_summary: RiskScoreSummary
+    estimated_cost_summary: EstimatedCostSummary
+    financial_progress_summary: ProgressSummary
+    physical_progress_summary: ProgressSummary
+    status_distribution: list[StatusCount]
+
+
 class AlertOut(BaseModel):
     """
     Response shape for a single alert.
@@ -198,3 +286,101 @@ class AlertOut(BaseModel):
     severity: str
     message: str
     created_at: datetime
+
+
+# --- Phase 5: POST /upload-analyze --------------------------------------
+#
+# IMPORTANT SCOPE NOTE: the real Project.risk_score / risk_level (Phase 2)
+# are produced by an OFFLINE pipeline that combines compliance, anomaly,
+# and duplicate-detection signals with a weighting step that exists only
+# outside this repository (verified during the Phase 5 audit -- nothing
+# in backend/ml computes a final risk_score/risk_level; only
+# import_phase2.py reads it from project_risk_scores.csv). That
+# combination step is NOT reproduced here. What genuinely IS reused,
+# unchanged, at request time is the Phase 4 compliance rule engine
+# (ml/compliance/rules.py + ml/compliance/engine.py's
+# build_compliance_outputs) -- those 12 rules are pure, deterministic,
+# and operate on a single project's fields, so they are safe to run on
+# a newly uploaded project with no offline/corpus-wide step required.
+# See app/upload_analysis.py for the glue that adapts uploaded fields
+# into what those rules expect.
+
+class ComplianceFindingOut(BaseModel):
+    """One rule's real, unmodified output from ml/compliance/rules.py's
+    RULE_EVALUATORS for this uploaded project. Nothing here is generated
+    by this schema -- it's a direct pass-through of that engine's result."""
+
+    rule_id: str
+    category: str
+    status: str  # PASS | FLAG | NOT_EVALUABLE
+    severity: str  # WARNING | HIGH
+    message: str
+    evidence: dict[str, Any]
+
+
+class ComplianceSummaryOut(BaseModel):
+    """Same aggregate fields ml/compliance/engine.py computes per project
+    in its offline batch mode (compliance_summary.csv) -- computed the
+    same way here, just for one project at request time."""
+
+    compliance_status: str  # PASS | WARNING | REVIEW_REQUIRED | NOT_EVALUABLE
+    high_severity_count: int
+    warning_count: int
+    data_quality_issue_count: int
+    rules_evaluated: int
+    rules_flagged: int
+    findings: list[ComplianceFindingOut]
+
+
+class UploadRowValidationError(BaseModel):
+    """One field-level problem found while parsing/validating an
+    uploaded CSV row. Row-level, so one bad row never fails the rest of
+    the file."""
+
+    field: str
+    message: str
+
+
+class BasicMetricsOut(BaseModel):
+    """Simple arithmetic computed directly from the fields the uploader
+    supplied -- NOT part of the compliance rule engine and NOT a risk
+    score. None when the inputs needed for that specific calculation
+    weren't supplied."""
+
+    financial_progress_percent: Optional[Decimal] = None
+    expenditure_exceeds_sanctioned_amount: Optional[bool] = None
+
+
+class UploadRowResult(BaseModel):
+    """Analysis result for one row of the uploaded CSV."""
+
+    row_number: int  # 1-based, matches the row's position in the CSV (excluding header)
+    work_id: Optional[str] = None
+    is_valid: bool
+    validation_errors: list[UploadRowValidationError] = []
+
+    # True if this work_id already exists in the real `projects` table --
+    # a genuine DB lookup, not a fabricated similarity score. False for
+    # every row when is_valid is False (not checked).
+    matches_existing_project_id: Optional[bool] = None
+
+    basic_metrics: Optional[BasicMetricsOut] = None
+    compliance: Optional[ComplianceSummaryOut] = None
+
+    # Deliberately present and always null: see the module-level note
+    # above and UploadAnalyzeResponse.risk_scoring_note below.
+    risk_score: None = None
+    risk_level: None = None
+
+
+class UploadAnalyzeResponse(BaseModel):
+    """Response shape for POST /upload-analyze."""
+
+    filename: str
+    total_rows: int
+    valid_rows: int
+    rows_with_errors: int
+    persisted_to_database: bool  # always False -- see persistence_note
+    persistence_note: str
+    risk_scoring_note: str
+    results: list[UploadRowResult]
