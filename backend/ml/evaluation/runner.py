@@ -12,6 +12,8 @@ from ml.compliance.engine import build_compliance_outputs
 from ml.duplicates.engine import build_phase6_outputs
 from ml.evaluation.synthetic import SCENARIO_IDS, scenario_inputs
 from ml.features import build_ml_features
+from ml.isolation_forest.engine import fit_isolation_forest_model, score_isolation_forest_data
+from ml.payment.engine import fit_payment_model, score_payment_data
 from ml.risk import build_output, validate_inputs
 
 
@@ -24,6 +26,15 @@ def execute_scenario(scenario_id: str) -> dict:
     findings, compliance_summary = build_compliance_outputs(features)
     anomalies, phase5_summary = build_phase5_outputs(features)
     duplicate_matches, duplicate_summary = build_phase6_outputs(canonical)
+    payment_source = features[[
+        "work_id", "sanction_amount", "total_expenditure", "total_amount_in_progress",
+        "n_expenditure_transactions", "n_distinct_vendors", "n_payment_success",
+        "n_payment_in_progress", "expenditure_span_days",
+    ]].copy()
+    payment_model = fit_payment_model(payment_source.iloc[:24].copy())
+    payment_scores = score_payment_data(payment_model, payment_source)
+    isolation_model = fit_isolation_forest_model(features.iloc[:24].copy())
+    isolation_scores = score_isolation_forest_data(isolation_model, features)
     inputs = {
         "canonical": canonical[["work_id"]], "compliance_findings": findings,
         "compliance_summary": compliance_summary,
@@ -32,12 +43,18 @@ def execute_scenario(scenario_id: str) -> dict:
         "phase5_summary": phase5_summary, "duplicate_matches": duplicate_matches,
         "duplicate_summary": duplicate_summary,
     }
+    if scenario_id == "PAYMENT_ANOMALY":
+        inputs["payment"] = payment_scores
+    if scenario_id == "ISOLATION_FOREST":
+        inputs["isolation_forest"] = isolation_scores
     validate_inputs(inputs)
     risk_output = build_output(inputs)
     row = risk_output.loc[risk_output["work_id"].eq(target)].iloc[0]
     target_findings = findings[(findings["work_id"] == target) & (findings["status"] == "FLAG")]
     target_anomalies = anomalies[(anomalies["work_id"] == target) & (anomalies["status"] == "ANOMALY")]
     target_matches = duplicate_matches[duplicate_matches[["work_id_a", "work_id_b"]].isin([target]).any(axis=1)]
+    target_payment = payment_scores.loc[payment_scores["work_id"].eq(target)].iloc[0]
+    target_isolation = isolation_scores.loc[isolation_scores["work_id"].eq(target)].iloc[0]
     detectors = []
     actual_flag = False
     if not target_anomalies.empty:
@@ -52,6 +69,12 @@ def execute_scenario(scenario_id: str) -> dict:
         actual_flag = True
     if not target_matches.empty:
         detectors.append("DUPLICATE")
+        actual_flag = True
+    if scenario_id == "PAYMENT_ANOMALY" and target_payment["payment_anomaly_status"] == "ANOMALY":
+        detectors.append("PAYMENT_AI")
+        actual_flag = True
+    if scenario_id == "ISOLATION_FOREST" and target_isolation["isolation_forest_status"] == "ANOMALY":
+        detectors.append("ISOLATION_FOREST")
         actual_flag = True
     actual_detector = "+".join(detectors) if detectors else "NONE"
     reasons = " ".join(str(row[column]) for column in ("top_reason_1", "top_reason_2", "top_reason_3") if pd.notna(row[column]))
@@ -69,6 +92,10 @@ def execute_scenario(scenario_id: str) -> dict:
         explanation_ok = "expenditure" in reasons.lower() and "duration" in reasons.lower()
     elif scenario_id == "INVALID_DATE_ORDER":
         explanation_ok = "completion occurred before sanction" in reasons.lower()
+    elif scenario_id == "PAYMENT_ANOMALY":
+        explanation_ok = "payment" in reasons.lower()
+    elif scenario_id == "ISOLATION_FOREST":
+        explanation_ok = "multivariate" in reasons.lower() or "isolation" in reasons.lower()
     if scenario_id == "RISK_EXPLANATION":
         explanation_ok = "expenditure" in reasons.lower() or "financial" in reasons.lower()
     passed = actual_flag == expected_flag and explanation_ok

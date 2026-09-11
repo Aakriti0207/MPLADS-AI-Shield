@@ -88,6 +88,17 @@ def scenario_inputs(scenario_id: str) -> tuple[pd.DataFrame, str, Scenario]:
     elif scenario_id == "RISK_EXPLANATION":
         frame.loc[24, "total_expenditure"] = 50000000.0
         metadata = Scenario(scenario_id, "Known evidence requiring explanation", "RISK_FUSION", "WHY-risky output names the expenditure anomaly")
+    elif scenario_id == "PAYMENT_ANOMALY":
+        frame.loc[:23, "total_amount_in_progress"] = [40000.0 + index * 1000 for index in range(24)]
+        frame.loc[:23, "n_expenditure_transactions"] = [5 + index % 6 for index in range(24)]
+        frame.loc[:23, "n_distinct_vendors"] = [2 + index % 3 for index in range(24)]
+        frame.loc[:23, "n_payment_success"] = [3 + index % 5 for index in range(24)]
+        frame.loc[:23, "n_payment_in_progress"] = [index % 3 for index in range(24)]
+        frame.loc[24, ["total_amount_in_progress", "n_expenditure_transactions", "n_distinct_vendors", "n_payment_success", "n_payment_in_progress", "last_expenditure_date"]] = [50000.0, 80, 1, 1, 79, "2024-04-01"]
+        metadata = Scenario(scenario_id, "Abnormal payment activity and vendor concentration", "PAYMENT_AI", "Payment AI identifies unusually abnormal payment signals")
+    elif scenario_id == "ISOLATION_FOREST":
+        frame.loc[24, ["sanction_amount", "recommended_amount", "amount_disbursed", "total_expenditure", "n_expenditure_transactions", "n_distinct_vendors"]] = [50000000.0, 100000.0, 49000000.0, 49000000.0, 80, 1]
+        metadata = Scenario(scenario_id, "Unusual multivariate project feature combination", "ISOLATION_FOREST", "Isolation Forest identifies an unusual multivariate project pattern")
     else:
         raise ValueError(f"Unknown Phase 10 scenario: {scenario_id}")
     return frame, target, metadata
@@ -96,5 +107,5 @@ def scenario_inputs(scenario_id: str) -> tuple[pd.DataFrame, str, Scenario]:
 SCENARIO_IDS = (
     "CLEAN_CONTROL", "FINANCIAL_ANOMALY", "TIMELINE_ANOMALY", "COMPLIANCE_VIOLATION",
     "DUPLICATE_SIMILARITY", "MULTI_EVIDENCE", "MISSING_DATA", "ZERO_VALUE",
-    "INVALID_DATE_ORDER", "RISK_EXPLANATION",
+    "INVALID_DATE_ORDER", "RISK_EXPLANATION", "PAYMENT_ANOMALY", "ISOLATION_FOREST",
 )

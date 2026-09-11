@@ -14,6 +14,8 @@ This evaluates controlled anomalies through the existing Phase 3-7 pipeline. It 
 | ZERO_VALUE | ZERO_VALUE | FINANCIAL_ANOMALY | False | True | 20.00 | True |
 | INVALID_DATE_ORDER | COMPLIANCE | COMPLIANCE | True | True | 10.00 | True |
 | RISK_EXPLANATION | RISK_FUSION | FINANCIAL_ANOMALY+COMPLIANCE | True | True | 14.00 | True |
+| PAYMENT_ANOMALY | PAYMENT_AI | PAYMENT_AI | True | True | 3.60 | True |
+| ISOLATION_FOREST | ISOLATION_FOREST | FINANCIAL_ANOMALY+COMPLIANCE+ISOLATION_FOREST | True | True | 34.00 | True |
 
 
 Final status: **PASS**
