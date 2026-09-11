@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.rate_limit import rate_limit
 from app.schemas import (
     BasicMetricsOut,
     ComplianceSummaryOut,
@@ -57,6 +58,12 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
+# Phase 6: a looser limit than login/register (this is an authenticated,
+# legitimately-repeatable action), but still bounded -- see
+# app/rate_limit.py's module docstring for exactly what this does and
+# doesn't protect against.
+UPLOAD_RATE_LIMIT = rate_limit(max_requests=10, window_seconds=60)
+
 PERSISTENCE_NOTE = (
     "Uploaded projects are analyzed only and are NOT written to the database. "
     "This keeps the existing 56,323 real project records safe from accidental "
@@ -77,7 +84,11 @@ RISK_SCORING_NOTE = (
 )
 
 
-@router.post("", response_model=UploadAnalyzeResponse)
+@router.post(
+    "",
+    response_model=UploadAnalyzeResponse,
+    dependencies=[Depends(UPLOAD_RATE_LIMIT)],
+)
 async def upload_analyze(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),

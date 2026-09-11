@@ -18,12 +18,26 @@ from app.auth import (
 )
 from app.database import get_db
 from app.models import User
+from app.rate_limit import rate_limit
 from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Phase 6: basic brute-force/abuse deterrent on the two credential-facing
+# endpoints. See app/rate_limit.py's module docstring for exactly what
+# this does and doesn't protect against (in short: per-process, per-IP,
+# in-memory -- a real deployment behind multiple workers/instances still
+# needs a proper gateway-level or shared-store rate limiter).
+LOGIN_RATE_LIMIT = rate_limit(max_requests=5, window_seconds=60)
+REGISTER_RATE_LIMIT = rate_limit(max_requests=5, window_seconds=60)
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(REGISTER_RATE_LIMIT)],
+)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     """
     Register a new user.
@@ -51,7 +65,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(LOGIN_RATE_LIMIT)])
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """
     Authenticate with email + password and return a JWT.
