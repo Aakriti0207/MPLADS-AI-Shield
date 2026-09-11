@@ -28,8 +28,24 @@ from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
 from app.main import app
+from app.rate_limit import reset_all as _reset_rate_limits
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """
+    Phase 6: reset every in-memory rate limiter (app/rate_limit.py)
+    before each test. Without this, the limiters are module-level
+    singletons that persist for the whole pytest process, so an early
+    test's calls to /auth/register or /auth/login would count toward
+    the same limit as every later test's calls, eventually tripping a
+    429 in tests that have nothing to do with rate limiting. This has
+    no effect on the running application -- reset_all() is test-only.
+    """
+    _reset_rate_limits()
+    yield
 
 
 @pytest.fixture()
