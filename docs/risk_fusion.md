@@ -64,6 +64,23 @@ Forest inputs are optional for backward compatibility with the existing
 Phase 4-6 caller; when supplied, they must follow their producer output
 contracts.
 
-API, database, dashboard, frontend, persisted Payment/Isolation output wiring,
-and application-level scheduling are intentionally deferred to the later
-integration phase.
+## Phase 11 FastAPI integration
+
+Phase 11 exposes the current Risk Fusion result through the authenticated
+`GET /projects/{work_id}/risk` endpoint. The endpoint reads the existing
+Phase 4-8 processed outputs and invokes the existing `validate_inputs()` and
+`build_output()` contract through a read-only, process-cached application
+service. The service caches validated inputs and slices them to the requested
+`work_id`; it does not execute the full corpus fusion for an API request. It
+never reads the legacy Phase 2 score CSV, writes processed artifacts, fits a
+model, or changes database rows.
+
+The existing `GET /projects/{work_id}` response retains its legacy Phase 2
+risk fields for backward compatibility. Consumers that need the current
+Phase 9 score, evidence status, contributions, and structured explanations
+must use the dedicated Risk Fusion endpoint. Projects without a current
+Phase 9 row return a clear 404 rather than a fabricated or legacy fallback.
+
+Phase 12 remains Upload & Analyze. Dashboard/alert migration to current
+Risk Fusion persistence is deferred until an explicit persistence/import
+contract exists.

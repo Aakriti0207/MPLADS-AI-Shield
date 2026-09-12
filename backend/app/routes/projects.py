@@ -28,7 +28,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project
-from app.schemas import ProjectOut
+from app.schemas import ProjectOut, RiskFusionOut
+from app.services.ml_service import get_risk_fusion_result
 
 router = APIRouter(
     prefix="/projects",
@@ -72,6 +73,29 @@ def list_projects(
         .limit(limit)
         .all()
     )
+
+
+@router.get("/{project_id:path}/risk", response_model=RiskFusionOut)
+def get_project_risk(project_id: str, db: Session = Depends(get_db)):
+    """Return the current Phase 9 result for an existing project.
+
+    The legacy Phase 2 fields remain available on ``GET /projects/{id}``
+    for compatibility. This endpoint is the explicit current Risk Fusion
+    contract and never falls back to those legacy values.
+    """
+    project = db.query(Project.project_id).filter(Project.project_id == project_id).first()
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    result = get_risk_fusion_result(project_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Current Risk Fusion result for project '{project_id}' is not available",
+        )
+    return result
 
 
 @router.get("/{project_id:path}", response_model=ProjectOut)

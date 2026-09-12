@@ -138,6 +138,47 @@ class ProjectOut(BaseModel):
     updated_at: datetime
 
 
+class RiskFusionOut(BaseModel):
+    """Current Phase 9 Risk Fusion output for one persisted project.
+
+    This is deliberately separate from ``ProjectOut``'s legacy Phase 2
+    fields. The endpoint serving this schema reads the current processed
+    Phase 9 evidence, never a legacy score from ``projects``.
+    """
+
+    work_id: str
+    risk_score: float
+    risk_level: str
+    evidence_status: str
+
+    compliance_contribution: float
+    financial_anomaly_contribution: float
+    timeline_anomaly_contribution: float
+    duplicate_contribution: float
+    data_quality_contribution: float
+    payment_contribution: float
+    isolation_forest_contribution: float
+
+    total_evidence_signals: int
+    high_severity_signal_count: int
+    medium_severity_signal_count: int
+    low_severity_signal_count: int
+
+    has_compliance_signal: bool
+    has_financial_anomaly: bool
+    has_timeline_anomaly: bool
+    has_duplicate_signal: bool
+    has_data_quality_signal: bool
+    has_payment_signal: bool
+    has_isolation_forest_signal: bool
+
+    top_reason_1: Optional[str] = None
+    top_reason_2: Optional[str] = None
+    top_reason_3: Optional[str] = None
+    risk_reasons: list[str]
+    source_signal_summary: dict[str, Any]
+
+
 class ByStateStat(BaseModel):
     """One row of the Phase 3E state-level aggregate."""
 
