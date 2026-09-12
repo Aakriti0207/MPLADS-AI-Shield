@@ -14,6 +14,7 @@ from app.auth import (
     create_access_token,
     get_current_user,
     hash_password,
+    resolve_registration_role,
     verify_password,
 )
 from app.database import get_db
@@ -45,6 +46,12 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     Rejects duplicate emails, hashes the password (never stores
     plaintext), and returns the safe user profile -- never the
     password hash.
+
+    Phase 2: the role actually stored is resolved through
+    resolve_registration_role(), never assigned directly from
+    payload.role -- this prevents a caller from granting themselves
+    administrative privilege simply by naming it in the request body.
+    See app/auth.py's resolve_registration_role() docstring.
     """
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing is not None:
@@ -56,7 +63,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     user = User(
         email=payload.email,
         password_hash=hash_password(payload.password),
-        role=payload.role,
+        role=resolve_registration_role(payload.role),
         is_active=True,
     )
     db.add(user)

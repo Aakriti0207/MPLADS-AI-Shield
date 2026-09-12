@@ -148,14 +148,20 @@ def get_current_user(
 
 def require_role(*allowed_roles: str):
     """
-    Dependency factory for future role-based authorization, kept
-    separate from authentication (`get_current_user`).
+    Dependency factory for role-based authorization, kept separate from
+    authentication (`get_current_user`).
 
     Usage:
         @router.get("/admin-only", dependencies=[Depends(require_role("Administrator"))])
 
     Raises HTTP 403 (not 401 -- the user IS authenticated, just not
     authorized) if the current user's role isn't in `allowed_roles`.
+
+    The role check always reads `current_user.role` as freshly loaded
+    from the database by `get_current_user` (never a role claim taken
+    directly from the JWT payload), so a role change takes effect on
+    the user's very next request rather than only once their existing
+    token expires.
     """
 
     def _check_role(current_user: User = Depends(get_current_user)) -> User:
@@ -167,3 +173,56 @@ def require_role(*allowed_roles: str):
         return current_user
 
     return _check_role
+
+
+# --- Phase 2: registration role policy ---------------------------------
+#
+# `User.role` (app/models.py) is intentionally a free-text string, not a
+# fixed enum -- the application already lets people register with
+# whatever descriptive title fits (e.g. "District Authority", "State
+# Nodal Officer"; see tests/test_auth.py's test_register_new_user and
+# app/models.py's docstring). Phase 2 does not change that. The one gap
+# this closes: a caller must never be able to hand themselves
+# administrative privilege just by naming it in the /auth/register
+# request body. "Administrator" is the one role name this codebase
+# already treats as privileged (see require_role's own docstring
+# example above, and app/models.py's docstring) -- every other
+# self-chosen title is left exactly as the caller submitted it.
+
+# The privileged role label itself (also usable as an argument to
+# require_role(...) wherever a genuinely admin-only capability exists).
+ADMIN_ROLE = "Administrator"
+
+# Role newly self-registered users receive when they did not request a
+# privileged role. Matches the role already used as the standard
+# authenticated-user fixture throughout the existing test suite (see
+# tests/conftest.py's registered_user fixture), so it reflects this
+# application's actual "ordinary user" role rather than a value invented
+# for this change.
+DEFAULT_REGISTRATION_ROLE = "District Authority"
+
+# Matched case-insensitively so "administrator", "ADMIN", " Admin ",
+# etc. are all treated the same way.
+_PRIVILEGED_ROLE_NAMES = {"administrator", "admin"}
+
+
+def resolve_registration_role(requested_role: str) -> str:
+    """
+    Decide the role a newly self-registered user actually receives.
+
+    If `requested_role` names a privileged role (case-insensitively),
+    it is silently replaced with DEFAULT_REGISTRATION_ROLE -- the
+    caller still gets a 201 and a usable account, just never with
+    administrative privilege. Any other value (including titles this
+    application has never seen before) is returned unchanged, since
+    ordinary role titles are not restricted, only the privileged one.
+
+    There is deliberately no way to create an Administrator account
+    through this public endpoint. Provisioning one requires a
+    separately protected path (e.g. direct database access by an
+    operator); Phase 2 does not add such a path since none currently
+    exists and inventing one is out of scope here.
+    """
+    if requested_role.strip().lower() in _PRIVILEGED_ROLE_NAMES:
+        return DEFAULT_REGISTRATION_ROLE
+    return requested_role
