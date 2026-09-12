@@ -58,11 +58,13 @@ MPLADS data is spread across recommendation, sanction, completion, payment and e
 
 | Evidence | Weight |
 |---|---:|
-| Compliance | 35 |
-| Financial Anomaly | 25 |
-| Timeline Anomaly | 15 |
-| Duplicate | 15 |
-| Data Quality | 10 |
+| Compliance | 28 |
+| Financial Anomaly | 20 |
+| Timeline Anomaly | 12 |
+| Duplicate | 12 |
+| Data Quality | 8 |
+| Payment AI | 10 |
+| Isolation Forest | 10 |
 
 ---
 ### Risk Fusion
@@ -70,6 +72,11 @@ Weighted evidence from:
 Compliance 28 | Financial 20 | Timeline 12 |
 Duplicate 12 | Data Quality 8 | Payment AI 10 |
 Isolation Forest 10
+
+The current Phase 9 result is exposed by the authenticated
+`GET /projects/{work_id}/risk` endpoint in Phase 11. Legacy Phase 2 risk
+fields remain available on the existing project response for compatibility;
+they are not used as a fallback for the current Risk Fusion result.
 
 ## 📊 Current Results
 
@@ -126,8 +133,8 @@ Isolation Forest 10
     ✅ Phase 8 — Isolation Forest
     ✅ Phase 9 — Risk Fusion + WHY Risky
 
-    🔄 Phase 10 — Evaluation + Synthetic Anomaly Tests
-    🔜 Phase 11 — FastAPI ML Integration
+    ✅ Phase 10 — Evaluation + Synthetic Anomaly Tests
+    ✅ Phase 11 — FastAPI ML Integration
     🔜 Phase 12 — Upload & Analyze
     🔜 Phase 13 — Role-Based Dashboard + Alerts
     🔜 Phase 14 — SIH Polish & Demo
