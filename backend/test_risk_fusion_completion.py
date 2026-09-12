@@ -12,7 +12,7 @@ from ml.isolation_forest.engine import fit_isolation_forest_model, score_isolati
 from ml.payment.engine import fit_payment_model, score_payment_data
 from ml.risk import build_output, load_inputs, validate_inputs
 from ml.risk_config import ISOLATION_FOREST_CAP, PAYMENT_CAP, RISK_COMPONENT_CAPS
-from test_phase7_risk import _anomaly_row, _compliance_finding, _match_row, make_inputs, row_for
+from test_phase9_risk import _anomaly_row, _compliance_finding, _match_row, make_inputs, row_for
 
 
 def producer_outputs(work_ids: list[str], payment_score: float = 80.0, isolation_score: float = 70.0) -> dict[str, pd.DataFrame]:
