@@ -1,11 +1,11 @@
 import React from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { BarChart3, BellRing, FileText, FolderKanban, Home, LayoutDashboard, LogIn, Map, Menu, ShieldCheck, X } from 'lucide-react'
+import { BarChart3, BellRing, FileText, FolderKanban, LayoutDashboard, LogIn, Map, Menu, ShieldCheck, UploadCloud, X } from 'lucide-react'
 import { navItems } from '../data'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 
-const icons = {Dashboard:LayoutDashboard,Projects:FolderKanban,Alerts:BellRing,Analytics:BarChart3,'Map View':Map,Reports:FileText}
+const icons = {Dashboard:LayoutDashboard,Projects:FolderKanban,'Upload & Analyze':UploadCloud,Alerts:BellRing,Analytics:BarChart3,'Map View':Map,Reports:FileText}
 export default function Layout(){
   const [open,setOpen]=useState(false)
   const loc=useLocation()

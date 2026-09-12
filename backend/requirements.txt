@@ -7,6 +7,7 @@ python-dotenv
 bcrypt
 pyjwt
 email-validator
+python-multipart
 # Phase 5 (POST /upload-analyze): pandas is used at runtime by
 # app/upload_analysis.py to build the small feature frame passed to the
 # existing ml/compliance rule engine, and python-multipart is required

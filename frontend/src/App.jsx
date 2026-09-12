@@ -11,6 +11,7 @@ import Alerts from './pages/Alerts'
 import Analytics from './pages/Analytics'
 import MapPage from './pages/MapPage'
 import Reports from './pages/Reports'
+import UploadAnalysis from './pages/UploadAnalysis'
 
 export default function App(){
   return <Routes>
@@ -20,6 +21,7 @@ export default function App(){
       <Route path="/dashboard" element={<Dashboard/>}/>
       <Route path="/projects" element={<Projects/>}/>
       <Route path="/projects/:id" element={<ProjectDetails/>}/>
+      <Route path="/upload" element={<UploadAnalysis/>}/>
       <Route path="/alerts" element={<Alerts/>}/>
       <Route path="/analytics" element={<Analytics/>}/>
       <Route path="/map" element={<MapPage/>}/>

@@ -31,7 +31,7 @@ export const alerts = [
 ]
 
 export const navItems = [
-  ['Dashboard','/dashboard'], ['Projects','/projects'], ['Alerts','/alerts'],
+  ['Dashboard','/dashboard'], ['Projects','/projects'], ['Upload & Analyze','/upload'], ['Alerts','/alerts'],
   ['Analytics','/analytics'], ['Map View','/map'], ['Reports','/reports']
 ]
 
