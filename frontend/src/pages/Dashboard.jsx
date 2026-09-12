@@ -1,17 +1,13 @@
 import React,{useEffect,useState} from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Banknote, CheckCircle2, FolderKanban, Gauge, Loader2, MapPinned } from 'lucide-react'
-import { money } from '../data'
+import { AlertTriangle, Banknote, CheckCircle2, FolderKanban, Gauge, MapPinned } from 'lucide-react'
+import { formatCurrency, formatNumber, formatPercent, toNumber } from '../lib/formatters'
 import { Stat, Section, Progress, EmptyState } from '../components/UI'
+import LoadingState from '../components/ui/LoadingState'
+import ErrorState from '../components/ui/ErrorState'
+import { fetchDashboardStats } from '../features/dashboard/api'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-import { API_BASE, apiFetch } from '../lib/api'
-
-const toNumber = v => {
- if (v === null || v === undefined || v === '') return null
- const n = Number(v)
- return Number.isFinite(n) ? n : null
-}
 
 const RISK_ORDER = ['LOW','MEDIUM','HIGH','CRITICAL']
 const riskLabel = k => k.charAt(0) + k.slice(1).toLowerCase()
@@ -25,28 +21,19 @@ export default function Dashboard(){
   let cancelled=false
   setLoading(true)
   setError(null)
-    apiFetch(`/dashboard/stats`)
-   .then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   })
-   .then(data=>{ if(!cancelled) setStats(data) })
+    fetchDashboardStats()
+     .then(data=>{ if(!cancelled) setStats(data) })
    .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
    .finally(()=>{ if(!cancelled) setLoading(false) })
   return ()=>{ cancelled=true }
  },[])
 
  if (loading) return <div className="p-4 md:p-8 max-w-[1500px] mx-auto">
-  <div className="card p-14 flex flex-col items-center gap-2 text-slate-500"><Loader2 className="animate-spin" size={22}/><span className="text-sm">Loading dashboard…</span></div>
+  <LoadingState text="Loading dashboard…" />
  </div>
 
  if (error) return <div className="p-4 md:p-8 max-w-[1500px] mx-auto">
-  <div className="card p-10 text-center">
-   <AlertTriangle className="mx-auto text-rose-600 mb-2" size={22}/>
-   <div className="font-semibold text-rose-700">Could not load dashboard statistics</div>
-   <p className="text-sm text-slate-500 mt-1">{error}</p>
-   <p className="text-xs text-slate-400 mt-1">Check that the FastAPI backend is running at {API_BASE}.</p>
-  </div>
+  <ErrorState title="Could not load dashboard statistics" message={error} onRetry={()=>{setLoading(true); setError(null); fetchDashboardStats().then(setStats).catch(err=>setError(err.message)).finally(()=>setLoading(false))}} />
  </div>
 
  // --- Map the raw /dashboard/stats payload; every value defensively
@@ -76,10 +63,10 @@ export default function Dashboard(){
    <div className="mb-7"><div className="eyebrow">Executive monitoring</div><h1 className="text-3xl font-extrabold mt-1">Good evening, monitoring team.</h1><p className="text-slate-500 mt-1">Live snapshot of the full MPLADS project portfolio and risk signal.</p></div>
 
    <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-    <Stat label="Total projects" value={totalProjects!==null ? totalProjects.toLocaleString() : 'Not available'} delta="Full Phase 2 portfolio" icon={FolderKanban}/>
-    <Stat label="Sanctioned amount" value={totalSanctioned!==null ? money(totalSanctioned) : 'Not available'} delta="Across all projects" icon={Banknote}/>
-    <Stat label="Utilization" value={utilizationPct!==null ? `${utilizationPct}%` : 'Not available'} delta={totalExpenditure!==null ? `${money(totalExpenditure)} spent` : 'Not available'} icon={Gauge}/>
-    <Stat label="High + Critical risk" value={hasRiskCounts ? highPlusCritical.toLocaleString() : 'Not available'} delta="Needs review" icon={AlertTriangle}/>
+    <Stat label="Total projects" value={formatNumber(totalProjects)} delta="Full Phase 2 portfolio" icon={FolderKanban}/>
+    <Stat label="Sanctioned amount" value={formatCurrency(totalSanctioned)} delta={totalExpenditure!==null ? `${formatCurrency(totalExpenditure)} spent` : 'Not available'} icon={Banknote}/>
+    <Stat label="Utilization" value={formatPercent(utilizationPct)} delta={totalExpenditure!==null ? `${formatCurrency(totalExpenditure)} spent` : 'Not available'} icon={Gauge}/>
+    <Stat label="High + Critical risk" value={hasRiskCounts ? formatNumber(highPlusCritical) : 'Not available'} delta="Needs review" icon={AlertTriangle}/>
    </div>
 
    <div className="grid lg:grid-cols-3 gap-5">

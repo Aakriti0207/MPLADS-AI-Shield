@@ -1,10 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Download, FileText, Loader2, UploadCloud, X } from 'lucide-react'
-import { apiFetch } from '../lib/api'
-import { RiskBadge } from '../components/UI'
+import RiskBadge from '../components/risk/RiskBadge'
+import { formatRiskLevel } from '../lib/formatters'
+import { analyzeUpload } from '../features/upload/api'
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024
-const titleCase = value => value ? value.charAt(0) + value.slice(1).toLowerCase() : 'Unknown'
 
 function validateFile(file) {
   if (!file) return 'Choose a CSV file to continue.'
@@ -52,15 +52,7 @@ export default function UploadAnalysis() {
     setError(null)
     setAnalysis(null)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const response = await apiFetch('/upload-analyze', { method: 'POST', body: form })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.detail || 'The upload could not be analyzed.')
-      if (!body.analysis || body.analysis.status !== 'success') {
-        throw new Error(body.analysis?.details?.join(' ') || body.analysis?.message || 'The ML pipeline could not analyze this file.')
-      }
-      setAnalysis(body.analysis)
+      setAnalysis(await analyzeUpload(file))
     } catch (err) {
       setError(err.message || 'Unable to analyze the uploaded dataset.')
     } finally {
@@ -69,7 +61,7 @@ export default function UploadAnalysis() {
   }
 
   const projects = analysis?.projects || []
-  const filtered = useMemo(() => projects.filter(project => riskFilter === 'All' || titleCase(project.risk_level) === riskFilter), [projects, riskFilter])
+  const filtered = useMemo(() => projects.filter(project => riskFilter === 'All' || formatRiskLevel(project.risk_level) === riskFilter), [projects, riskFilter])
 
   return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
@@ -99,8 +91,8 @@ export default function UploadAnalysis() {
 
     {analysis && <>
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">{[['Total Projects', analysis.summary.total_projects], ['Critical', analysis.summary.critical], ['High', analysis.summary.high], ['Medium', analysis.summary.medium], ['Low', analysis.summary.low]].map(([label, value]) => <div className="card p-4" key={label}><div className="text-xs text-slate-500">{label}</div><div className="text-2xl font-extrabold mt-1">{value}</div></div>)}</section>
-      <section className="card overflow-hidden"><div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Analyzed projects</h2><p className="text-xs text-slate-500 mt-1">Risk scores and explanations come from Risk Fusion.</p></div><select value={riskFilter} onChange={event => setRiskFilter(event.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm"><option>All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase"><tr><th className="px-4 py-3">Work ID</th><th className="px-4 py-3">State</th><th className="px-4 py-3">Score</th><th className="px-4 py-3">Level</th><th className="px-4 py-3">Why risky</th></tr></thead><tbody>{filtered.map(project => <tr key={project.work_id} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => setSelected(project)}><td className="px-4 py-3 font-semibold whitespace-nowrap">{project.work_id}</td><td className="px-4 py-3">{project.state || '—'}</td><td className="px-4 py-3 font-bold">{Number(project.risk_score).toFixed(1)}</td><td className="px-4 py-3"><RiskBadge risk={titleCase(project.risk_level)}/></td><td className="px-4 py-3 max-w-[460px] truncate">{project.why_risky?.[0] || 'No current evidence; review status is based on available data.'}</td></tr>)}</tbody></table></div>{filtered.length === 0 && <div className="p-10 text-center text-slate-500">No projects match this filter.</div>}</section>
-      {selected && <section className="card p-5 mt-5"><div className="flex items-start justify-between gap-4"><div><div className="eyebrow">Project detail</div><h2 className="font-bold text-lg mt-1">{selected.work_id}</h2></div><button title="Close detail" onClick={() => setSelected(null)}><X size={18}/></button></div><div className="flex items-center gap-3 mt-4"><RiskBadge risk={titleCase(selected.risk_level)}/><span className="font-bold">Risk score {Number(selected.risk_score).toFixed(1)}</span></div><h3 className="font-semibold mt-5">Why this project requires review</h3>{selected.why_risky?.length ? <ul className="list-disc pl-5 mt-2 space-y-2 text-sm text-slate-700">{selected.why_risky.map(reason => <li key={reason}>{reason}</li>)}</ul> : <p className="text-sm text-slate-500 mt-2">No anomaly or compliance evidence was generated for the available fields.</p>}<div className="flex flex-wrap gap-2 mt-4">{selected.evidence?.map(item => <span key={item} className="rounded-full bg-blue-50 text-navy px-3 py-1 text-xs font-semibold">{item}</span>)}</div></section>}
+      <section className="card overflow-hidden"><div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Analyzed projects</h2><p className="text-xs text-slate-500 mt-1">Risk scores and explanations come from Risk Fusion.</p></div><select value={riskFilter} onChange={event => setRiskFilter(event.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm"><option>All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase"><tr><th className="px-4 py-3">Work ID</th><th className="px-4 py-3">State</th><th className="px-4 py-3">Score</th><th className="px-4 py-3">Level</th><th className="px-4 py-3">Why risky</th></tr></thead><tbody>{filtered.map(project => <tr key={project.work_id} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => setSelected(project)}><td className="px-4 py-3 font-semibold whitespace-nowrap">{project.work_id}</td><td className="px-4 py-3">{project.state || '—'}</td><td className="px-4 py-3 font-bold">{Number(project.risk_score).toFixed(1)}</td><td className="px-4 py-3"><RiskBadge risk={formatRiskLevel(project.risk_level)}/></td><td className="px-4 py-3 max-w-[460px] truncate">{project.why_risky?.[0] || 'No current evidence; review status is based on available data.'}</td></tr>)}</tbody></table></div>{filtered.length === 0 && <div className="p-10 text-center text-slate-500">No projects match this filter.</div>}</section>
+      {selected && <section className="card p-5 mt-5"><div className="flex items-start justify-between gap-4"><div><div className="eyebrow">Project detail</div><h2 className="font-bold text-lg mt-1">{selected.work_id}</h2></div><button title="Close detail" onClick={() => setSelected(null)}><X size={18}/></button></div><div className="flex items-center gap-3 mt-4"><RiskBadge risk={formatRiskLevel(selected.risk_level)}/><span className="font-bold">Risk score {Number(selected.risk_score).toFixed(1)}</span></div><h3 className="font-semibold mt-5">Why this project requires review</h3>{selected.why_risky?.length ? <ul className="list-disc pl-5 mt-2 space-y-2 text-sm text-slate-700">{selected.why_risky.map(reason => <li key={reason}>{reason}</li>)}</ul> : <p className="text-sm text-slate-500 mt-2">No anomaly or compliance evidence was generated for the available fields.</p>}<div className="flex flex-wrap gap-2 mt-4">{selected.evidence?.map(item => <span key={item} className="rounded-full bg-blue-50 text-navy px-3 py-1 text-xs font-semibold">{item}</span>)}</div></section>}
     </>}
   </div>
 }

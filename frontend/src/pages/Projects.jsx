@@ -1,21 +1,13 @@
 import React,{useEffect,useMemo,useState} from 'react'
 import {Link} from 'react-router-dom'
-import {AlertTriangle, ChevronLeft, ChevronRight, Eye, Loader2, Search, SlidersHorizontal} from 'lucide-react'
-import {money} from '../data'
-import {RiskBadge,Progress} from '../components/UI'
-
-import { API_BASE, apiFetch } from '../lib/api'
+import {AlertTriangle, ChevronLeft, ChevronRight, Eye, SlidersHorizontal} from 'lucide-react'
+import {formatCurrency} from '../lib/formatters'
+import RiskBadge from '../components/risk/RiskBadge'
+import LoadingState from '../components/ui/LoadingState'
+import ErrorState from '../components/ui/ErrorState'
+import {fetchProjects} from '../features/projects/api'
+import ProjectFilters from '../components/projects/ProjectFilters'
 const PAGE_SIZE = 50
-
-// Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
-// RiskBadge / the risk filter expect Title case, so normalize once here.
-const titleCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null
-
-const toNumber = v => {
-  if (v === null || v === undefined || v === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
 
 export default function Projects(){
  const [q,setQ]=useState('')
@@ -30,16 +22,10 @@ export default function Projects(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  apiFetch(`/projects?skip=${skip}&limit=${PAGE_SIZE}`)
-   .then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   })
+    fetchProjects({skip, limit: PAGE_SIZE})
    .then(data=>{
     if(cancelled) return
-    // Accept either a raw array or a {items:[...]}/{projects:[...]} wrapper.
-    const list = Array.isArray(data) ? data : (data.items || data.projects || data.results || [])
-    setRows(list)
+    setRows(data)
    })
    .catch(err=>{
     if(!cancelled) setError(err.message || 'Failed to reach the API')
@@ -48,20 +34,7 @@ export default function Projects(){
   return ()=>{ cancelled=true }
  },[skip])
 
- // Map the raw API records into the fields this page renders, once per fetch.
- const projects = useMemo(()=>rows.map(r=>({
-  id: r.project_id ?? '—',
-  state: r.state ?? null,
-  district: r.district ?? null,
-  constituency: r.constituency ?? null,
-  mpName: r.mp_name ?? null,
-  workType: r.work_type ?? null,
-  agency: r.implementing_agency ?? null,
-  sanctioned: toNumber(r.sanctioned_amount),
-  expenditure: toNumber(r.expenditure),
-  riskScore: toNumber(r.risk_score),
-  risk: titleCase(r.risk_level),
- })),[rows])
+ const projects = rows
 
  const workTypes = useMemo(()=>[...new Set(projects.map(p=>p.workType).filter(Boolean))],[projects])
 
@@ -80,18 +53,7 @@ export default function Projects(){
   <p className="text-slate-500 mt-1">Search, filter and open a complete project intelligence view.</p>
  </div>
 
- <div className="card p-4 mb-5"><div className="grid md:grid-cols-4 gap-3">
-  <div className="md:col-span-2 relative">
-   <Search className="absolute left-3 top-3 text-slate-400" size={18}/>
-   <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search project ID, MP, state, district..." className="w-full border border-slate-200 rounded-xl py-2.5 pl-10 pr-3"/>
-  </div>
-  <select value={risk} onChange={e=>setRisk(e.target.value)} className="border border-slate-200 rounded-xl px-3">
-   <option>All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
-  </select>
-  <select value={workType} onChange={e=>setWorkType(e.target.value)} className="border border-slate-200 rounded-xl px-3">
-   <option>All</option>{workTypes.map(w=><option key={w}>{w}</option>)}
-  </select>
- </div></div>
+ <ProjectFilters query={q} onQueryChange={setQ} risk={risk} onRiskChange={setRisk} workType={workType} onWorkTypeChange={setWorkType} workTypes={workTypes}/>
 
  <div className="card overflow-hidden">
   <div className="p-4 border-b border-slate-200 flex items-center justify-between">
@@ -99,14 +61,9 @@ export default function Projects(){
    <div className="text-xs text-slate-500">Live backend • showing {skip+1}–{skip+rows.length}</div>
   </div>
 
-  {loading && <div className="p-14 flex flex-col items-center gap-2 text-slate-500"><Loader2 className="animate-spin" size={22}/><span className="text-sm">Loading projects from the API…</span></div>}
+  {loading && <LoadingState text="Loading projects from the API…" />}
 
-  {!loading && error && <div className="p-10 text-center">
-   <AlertTriangle className="mx-auto text-rose-600 mb-2" size={22}/>
-   <div className="font-semibold text-rose-700">Could not load projects</div>
-   <p className="text-sm text-slate-500 mt-1">{error}</p>
-   <p className="text-xs text-slate-400 mt-1">Check that the FastAPI backend is running at {API_BASE}.</p>
-  </div>}
+  {!loading && error && <ErrorState title="Could not load projects" message={error} onRetry={()=>setSkip(skip)} />}
 
   {!loading && !error && <div className="overflow-x-auto"><table className="w-full text-sm">
    <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase"><tr>
@@ -120,8 +77,8 @@ export default function Projects(){
      <td className="px-4 py-4 min-w-[170px]">{p.mpName || '—'}<div className="text-xs text-slate-500">{p.agency || '—'}</div></td>
      <td className="px-4 py-4 min-w-[150px]">
       {pct===null ? <span className="text-xs text-slate-400">Not available</span> : <>
-       <div className="text-xs text-slate-500 mb-1">{money(p.expenditure)} / {money(p.sanctioned)}</div>
-       <Progress value={pct}/>
+      <div className="text-xs text-slate-500 mb-1">{formatCurrency(p.expenditure)} / {formatCurrency(p.sanctioned)}</div>
+      <div className="w-full"><div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-navy rounded-full" style={{width:`${pct}%`}}/></div><div className="text-xs text-slate-500 mt-1">{pct}%</div></div>
       </>}
      </td>
      <td className="px-4 py-4">

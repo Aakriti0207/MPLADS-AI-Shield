@@ -1,10 +1,9 @@
 import React,{useEffect,useState} from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, BarChart3, BellRing, CheckCircle2, FileSearch, Loader2, Map, ShieldCheck, Sparkles } from 'lucide-react'
-import { apiFetch } from '../lib/api'
+import { fetchDashboardStats } from '../features/dashboard/api'
+import { formatCurrency } from '../lib/formatters'
 import { useAuth } from '../context/AuthContext'
-
-const money = n => `₹${(n/10000000).toFixed(2)} Cr`
 
 const toNumber = v => {
  if (v === null || v === undefined || v === '') return null
@@ -33,11 +32,7 @@ export default function Home(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  apiFetch('/dashboard/stats')
-   .then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   })
+  fetchDashboardStats()
    .then(data=>{ if(!cancelled) setStats(data) })
    .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
    .finally(()=>{ if(!cancelled) setLoading(false) })
@@ -57,8 +52,8 @@ export default function Home(){
  const snapshotItems = [
   ['Projects', totalProjects!==null ? totalProjects.toLocaleString() : 'Not available'],
   ['High + Critical risk', hasRiskCounts ? highPlusCritical.toLocaleString() : 'Not available'],
-  ['Sanctioned', totalSanctioned!==null ? money(totalSanctioned) : 'Not available'],
-  ['Expenditure', totalExpenditure!==null ? money(totalExpenditure) : 'Not available'],
+  ['Sanctioned', formatCurrency(totalSanctioned)],
+  ['Expenditure', formatCurrency(totalExpenditure)],
  ]
 
  return <div className="min-h-screen bg-white">

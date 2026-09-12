@@ -2,6 +2,10 @@ import React,{useEffect,useMemo,useState} from 'react'
 import {AlertTriangle,FileText,Loader2,Printer} from 'lucide-react'
 import {money} from '../data'
 import {API_BASE,apiFetch} from '../lib/api'
+import LoadingState from '../components/ui/LoadingState'
+import ErrorState from '../components/ui/ErrorState'
+import {fetchDashboardStats} from '../features/dashboard/api'
+import {fetchProjects} from '../features/projects/api'
 
 // Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
 // Same normalization used in Projects.jsx / ProjectDetails.jsx / MapPage.jsx.
@@ -30,20 +34,13 @@ export default function Reports(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  Promise.all([
-   apiFetch('/dashboard/stats').then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   }),
-   apiFetch(`/projects?skip=0&limit=${SCAN_LIMIT}`).then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   }),
+   Promise.all([
+    fetchDashboardStats(),
+    fetchProjects({skip: 0, limit: SCAN_LIMIT}),
   ]).then(([statsData,projectsData])=>{
    if(cancelled) return
    setStats(statsData)
-   const list = Array.isArray(projectsData) ? projectsData : (projectsData.items || projectsData.projects || projectsData.results || [])
-   setRows(list)
+   setRows(projectsData)
   }).catch(err=>{
    if(!cancelled) setError(err.message || 'Failed to reach the API')
   }).finally(()=>{
@@ -57,14 +54,14 @@ export default function Reports(){
  // no project name/title, and physical_progress is NULL for essentially
  // all real Phase 2 rows, so financial progress is shown instead.
  const projects = useMemo(()=>rows.map(r=>({
-  id: r.project_id ?? '—',
-  state: r.state ?? null,
-  district: r.district ?? null,
-  workType: r.work_type ?? null,
-  sanctioned: toNumber(r.sanctioned_amount),
-  expenditure: toNumber(r.expenditure),
-  financialProgress: toNumber(r.financial_progress),
-  risk: titleCase(r.risk_level),
+   id: r.id ?? '—',
+   state: r.state ?? null,
+   district: r.district ?? null,
+   workType: r.workType ?? null,
+   sanctioned: r.sanctioned,
+   expenditure: r.expenditure,
+   financialProgress: r.financialProgress,
+   risk: r.risk,
  })),[rows])
 
  const highPriority = useMemo(
@@ -131,7 +128,7 @@ export default function Reports(){
          <div className="text-right text-sm"><b>{pct!==null ? `${pct}%` : 'Not available'}</b><div className="text-xs text-slate-500">financial progress</div></div>
         </div>
        })}</div>}
-    <p className="text-xs text-slate-400 mt-3">Based on the {rows.length} most recently loaded projects (project data has no name/title field, and physical progress is not yet available for real projects, so financial progress is shown instead).</p>
+   <p className="text-xs text-slate-400 mt-3">Based on the first {rows.length} projects returned by the backend (maximum page size {SCAN_LIMIT}); this is not a complete portfolio ranking.</p>
 
     <div className="mt-7 rounded-xl bg-blue-50 p-4 text-sm text-blue-900"><b>Recommended review:</b> Validate delayed projects, compare physical and financial progress, and record authorized follow-up actions in the official workflow.</div>
    </>}

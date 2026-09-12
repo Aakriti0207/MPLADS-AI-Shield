@@ -9,7 +9,7 @@ import {
 import L from 'leaflet'
 import { Link } from 'react-router-dom'
 import { RiskBadge, StatusBadge } from '../components/UI'
-import { apiFetch } from '../lib/api'
+import { fetchProjects } from '../features/projects/api'
 
 // Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
 // RiskBadge / the risk filter expect Title case -- same normalization
@@ -62,17 +62,8 @@ export default function MapPage() {
         setLoading(true)
         setError('')
 
-        const response = await apiFetch('/projects?skip=0&limit=100')
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects (${response.status})`)
-        }
-
-        const data = await response.json()
-        const list = Array.isArray(data) ? data : (data.items || data.projects || data.results || [])
-        // Normalize risk_level once here so both the risk filter and
-        // RiskBadge below always see the Title-cased form.
-        setProjects(list.map(p => ({ ...p, risk_level: titleCase(p.risk_level) })))
+        const list = await fetchProjects({skip: 0, limit: 100})
+        setProjects(list.map(p => ({ ...p, project_id: p.id, risk_level: p.risk, latitude: p.latitude, longitude: p.longitude, status: p.status, work_type: p.workType, district: p.district, state: p.state })))
       } catch (err) {
         console.error('Map projects error:', err)
         setError('Unable to load project locations.')
@@ -119,7 +110,7 @@ export default function MapPage() {
 
         {/* Risk filters */}
         <div className="flex gap-2">
-          {['All', 'High', 'Medium', 'Low'].map(option => (
+          {['All', 'Critical', 'High', 'Medium', 'Low'].map(option => (
             <button
               key={option}
               onClick={() => setRisk(option)}

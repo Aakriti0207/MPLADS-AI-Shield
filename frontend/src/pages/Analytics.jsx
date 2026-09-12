@@ -1,16 +1,12 @@
 import React,{useEffect,useState} from 'react'
-import {AlertTriangle,BarChart3,FolderKanban,Loader2,Wallet} from 'lucide-react'
+import {AlertTriangle,BarChart3,FolderKanban,Wallet} from 'lucide-react'
 import {BarChart,Bar,CartesianGrid,Cell,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts'
 import {Section,Stat} from '../components/UI'
-
-import { API_BASE, apiFetch } from '../lib/api'
+import LoadingState from '../components/ui/LoadingState'
+import ErrorState from '../components/ui/ErrorState'
+import { fetchAnalytics } from '../features/analytics/api'
+import { toNumber } from '../lib/formatters'
 const TOP_N = 9
-
-const toNumber = v => {
- if (v === null || v === undefined || v === '') return null
- const n = Number(v)
- return Number.isFinite(n) ? n : null
-}
 
 // Sort desc by value, keep the top N, fold the remainder into a single
 // "Other" bucket (summed) rather than letting the chart run off-screen
@@ -32,11 +28,7 @@ export default function Analytics(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  apiFetch(`/dashboard/stats`)
-   .then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   })
+  fetchAnalytics()
    .then(data=>{ if(!cancelled) setStats(data) })
    .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
    .finally(()=>{ if(!cancelled) setLoading(false) })
@@ -44,16 +36,11 @@ export default function Analytics(){
  },[])
 
  if (loading) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
-  <div className="card p-14 flex flex-col items-center gap-2 text-slate-500"><Loader2 className="animate-spin" size={22}/><span className="text-sm">Loading analytics…</span></div>
+  <LoadingState text="Loading analytics…" />
  </div>
 
  if (error) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
-  <div className="card p-10 text-center">
-   <AlertTriangle className="mx-auto text-rose-600 mb-2" size={22}/>
-   <div className="font-semibold text-rose-700">Could not load analytics</div>
-   <p className="text-sm text-slate-500 mt-1">{error}</p>
-   <p className="text-xs text-slate-400 mt-1">Check that the FastAPI backend is running at {API_BASE}.</p>
-  </div>
+  <ErrorState title="Could not load analytics" message={error} onRetry={()=>{setLoading(true); setError(null); fetchAnalytics().then(setStats).catch(err=>setError(err.message)).finally(()=>setLoading(false))}} />
  </div>
 
  const totalProjects = stats.total_projects ?? null

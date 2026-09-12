@@ -1,9 +1,11 @@
 import React,{useEffect,useState} from 'react'
 import {Link} from 'react-router-dom'
-import {AlertTriangle,BellRing,ChevronLeft,ChevronRight,Loader2} from 'lucide-react'
+import {AlertTriangle,BellRing,ChevronLeft,ChevronRight} from 'lucide-react'
 import {Badge} from '../components/UI'
-
-import { API_BASE, apiFetch } from '../lib/api'
+import LoadingState from '../components/ui/LoadingState'
+import ErrorState from '../components/ui/ErrorState'
+import EmptyState from '../components/ui/EmptyState'
+import {fetchAlerts} from '../features/alerts/api'
 const PAGE_SIZE = 50
 
 const SEVERITY_STYLES = {
@@ -36,12 +38,8 @@ export default function Alerts(){
   let cancelled=false
   setLoading(true)
   setError(null)
-  apiFetch(`/alerts?skip=${skip}&limit=${PAGE_SIZE}`)
-   .then(res=>{
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
-   })
-   .then(data=>{ if(!cancelled) setRows(Array.isArray(data) ? data : []) })
+    fetchAlerts({skip, limit: PAGE_SIZE})
+     .then(data=>{ if(!cancelled) setRows(data) })
    .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
    .finally(()=>{ if(!cancelled) setLoading(false) })
   return ()=>{ cancelled=true }
@@ -60,14 +58,9 @@ export default function Alerts(){
    <button key={x} onClick={()=>setSev(x)} className={`btn ${sev===x?'bg-navy text-white':'btn-secondary'}`}>{x}</button>
   )}</div>
 
-  {loading && <div className="card p-14 flex flex-col items-center gap-2 text-slate-500"><Loader2 className="animate-spin" size={22}/><span className="text-sm">Loading alerts…</span></div>}
+    {loading && <LoadingState text="Loading alerts…" />}
 
-  {!loading && error && <div className="card p-10 text-center">
-   <AlertTriangle className="mx-auto text-rose-600 mb-2" size={22}/>
-   <div className="font-semibold text-rose-700">Could not load alerts</div>
-   <p className="text-sm text-slate-500 mt-1">{error}</p>
-   <p className="text-xs text-slate-400 mt-1">Check that the FastAPI backend is running at {API_BASE}.</p>
-  </div>}
+    {!loading && error && <ErrorState title="Could not load alerts" message={error} onRetry={()=>setSkip(skip)} />}
 
   {!loading && !error && <>
    <div className="space-y-3">{filtered.map(a=>{
@@ -92,7 +85,7 @@ export default function Alerts(){
      </div>
     </div>
    })}</div>
-   {filtered.length===0 && <div className="card p-10 text-center text-slate-500">No alerts match this filter on the current page.</div>}
+    {filtered.length===0 && <div className="card"><EmptyState text="No alerts match this filter on the current page." /></div>}
 
    <div className="flex items-center justify-between mt-5">
     <button disabled={skip===0||loading} onClick={()=>setSkip(s=>Math.max(0,s-PAGE_SIZE))} className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"><ChevronLeft size={16}/> Previous</button>

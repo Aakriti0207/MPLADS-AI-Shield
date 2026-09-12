@@ -3,8 +3,10 @@ import {Link,useParams} from 'react-router-dom'
 import {AlertTriangle, ArrowLeft, Building2, IndianRupee, Loader2, MapPin, ShieldAlert, Sparkles, Users} from 'lucide-react'
 import {money} from '../data'
 import {RiskBadge,Progress,Section} from '../components/UI'
+import RiskBreakdown from '../components/risk/RiskBreakdown'
+import WhyRisky from '../components/risk/WhyRisky'
 
-import { API_BASE, apiFetch } from '../lib/api'
+import {fetchProject, fetchProjectRisk} from '../features/projects/api'
 
 const titleCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null
 
@@ -43,6 +45,7 @@ function renderMetadata(meta){
 export default function ProjectDetails(){
  const {id}=useParams()
  const [raw,setRaw]=useState(null)
+ const [riskResult,setRiskResult]=useState(null)
  const [loading,setLoading]=useState(true)
  const [error,setError]=useState(null)
  const [notFound,setNotFound]=useState(false)
@@ -56,13 +59,13 @@ export default function ProjectDetails(){
   // real project_id like "WS/MP001/2023-2024/103702" is a plain string here.
   // Re-encode it before putting it in the API path so the slashes survive
   // as part of the path segment instead of being read as extra segments.
-  apiFetch(`/projects/${encodeURIComponent(id)}`)
-   .then(res=>{
-    if(res.status===404) { if(!cancelled) setNotFound(true); return null }
-    if(!res.ok) throw new Error(`Backend returned ${res.status} ${res.statusText}`)
-    return res.json()
+  Promise.allSettled([fetchProject(id), fetchProjectRisk(id)])
+   .then(([project, risk])=>{
+    if(cancelled) return
+    if(project.status === 'rejected') { setNotFound(true); return }
+    setRaw(project.value.raw)
+    if(risk.status === 'fulfilled') setRiskResult(risk.value)
    })
-   .then(data=>{ if(!cancelled && data) setRaw(data) })
    .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
    .finally(()=>{ if(!cancelled) setLoading(false) })
   return ()=>{ cancelled=true }
@@ -103,8 +106,8 @@ export default function ProjectDetails(){
   agency: raw.implementing_agency ?? null,
   sanctioned: toNumber(raw.sanctioned_amount),
   expenditure: toNumber(raw.expenditure),
-  riskScore: toNumber(raw.risk_score),
-  risk: titleCase(raw.risk_level),
+  riskScore: riskResult?.riskScore ?? toNumber(raw.risk_score),
+  risk: riskResult?.riskLevel ?? titleCase(raw.risk_level),
   financialRisk: toNumber(raw.financial_risk_score),
   paymentRisk: toNumber(raw.payment_risk_score),
   executionRisk: toNumber(raw.execution_risk_score),
@@ -114,7 +117,7 @@ export default function ProjectDetails(){
   duplicateRisk: toNumber(raw.duplicate_risk_score),
   maxSimilarity: toNumber(raw.raw_max_similarity),
   similarWorkId: raw.most_similar_work_id ?? null,
-  reasons: [raw.risk_reason_1, raw.risk_reason_2, raw.risk_reason_3].filter(Boolean),
+  reasons: riskResult?.reasons?.length ? riskResult.reasons : [raw.risk_reason_1, raw.risk_reason_2, raw.risk_reason_3].filter(Boolean),
   metadata: raw.risk_metadata ?? null,
  }
 
@@ -148,22 +151,12 @@ export default function ProjectDetails(){
 
    <div className="card p-6">
     <Section title="Risk factors" subtitle="Reasons the model flagged this project"/>
-    {p.reasons.length>0
-     ? <ul className="space-y-2 text-sm list-disc list-inside">{p.reasons.map((r,i)=><li key={i}>{r}</li>)}</ul>
-     : <p className="text-sm text-slate-500">No risk reasons recorded for this project.</p>}
+    <WhyRisky reasons={p.reasons} evidence={riskResult?.source_signal_summary?.signals || []}/>
    </div>
 
    <div className="card p-6">
     <Section title="Risk component breakdown" subtitle="Individual signals behind the overall risk score"/>
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-     <ScoreCell label="Financial risk" value={p.financialRisk}/>
-     <ScoreCell label="Payment risk" value={p.paymentRisk}/>
-     <ScoreCell label="Execution risk" value={p.executionRisk}/>
-     <ScoreCell label="Peer anomaly" value={p.peerAnomaly}/>
-     <ScoreCell label="Isolation forest" value={p.isolationForest}/>
-     <ScoreCell label="Anomaly risk" value={p.anomalyRisk}/>
-     <ScoreCell label="Duplicate risk" value={p.duplicateRisk}/>
-    </div>
+    <RiskBreakdown risk={raw}/>
    </div>
 
    <div className="card p-6">
