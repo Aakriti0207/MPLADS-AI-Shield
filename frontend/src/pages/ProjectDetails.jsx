@@ -7,6 +7,7 @@ import RiskBreakdown from '../components/risk/RiskBreakdown'
 import WhyRisky from '../components/risk/WhyRisky'
 
 import {fetchProject, fetchProjectRisk} from '../features/projects/api'
+import PageContainer from '../components/layout/PageContainer'
 
 const titleCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : null
 
@@ -71,21 +72,21 @@ export default function ProjectDetails(){
   return ()=>{ cancelled=true }
  },[id])
 
- if (loading) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+ if (loading) return <PageContainer maxWidth="1400px">
   <Link to="/projects" className="inline-flex items-center gap-2 text-sm text-slate-500 mb-5"><ArrowLeft size={15}/> Back to projects</Link>
   <div className="card p-14 flex flex-col items-center gap-2 text-slate-500"><Loader2 className="animate-spin" size={22}/><span className="text-sm">Loading project…</span></div>
- </div>
+ </PageContainer>
 
- if (notFound) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+ if (notFound) return <PageContainer maxWidth="1400px">
   <Link to="/projects" className="inline-flex items-center gap-2 text-sm text-slate-500 mb-5"><ArrowLeft size={15}/> Back to projects</Link>
   <div className="card p-10 text-center">
    <AlertTriangle className="mx-auto text-amber-600 mb-2" size={22}/>
    <div className="font-semibold">Project not found</div>
    <p className="text-sm text-slate-500 mt-1">No project with ID <span className="font-mono">{id}</span> exists in the backend.</p>
   </div>
- </div>
+ </PageContainer>
 
- if (error) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+ if (error) return <PageContainer maxWidth="1400px">
   <Link to="/projects" className="inline-flex items-center gap-2 text-sm text-slate-500 mb-5"><ArrowLeft size={15}/> Back to projects</Link>
   <div className="card p-10 text-center">
    <AlertTriangle className="mx-auto text-rose-600 mb-2" size={22}/>
@@ -93,7 +94,7 @@ export default function ProjectDetails(){
    <p className="text-sm text-slate-500 mt-1">{error}</p>
    <p className="text-xs text-slate-400 mt-1">Check that the FastAPI backend is running at {API_BASE}.</p>
   </div>
- </div>
+ </PageContainer>
 
  // Map the raw API record into the fields this page renders.
  const p = {
@@ -124,7 +125,7 @@ export default function ProjectDetails(){
  const financialPct = (p.sanctioned && p.expenditure!==null) ? Math.min(100, Math.round((p.expenditure/p.sanctioned)*100)) : null
  const riskGaugePct = p.riskScore!==null ? Math.min(100, Math.max(0, p.riskScore)) : null
 
- return <div className="p-4 md:p-8 max-w-[1400px] mx-auto"><Link to="/projects" className="inline-flex items-center gap-2 text-sm text-slate-500 mb-5"><ArrowLeft size={15}/> Back to projects</Link>
+ return <PageContainer maxWidth="1400px"><Link to="/projects" className="inline-flex items-center gap-2 text-sm text-slate-500 mb-5"><ArrowLeft size={15}/> Back to projects</Link>
 
  <div className="card p-6"><div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
   <div>
@@ -195,5 +196,5 @@ export default function ProjectDetails(){
    <div className="mt-6 rounded-xl bg-amber-50 border border-amber-100 p-3 text-xs text-amber-800">AI-generated information is advisory. Anomaly does not mean fraud. Final decisions, verification and official action remain with authorized authorities.</div>
   </div>
  </div>
- </div>
+ </PageContainer>
 }

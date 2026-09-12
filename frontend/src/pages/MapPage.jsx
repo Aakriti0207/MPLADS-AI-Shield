@@ -10,6 +10,7 @@ import L from 'leaflet'
 import { Link } from 'react-router-dom'
 import { RiskBadge, StatusBadge } from '../components/UI'
 import { fetchProjects } from '../features/projects/api'
+import PageContainer from '../components/layout/PageContainer'
 
 // Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
 // RiskBadge / the risk filter expect Title case -- same normalization
@@ -90,7 +91,7 @@ export default function MapPage() {
   )
 
   return (
-    <div className="p-4 md:p-8 max-w-[1500px] mx-auto">
+    <PageContainer maxWidth="1500px">
 
       {/* Header */}
       <div className="mb-5 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -223,6 +224,6 @@ export default function MapPage() {
         </>
       )}
 
-    </div>
+    </PageContainer>
   )
 }

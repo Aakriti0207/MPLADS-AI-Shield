@@ -6,6 +6,7 @@ import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
 import { fetchAnalytics } from '../features/analytics/api'
 import { toNumber } from '../lib/formatters'
+import PageContainer from '../components/layout/PageContainer'
 const TOP_N = 9
 
 // Sort desc by value, keep the top N, fold the remainder into a single
@@ -35,13 +36,13 @@ export default function Analytics(){
   return ()=>{ cancelled=true }
  },[])
 
- if (loading) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+ if (loading) return <PageContainer maxWidth="1400px">
   <LoadingState text="Loading analytics…" />
- </div>
+ </PageContainer>
 
- if (error) return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+ if (error) return <PageContainer maxWidth="1400px">
   <ErrorState title="Could not load analytics" message={error} onRetry={()=>{setLoading(true); setError(null); fetchAnalytics().then(setStats).catch(err=>setError(err.message)).finally(()=>setLoading(false))}} />
- </div>
+ </PageContainer>
 
  const totalProjects = stats.total_projects ?? null
  const avgFinancialProgress = toNumber(stats.average_financial_progress)
@@ -61,7 +62,7 @@ export default function Analytics(){
  const workTypeChartData = topNWithOther(workTypeRows,'count','work_type',TOP_N)
   .map(r=>({...r, work_type: r.work_type.length>16 ? r.work_type.slice(0,15)+'…' : r.work_type}))
 
- return <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+ return <PageContainer maxWidth="1400px">
   <div className="mb-6"><div className="eyebrow">Portfolio intelligence</div><h1 className="text-3xl font-extrabold mt-1">Analytics</h1><p className="text-slate-500 mt-1">Real aggregate figures across the full Phase 2 project portfolio.</p></div>
 
   <div className="grid md:grid-cols-3 gap-4 mb-6">
@@ -90,5 +91,5 @@ export default function Analytics(){
   </div>
 
   <div className="card mt-5 p-5"><Section title="How to use this view" subtitle="Reading the portfolio intelligence view"/><div className="grid md:grid-cols-3 gap-4 text-sm"><div className="rounded-xl bg-slate-50 p-4"><b>1. Detect</b><p className="text-slate-500 mt-1">Find states or work types with concentrated spend or volume.</p></div><div className="rounded-xl bg-slate-50 p-4"><b>2. Prioritize</b><p className="text-slate-500 mt-1">Open high-risk projects and inspect their evidence.</p></div><div className="rounded-xl bg-slate-50 p-4"><b>3. Verify</b><p className="text-slate-500 mt-1">Authorized officials validate the signal before action.</p></div></div></div>
- </div>
+ </PageContainer>
 }

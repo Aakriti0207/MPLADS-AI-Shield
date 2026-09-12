@@ -6,6 +6,7 @@ import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
 import {fetchAlerts} from '../features/alerts/api'
+import PageContainer from '../components/layout/PageContainer'
 const PAGE_SIZE = 50
 
 const SEVERITY_STYLES = {
@@ -47,7 +48,7 @@ export default function Alerts(){
 
  const filtered = rows.filter(a => sev==='All' || (a.severity||'').toLowerCase()===sev.toLowerCase())
 
- return <div className="p-4 md:p-8 max-w-[1200px] mx-auto">
+ return <PageContainer maxWidth="1200px">
   <div className="mb-4">
    <div className="eyebrow">Risk & exception centre</div>
    <h1 className="text-3xl font-extrabold mt-1">Alerts</h1>
@@ -93,5 +94,5 @@ export default function Alerts(){
     <button disabled={loading||rows.length<PAGE_SIZE} onClick={()=>setSkip(s=>s+PAGE_SIZE)} className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed">Next <ChevronRight size={16}/></button>
    </div>
   </>}
- </div>
+ </PageContainer>
 }

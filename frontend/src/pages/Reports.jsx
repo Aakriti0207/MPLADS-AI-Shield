@@ -6,6 +6,7 @@ import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
 import {fetchDashboardStats} from '../features/dashboard/api'
 import {fetchProjects} from '../features/projects/api'
+import PageContainer from '../components/layout/PageContainer'
 
 // Real backend gives risk_level as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'.
 // Same normalization used in Projects.jsx / ProjectDetails.jsx / MapPage.jsx.
@@ -86,7 +87,7 @@ export default function Reports(){
 
  const print=()=>window.print()
 
- return <div className="p-4 md:p-8 max-w-[1100px] mx-auto">
+ return <PageContainer maxWidth="1100px">
   <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
    <div>
     <div className="eyebrow">Management reporting</div>
@@ -135,5 +136,5 @@ export default function Reports(){
 
    <div className="mt-7 text-xs text-slate-400">This is a SIH prototype backed by live project data. It is not an official Government of India report.</div>
   </div>
- </div>
+ </PageContainer>
 }

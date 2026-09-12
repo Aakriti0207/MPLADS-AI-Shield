@@ -1,32 +1,22 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import Layout from './components/Layout'
+import AppShell from './components/layout/AppShell'
 import ProtectedRoute from './components/ProtectedRoute'
-import Home from './pages/Home'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Projects from './pages/Projects'
-import ProjectDetails from './pages/ProjectDetails'
-import Alerts from './pages/Alerts'
-import Analytics from './pages/Analytics'
-import MapPage from './pages/MapPage'
-import Reports from './pages/Reports'
-import UploadAnalysis from './pages/UploadAnalysis'
+import { publicRoutes, appRoutes } from './app/routes'
 
-export default function App(){
+// Centralized routing: the actual list of routes/pages lives in
+// app/routes.jsx (shared with Sidebar/Topbar/Breadcrumbs). This file only
+// wires that config into the public vs. protected+shell route trees.
+export default function App() {
   return <Routes>
-    <Route path="/" element={<Home/>}/>
-    <Route path="/login" element={<Login/>}/>
-    <Route element={<ProtectedRoute><Layout/></ProtectedRoute>}>
-      <Route path="/dashboard" element={<Dashboard/>}/>
-      <Route path="/projects" element={<Projects/>}/>
-      <Route path="/projects/:id" element={<ProjectDetails/>}/>
-      <Route path="/upload" element={<UploadAnalysis/>}/>
-      <Route path="/alerts" element={<Alerts/>}/>
-      <Route path="/analytics" element={<Analytics/>}/>
-      <Route path="/map" element={<MapPage/>}/>
-      <Route path="/reports" element={<Reports/>}/>
+    {publicRoutes.map(({ path, element: Element }) => (
+      <Route key={path} path={path} element={<Element />} />
+    ))}
+    <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+      {appRoutes.map(({ path, element: Element }) => (
+        <Route key={path} path={path} element={<Element />} />
+      ))}
     </Route>
-    <Route path="*" element={<Navigate to="/" replace/>}/>
+    <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 }

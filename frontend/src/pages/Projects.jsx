@@ -7,6 +7,7 @@ import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
 import {fetchProjects} from '../features/projects/api'
 import ProjectFilters from '../components/projects/ProjectFilters'
+import PageContainer from '../components/layout/PageContainer'
 const PAGE_SIZE = 50
 
 export default function Projects(){
@@ -46,7 +47,7 @@ export default function Projects(){
 
  const financialPct = p => (p.sanctioned && p.expenditure!==null) ? Math.min(100, Math.round((p.expenditure/p.sanctioned)*100)) : null
 
- return <div className="p-4 md:p-8 max-w-[1500px] mx-auto">
+ return <PageContainer maxWidth="1500px">
  <div className="mb-6">
   <div className="eyebrow">Portfolio explorer</div>
   <h1 className="text-3xl font-extrabold mt-1">Projects</h1>
@@ -101,5 +102,5 @@ export default function Projects(){
    <button disabled={loading||rows.length<PAGE_SIZE} onClick={()=>setSkip(s=>s+PAGE_SIZE)} className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed">Next <ChevronRight size={16}/></button>
   </div>
  </div>
- </div>
+ </PageContainer>
 }

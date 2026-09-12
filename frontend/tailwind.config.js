@@ -4,13 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: '#0b3b6e',
-        ink: '#122033',
-        muted: '#64748b',
-        panel: '#f6f8fb'
+        // Aligned with the approved design reference: a restrained
+        // government-blue palette rather than a generic SaaS/startup look.
+        navy: '#0b3355',
+        navy700: '#123a5c',
+        ink: '#16232e',
+        muted: '#55636e',
+        panel: '#f3f5f7',
+        line: '#dce2e8'
       },
       boxShadow: {
-        soft: '0 8px 30px rgba(15, 23, 42, 0.07)'
+        // Subtle -- borders carry most of the separation, shadow is a hint.
+        soft: '0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03)'
       }
     }
   },
