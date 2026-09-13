@@ -3,12 +3,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { ShieldCheck } from 'lucide-react'
 
 // Reference nav item set for the unauthenticated shell (design-system
-// spec). "Projects" and "AI Insights" point at the real, already-built
-// /projects and /ai-shield routes -- those are behind ProtectedRoute
-// today, so an anonymous visitor following them lands on /login and is
-// bounced back afterwards (see Login.jsx's redirectTo handling). Making
-// those views actually public is a product decision for a later pass,
-// not part of this foundation-only revamp.
+// spec). "Projects" (Phase 4) is genuinely public now -- see App.jsx and
+// pages/Projects.jsx -- and works for an anonymous visitor without
+// bouncing to /login. "AI Insights" still points at /ai-shield, which
+// remains behind ProtectedRoute; that route is unchanged by this pass.
 const NAV_ITEMS = [
   { to: '/', label: 'Overview' },
   { to: '/projects', label: 'Projects' },

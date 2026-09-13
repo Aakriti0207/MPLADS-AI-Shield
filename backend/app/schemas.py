@@ -258,6 +258,24 @@ class PublicProjectOut(BaseModel):
     status: Optional[str] = None
 
 
+class ProjectPage(BaseModel):
+    """A bounded project page with the real filtered total."""
+
+    items: list[ProjectOut]
+    total: int
+    skip: int
+    limit: int
+
+
+class PublicProjectPage(BaseModel):
+    """A bounded, sanitized project page for anonymous browsing."""
+
+    items: list[PublicProjectOut]
+    total: int
+    skip: int
+    limit: int
+
+
 class StatusCount(BaseModel):
     """One row of the Phase 4 status-distribution aggregate. `status` is
     "Not specified" for NULL/blank values rather than dropping those

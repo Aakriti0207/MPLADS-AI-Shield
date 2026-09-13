@@ -23,12 +23,13 @@ No existing filters existed on this route to preserve -- it was a plain
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project
-from app.schemas import ProjectOut, RiskFusionOut
+from app.schemas import ProjectOut, ProjectPage, RiskFusionOut
 from app.services.ml_service import get_risk_fusion_result
 
 router = APIRouter(
@@ -39,6 +40,25 @@ router = APIRouter(
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 100
+
+
+def _project_filters(query, state: str | None, category: str | None, status_value: str | None, search: str | None):
+    if state:
+        query = query.filter(Project.state == state)
+    if category:
+        query = query.filter(Project.work_type == category)
+    if status_value:
+        query = query.filter(Project.status == status_value)
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(or_(
+            Project.project_id.ilike(pattern),
+            Project.state.ilike(pattern),
+            Project.constituency.ilike(pattern),
+            Project.work_type.ilike(pattern),
+            Project.mp_name.ilike(pattern),
+        ))
+    return query
 
 
 @router.get("", response_model=List[ProjectOut])
@@ -73,6 +93,23 @@ def list_projects(
         .limit(limit)
         .all()
     )
+
+
+@router.get("/query", response_model=ProjectPage)
+def query_projects(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    state: str | None = Query(None),
+    category: str | None = Query(None),
+    status_value: str | None = Query(None, alias="status"),
+    search: str | None = Query(None, max_length=120),
+    db: Session = Depends(get_db),
+):
+    """Return a filtered authenticated page without changing GET /projects."""
+    query = _project_filters(db.query(Project), state, category, status_value, search)
+    total = query.count()
+    items = query.order_by(Project.project_id).offset(skip).limit(limit).all()
+    return ProjectPage(items=items, total=total, skip=skip, limit=limit)
 
 
 @router.get("/{project_id:path}/risk", response_model=RiskFusionOut)

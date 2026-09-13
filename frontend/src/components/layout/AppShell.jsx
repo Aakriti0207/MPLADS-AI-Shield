@@ -1,37 +1,26 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import Sidebar from './Sidebar'
-import Topbar from './Topbar'
+import AuthenticatedShell, { DEFAULT_SHELL_DESCRIPTION } from './AuthenticatedShell'
 import { matchAppRoute } from '../../app/routes'
-import { useAuth } from '../../context/AuthContext'
-
-const DEFAULT_DESCRIPTION = 'Public-sector project monitoring workspace'
 
 /**
  * Reusable application shell: persistent sidebar on desktop, a mobile
  * overlay sidebar toggled from the topbar, and the current page rendered
  * via <Outlet/>. Page title is derived from the centralized route config
  * so individual pages don't need to know about the shell.
+ *
+ * The actual sidebar/topbar markup lives in AuthenticatedShell (see that
+ * file) so Projects.jsx can reuse it for authenticated visitors at the
+ * public-reachable /projects route without duplicating this layout.
  */
 export default function AppShell() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const current = matchAppRoute(location.pathname)
   const title = current?.title || 'MPLADS Insight'
-  const { isDemo } = useAuth()
 
   return (
-    <div className="min-h-screen">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="md:ml-[220px]">
-        <Topbar
-          title={title}
-          description={DEFAULT_DESCRIPTION}
-          isDemo={isDemo}
-          onOpenSidebar={() => setSidebarOpen(true)}
-        />
-        <Outlet />
-      </main>
-    </div>
+    <AuthenticatedShell title={title} description={DEFAULT_SHELL_DESCRIPTION}>
+      <Outlet />
+    </AuthenticatedShell>
   )
 }

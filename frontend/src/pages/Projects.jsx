@@ -1,110 +1,280 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Eye, SlidersHorizontal } from 'lucide-react'
-import { formatCurrency } from '../lib/formatters'
-import { RiskBadge, Progress } from '../components/UI'
+import { Link, useNavigate } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
+import { formatCurrency, formatNumber } from '../lib/formatters'
+import { RiskBadge, StatusBadge, Progress } from '../components/UI'
 import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
 import Pagination from '../components/ui/Pagination'
-import { fetchProjects } from '../features/projects/api'
+import { fetchProjectPage, fetchPublicProjectPage } from '../features/projects/api'
+import { fetchPublicOverview, fetchRoleDashboard } from '../features/dashboard/api'
 import ProjectFilters from '../components/projects/ProjectFilters'
 import PageContainer from '../components/layout/PageContainer'
-const PAGE_SIZE = 50
+import AuthenticatedShell from '../components/layout/AuthenticatedShell'
+import PublicNavbar from '../components/layout/PublicNavbar'
+import { useAuth } from '../context/AuthContext'
 
+const PAGE_SIZE = 50
+const SEARCH_DEBOUNCE_MS = 350
+
+const TABLE_COLUMNS = ['Work ID', 'Project / Work', 'State', 'Constituency', 'MP', 'Status', 'Sanctioned', 'Expenditure', 'Progress']
+
+// Real financial_progress from the backend wins when present; otherwise
+// fall back to a safely-derived sanctioned/expenditure ratio. Clamped to
+// 0-100 and null-safe throughout (handles null, 0, 100+ and non-numeric
+// values without throwing or rendering a fake bar).
+function financialProgressPct(project) {
+  if (project.financialProgress !== null && project.financialProgress !== undefined) {
+    const n = Number(project.financialProgress)
+    if (Number.isFinite(n)) return Math.max(0, Math.min(100, n))
+  }
+  if (project.sanctioned && project.expenditure !== null && project.expenditure !== undefined) {
+    const n = Number(project.expenditure) / Number(project.sanctioned) * 100
+    if (Number.isFinite(n)) return Math.max(0, Math.min(100, Math.round(n)))
+  }
+  return null
+}
+
+/**
+ * Project Explorer (Phase 4).
+ *
+ * Reachable at /projects for BOTH anonymous and authenticated visitors --
+ * see app/routes.jsx and App.jsx for why this page is deliberately kept
+ * outside the ProtectedRoute-wrapped route tree. This component decides
+ * its own chrome and data source based on real auth state:
+ *
+ *  - Anonymous visitor            -> PublicNavbar chrome + GET /public/projects
+ *  - Authenticated (real session) -> Sidebar/Topbar chrome + GET /projects/query
+ *  - Demo session (no real JWT)   -> Sidebar/Topbar chrome + GET /public/projects
+ *    (demo sessions never carry a real access token -- see
+ *    lib/demoSession.js -- so they can't call the protected endpoint;
+ *    ScopedDashboard/MinistryDashboard already treat demo the same way)
+ *
+ * Risk visibility is intentionally NOT decided here. Whatever risk_score
+ * / risk_level fields a given backend response actually includes for the
+ * caller's auth state are what render; when they're absent the row shows
+ * "--". The frontend never hides a field it received -- that would be
+ * security theater -- so authorization has to happen backend-side (see
+ * PROJECT_EXPLORER_REPORT.md for what was verified vs. assumed there).
+ */
 export default function Projects() {
-  const [q, setQ] = useState('')
-  const [risk, setRisk] = useState('All')
-  const [workType, setWorkType] = useState('All')
+  const { status, isAuthenticated, isDemo } = useAuth()
+  const navigate = useNavigate()
+  const authReady = status !== 'checking'
+  const useProtectedApi = isAuthenticated && !isDemo
+
+  const [rawQuery, setRawQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [stateFilter, setStateFilter] = useState('All')
+  const [categoryFilter, setCategoryFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('All')
   const [skip, setSkip] = useState(0)
-  const [rows, setRows] = useState([])
+
+  const [items, setItems] = useState([])
+  const [total, setTotal] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const [stateOptions, setStateOptions] = useState([])
+  const [categoryOptions, setCategoryOptions] = useState([])
+
+  // Debounce free-text search; resets to page 1 once the debounced value
+  // actually changes (not on every keystroke).
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(rawQuery)
+      setSkip(0)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [rawQuery])
+
+  function handleStateChange(value) { setStateFilter(value); setSkip(0) }
+  function handleCategoryChange(value) { setCategoryFilter(value); setSkip(0) }
+  function handleStatusChange(value) { setStatusFilter(value); setSkip(0) }
+  function handleReset() {
+    setStateFilter('All'); setCategoryFilter('All'); setStatusFilter('All')
+    setRawQuery(''); setDebouncedQuery(''); setSkip(0)
+  }
+
+  const filters = useMemo(() => ({
+    skip, limit: PAGE_SIZE,
+    state: stateFilter, category: categoryFilter, status: statusFilter, search: debouncedQuery,
+  }), [skip, stateFilter, categoryFilter, statusFilter, debouncedQuery])
+
+  // Main project list -- always goes through the backend's own
+  // filter/pagination query params (see features/projects/api.js), never
+  // fetches everything client-side.
+  useEffect(() => {
+    if (!authReady) return
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchProjects({ skip, limit: PAGE_SIZE })
-      .then(data => { if (!cancelled) setRows(data) })
+    const fetcher = useProtectedApi ? fetchProjectPage : fetchPublicProjectPage
+    fetcher(filters)
+      .then(data => {
+        if (cancelled) return
+        setItems(data.items || [])
+        setTotal(data.total ?? data.total_count ?? data.count ?? null)
+      })
       .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [skip])
+  }, [authReady, useProtectedApi, filters])
 
-  const workTypes = useMemo(() => [...new Set(rows.map(p => p.workType).filter(Boolean))], [rows])
+  // Filter dropdown options, from real aggregate data (never invented).
+  // Ministry/public overview stats carry `by_state`/`by_work_type`; a
+  // scoped role without an aggregate endpoint yet falls back below to
+  // whatever is on the currently loaded page.
+  useEffect(() => {
+    if (!authReady) return
+    let cancelled = false
+    const request = useProtectedApi ? fetchRoleDashboard().then(d => d.stats) : fetchPublicOverview()
+    request
+      .then(stats => {
+        if (cancelled || !stats) return
+        const states = [...new Set((stats.by_state || []).map(r => r.state).filter(Boolean))].sort()
+        const categories = [...new Set((stats.by_work_type || []).map(r => r.work_type).filter(Boolean))].sort()
+        if (states.length) setStateOptions(states)
+        if (categories.length) setCategoryOptions(categories)
+      })
+      .catch(() => { /* progressive enhancement only -- fall back to loaded rows below */ })
+    return () => { cancelled = true }
+  }, [authReady, useProtectedApi])
 
-  const filtered = useMemo(() => rows.filter(p =>
-    (`${p.id} ${p.mpName} ${p.state} ${p.district} ${p.constituency}`.toLowerCase().includes(q.toLowerCase())) &&
-    (risk === 'All' || p.risk === risk) &&
-    (workType === 'All' || p.workType === workType)
-  ), [rows, q, risk, workType])
+  // Fallback: if the aggregate endpoint didn't give us anything (scoped
+  // role, or the request failed), derive options from real rows already
+  // on screen -- same pattern already used by ScopedDashboard/AiShield.
+  useEffect(() => {
+    if (stateOptions.length === 0 && items.length > 0) {
+      setStateOptions([...new Set(items.map(p => p.state).filter(Boolean))].sort())
+    }
+    if (categoryOptions.length === 0 && items.length > 0) {
+      setCategoryOptions([...new Set(items.map(p => p.workType).filter(Boolean))].sort())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
 
-  const financialPct = p => (p.sanctioned && p.expenditure !== null) ? Math.min(100, Math.round((p.expenditure / p.sanctioned) * 100)) : null
+  const anyRiskScore = items.some(p => p.riskScore !== null && p.riskScore !== undefined)
+  const riskColumnLabel = anyRiskScore ? 'Risk Score' : 'AI Shield'
 
-  return (
+  const countLabel = total !== null
+    ? `${formatNumber(total)} projects`
+    : `${items.length} project${items.length === 1 ? '' : 's'} on this page`
+
+  const content = (
     <PageContainer>
       <div className="mb-4">
         <h1 className="text-[19px] font-semibold text-ink">Project Explorer</h1>
-        <p className="text-[13px] text-muted mt-0.5">Search, filter and open a complete project intelligence view.</p>
+        <p className="text-[13px] text-muted mt-0.5">Browse MPLADS works and inspect their financial, execution and risk context.</p>
       </div>
 
-      <ProjectFilters query={q} onQueryChange={setQ} risk={risk} onRiskChange={setRisk} workType={workType} onWorkTypeChange={setWorkType} workTypes={workTypes} />
+      <ProjectFilters
+        query={rawQuery} onQueryChange={setRawQuery}
+        state={stateFilter} onStateChange={handleStateChange} states={stateOptions}
+        category={categoryFilter} onCategoryChange={handleCategoryChange} categories={categoryOptions}
+        status={statusFilter} onStatusChange={handleStatusChange}
+        onReset={handleReset}
+      />
+
+      {!loading && !error && <div className="mb-2 text-[12.5px] text-muted">{countLabel}</div>}
 
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[12.5px] font-semibold text-ink"><SlidersHorizontal size={14} /> {filtered.length} of {rows.length} loaded projects matched</div>
-          <div className="text-xs text-muted">Live backend • showing {skip + 1}–{skip + rows.length}</div>
-        </div>
-
         {loading && <LoadingState text="Loading projects from the API…" />}
 
-        {!loading && error && <ErrorState title="Could not load projects" message={error} onRetry={() => setSkip(skip)} />}
+        {!loading && error && (
+          <ErrorState title="Could not load projects" message={error} onRetry={() => setSkip(s => s)} />
+        )}
 
         {!loading && !error && (
           <div className="overflow-x-auto">
             <table className="data-table">
-              <thead><tr>{['Project', 'Location', 'MP / Agency', 'Financial', 'Risk', ''].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <thead>
+                <tr>
+                  {[...TABLE_COLUMNS, riskColumnLabel].map(h => <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
               <tbody>
-                {filtered.map(p => {
-                  const pct = financialPct(p)
+                {items.map(p => {
+                  const pct = financialProgressPct(p)
+                  const hasRisk = (p.riskScore !== null && p.riskScore !== undefined) || p.risk
                   return (
-                    <tr key={p.id} className="hover:bg-panel">
-                      <td className="min-w-[220px]"><div className="font-semibold text-ink">{p.workType || 'Untitled work'}</div><div className="text-xs text-muted mt-0.5 font-mono">{p.id}</div></td>
-                      <td className="min-w-[150px]">{p.district || '—'}<div className="text-xs text-muted">{p.state || '—'}</div></td>
-                      <td className="min-w-[170px]">{p.mpName || '—'}<div className="text-xs text-muted">{p.agency || '—'}</div></td>
-                      <td className="min-w-[150px]">
-                        {pct === null ? <span className="text-xs text-muted">Not available</span> : (
-                          <>
-                            <div className="text-xs text-muted mb-1">{formatCurrency(p.expenditure)} / {formatCurrency(p.sanctioned)}</div>
-                            <Progress value={pct} />
-                          </>
-                        )}
+                    <tr
+                      key={p.id}
+                      className="hover:bg-panel cursor-pointer"
+                      onClick={() => p.id && navigate(`/projects/${encodeURIComponent(p.id)}`)}
+                    >
+                      <td className="font-mono font-semibold whitespace-nowrap">
+                        {p.id ? (
+                          <Link to={`/projects/${encodeURIComponent(p.id)}`} onClick={e => e.stopPropagation()} className="text-navy hover:underline">{p.id}</Link>
+                        ) : '—'}
+                      </td>
+                      <td className="max-w-[220px] truncate">{p.workType || 'Untitled work'}</td>
+                      <td className="whitespace-nowrap">{p.state || '—'}</td>
+                      <td className="whitespace-nowrap">{p.constituency || '—'}</td>
+                      <td className="whitespace-nowrap">{p.mpName || '—'}</td>
+                      <td><StatusBadge status={p.status} /></td>
+                      <td className="whitespace-nowrap">{formatCurrency(p.sanctioned)}</td>
+                      <td className="whitespace-nowrap">{formatCurrency(p.expenditure)}</td>
+                      <td className="min-w-[110px]">
+                        {pct === null ? <span className="text-xs text-muted">Not available</span> : <Progress value={pct} />}
                       </td>
                       <td>
-                        <RiskBadge risk={p.risk} />
-                        <div className="text-xs text-muted mt-1">{p.riskScore !== null ? p.riskScore.toFixed(1) : '—'}</div>
+                        {hasRisk ? (
+                          <div className="flex items-center gap-2">
+                            {p.riskScore !== null && p.riskScore !== undefined && (
+                              <span className="font-semibold text-ink whitespace-nowrap">{p.riskScore.toFixed(1)}/100</span>
+                            )}
+                            <RiskBadge risk={p.risk} />
+                          </div>
+                        ) : <span className="text-muted">—</span>}
                       </td>
-                      {/* Real project_id values contain "/" (e.g. WS/MP001/2023-2024/103702),
-                          so it must be encoded here or the router will read it as extra path
-                          segments instead of one :id param. */}
-                      <td><Link to={`/projects/${encodeURIComponent(p.id)}`} className="h-8 w-8 rounded-md border border-line inline-flex items-center justify-center text-navy hover:bg-panel"><Eye size={14} /></Link></td>
                     </tr>
                   )
                 })}
+                {items.length === 0 && (
+                  <tr><td colSpan={TABLE_COLUMNS.length + 1} className="px-4 py-8 text-center text-sm text-muted">No projects match the selected filters.</td></tr>
+                )}
               </tbody>
             </table>
-            {filtered.length === 0 && <div className="p-10 text-center text-muted text-sm">No projects match these filters on the current page.</div>}
           </div>
         )}
 
-        <Pagination
-          page={Math.floor(skip / PAGE_SIZE) + 1}
-          canGoPrev={skip !== 0 && !loading}
-          canGoNext={!loading && rows.length >= PAGE_SIZE}
-          onPrev={() => setSkip(s => Math.max(0, s - PAGE_SIZE))}
-          onNext={() => setSkip(s => s + PAGE_SIZE)}
-        />
+        {!loading && !error && (
+          <Pagination
+            page={Math.floor(skip / PAGE_SIZE) + 1}
+            canGoPrev={skip !== 0}
+            canGoNext={items.length >= PAGE_SIZE}
+            onPrev={() => setSkip(s => Math.max(0, s - PAGE_SIZE))}
+            onNext={() => setSkip(s => s + PAGE_SIZE)}
+          />
+        )}
       </div>
     </PageContainer>
+  )
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center gap-2 text-muted">
+        <Loader2 className="animate-spin" size={20} aria-hidden="true" />
+        <span className="text-sm">Checking your session…</span>
+      </div>
+    )
+  }
+
+  if (isAuthenticated) {
+    return <AuthenticatedShell title="Projects">{content}</AuthenticatedShell>
+  }
+
+  return (
+    <div className="min-h-screen bg-panel">
+      <PublicNavbar />
+      {content}
+      <footer className="border-t border-line bg-white mt-6">
+        <div className="max-w-[1200px] mx-auto px-5 py-5 text-xs text-muted flex flex-wrap justify-between gap-3">
+          <span>© 2026 MPLADS AI Shield -- SIH prototype</span>
+          <span>AI-assisted advisory signals -- not an official Government of India portal</span>
+        </div>
+      </footer>
+    </div>
   )
 }

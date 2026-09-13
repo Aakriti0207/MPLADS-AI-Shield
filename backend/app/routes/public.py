@@ -1,6 +1,7 @@
 """Anonymous, public-safe national Overview data."""
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.aggregations import (
@@ -11,9 +12,46 @@ from app.aggregations import (
 )
 from app.database import get_db
 from app.models import Project
-from app.schemas import PublicOverview, PublicProjectOut
+from app.schemas import PublicOverview, PublicProjectOut, PublicProjectPage
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+
+@router.get("/projects", response_model=PublicProjectPage)
+def list_public_projects(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    state: str | None = Query(None),
+    category: str | None = Query(None),
+    status_value: str | None = Query(None, alias="status"),
+    search: str | None = Query(None, max_length=120),
+    db: Session = Depends(get_db),
+):
+    """Browse real projects with only fields intended for public viewing."""
+    query = db.query(Project)
+    if state:
+        query = query.filter(Project.state == state)
+    if category:
+        query = query.filter(Project.work_type == category)
+    if status_value:
+        query = query.filter(Project.status == status_value)
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(or_(
+            Project.project_id.ilike(pattern),
+            Project.state.ilike(pattern),
+            Project.constituency.ilike(pattern),
+            Project.work_type.ilike(pattern),
+            Project.mp_name.ilike(pattern),
+        ))
+    total = query.count()
+    items = query.order_by(Project.project_id).offset(skip).limit(limit).all()
+    return PublicProjectPage(
+        items=[PublicProjectOut.model_validate(project) for project in items],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get("/overview", response_model=PublicOverview)
