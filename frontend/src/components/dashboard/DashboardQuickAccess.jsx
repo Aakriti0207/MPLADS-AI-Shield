@@ -10,24 +10,20 @@ const SHORTCUTS = [
   { to: '/reports', label: 'Reports', icon: FileText },
 ]
 
-/**
- * Restrained navigation shortcuts to related workspaces. Deliberately
- * link-only -- this is not a second sidebar and carries no fetched data.
- */
 export default function DashboardQuickAccess() {
   return (
-    <div className="card p-5">
-      <div className="font-bold text-lg mb-3">Quick access</div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="card p-4">
+      <div className="font-semibold text-[13.5px] text-ink mb-3">Quick access</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {SHORTCUTS.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}
-            className="flex items-center gap-2.5 rounded-xl border border-slate-200 px-3.5 py-3 text-sm font-semibold text-slate-700 hover:border-navy hover:text-navy transition"
+            className="flex items-center gap-2 rounded-md border border-line px-3 py-2.5 text-[12.5px] font-medium text-ink hover:border-navy hover:text-navy transition"
           >
-            <Icon size={17} className="shrink-0 text-navy" />
+            <Icon size={15} className="shrink-0 text-navy" />
             <span className="truncate">{label}</span>
-            <ChevronRight size={14} className="ml-auto text-slate-300 shrink-0" />
+            <ChevronRight size={13} className="ml-auto text-muted shrink-0" />
           </Link>
         ))}
       </div>

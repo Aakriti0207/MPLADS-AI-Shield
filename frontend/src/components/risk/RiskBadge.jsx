@@ -1,7 +1,10 @@
 import React from 'react'
-import { Badge } from '../UI'
+import { RiskBadge as SharedRiskBadge } from '../UI'
 
+// Thin re-export so existing `import RiskBadge from '../components/risk/RiskBadge'`
+// call sites keep working -- the actual implementation now lives in the
+// shared UI kit (components/UI.jsx) so risk colour logic exists in
+// exactly one place.
 export default function RiskBadge({ risk }) {
-  const styles = { Critical: 'bg-red-100 text-red-800', High: 'bg-rose-50 text-rose-700', Medium: 'bg-amber-50 text-amber-700', Low: 'bg-emerald-50 text-emerald-700' }
-  return <Badge className={styles[risk] || 'bg-slate-100 text-slate-600'}>{risk || 'Unknown'} risk</Badge>
+  return <SharedRiskBadge risk={risk} />
 }

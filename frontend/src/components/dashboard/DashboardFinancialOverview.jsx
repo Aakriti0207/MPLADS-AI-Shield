@@ -1,6 +1,7 @@
 import React from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Progress, Section } from '../UI'
+import { Progress } from '../UI'
+import ChartCard from '../ui/ChartCard'
 import EmptyState from '../ui/EmptyState'
 import { CHART_COLORS } from './dashboardColors'
 
@@ -8,9 +9,9 @@ function CrTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   const { name, value } = payload[0]
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-soft">
+    <div className="rounded-md border border-line bg-white px-3 py-2 text-xs shadow-soft">
       <div className="font-semibold text-ink">{name}</div>
-      <div className="text-slate-500 mt-0.5">₹{Number(value).toFixed(2)} Cr</div>
+      <div className="text-muted mt-0.5">₹{Number(value).toFixed(2)} Cr</div>
     </div>
   )
 }
@@ -29,24 +30,22 @@ export default function DashboardFinancialOverview({ totalSanctioned, totalExpen
   ] : []
 
   return (
-    <div className="card p-5 h-full">
-      <Section title="Financial overview" subtitle="Sanctioned vs. spent, across the full portfolio (₹ Crore)" />
-
-      <div className="h-64">
+    <ChartCard title="Financial Overview" subtitle="Sanctioned vs. spent, across the full portfolio (₹ Crore)" height={240} className="h-full flex flex-col">
+      <div className="h-full">
         {hasTotals
           ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ left: 4, right: 4, top: 8 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#dce2e8" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#55636e' }} axisLine={{ stroke: '#dce2e8' }} tickLine={false} />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={CHART_COLORS.line} />
+                <XAxis dataKey="name" tick={{ fontSize: 11.5, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
                 <YAxis
-                  tick={{ fontSize: 11, fill: '#55636e' }}
+                  tick={{ fontSize: 11, fill: CHART_COLORS.muted }}
                   axisLine={false}
                   tickLine={false}
-                  label={{ value: '₹ Crore', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#55636e' }}
+                  label={{ value: '₹ Crore', angle: -90, position: 'insideLeft', fontSize: 11, fill: CHART_COLORS.muted }}
                 />
                 <Tooltip content={<CrTooltip />} />
-                <Bar dataKey="value" radius={[7, 7, 0, 0]} barSize={72}>
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={64}>
                   {chartData.map((entry, i) => (
                     <Cell key={entry.name} fill={i === 0 ? CHART_COLORS.navy : CHART_COLORS.blue} />
                   ))}
@@ -57,20 +56,20 @@ export default function DashboardFinancialOverview({ totalSanctioned, totalExpen
           : <EmptyState text="Financial totals not available." />}
       </div>
 
-      <div className="mt-4 text-sm">
-        <span className="text-slate-500">Utilization: </span>
+      <div className="mt-3 text-sm">
+        <span className="text-muted">Utilization: </span>
         <span className="font-semibold text-ink">{utilizationPct !== null ? `${utilizationPct}%` : 'Not available'}</span>
-        <span className="text-slate-400"> of sanctioned funds</span>
+        <span className="text-muted"> of sanctioned funds</span>
       </div>
 
       {avgFinancialProgress !== null ? (
-        <div className="mt-4">
-          <div className="text-xs text-slate-500 mb-1">Average financial progress (scored projects)</div>
-          <Progress value={Math.round(avgFinancialProgress)} />
+        <div className="mt-3">
+          <div className="text-xs text-muted mb-1">Average financial progress (scored projects)</div>
+          <Progress value={Math.round(avgFinancialProgress)} color={CHART_COLORS.blue} />
         </div>
       ) : (
-        <div className="mt-4 text-xs text-slate-400">Average financial progress not available.</div>
+        <div className="mt-3 text-xs text-muted">Average financial progress not available.</div>
       )}
-    </div>
+    </ChartCard>
   )
 }
