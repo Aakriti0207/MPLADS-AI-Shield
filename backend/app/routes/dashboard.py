@@ -18,17 +18,19 @@ Status/date rule used consistently throughout this module:
       (not-yet-completed) project is delayed when it has an
       expected_completion date and that date has already passed
       (expected_completion < today). This combines the status field
-      (to exclude anything already completed) with the date field (to
-      judge lateness), rather than inventing a separate "Delayed"
+      (to exclude anything already completed) with the date field
+      (to judge lateness), rather than inventing a separate "Delayed"
       status string that may or may not exist in the source data.
-      Projects with no expected_completion date are never counted as
-      delayed, since there's no deadline to have missed.
+    - Projects with no expected_completion date are never counted as
+      delayed, since there is no deadline to have missed.
+    - When expected_completion is unavailable for the entire dataset,
+      delayed_projects is returned as NULL rather than 0, together with
+      availability metadata explaining why the value cannot be computed.
 
-Phase 4 update: the actual aggregation queries were extracted to
-app/aggregations.py so GET /analytics can reuse the exact same logic
-instead of a second, potentially-drifting copy. This route's behavior
-and response shape are UNCHANGED by that extraction -- it computes and
-returns exactly what it always did.
+Phase 4 update:
+    The actual aggregation queries live in app/aggregations.py so that
+    GET /analytics and the dashboard endpoints reuse the same logic
+    instead of maintaining separate copies.
 """
 
 from fastapi import APIRouter, Depends
@@ -44,7 +46,12 @@ from app.aggregations import (
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project, User
-from app.schemas import DashboardStats, RoleDashboardResponse, ProjectOut
+from app.schemas import (
+    DashboardStats,
+    RoleDashboardResponse,
+    ProjectOut,
+)
+
 
 router = APIRouter(
     prefix="/dashboard",
@@ -54,8 +61,27 @@ router = APIRouter(
 
 
 @router.get("/stats", response_model=DashboardStats)
-def get_dashboard_stats(db: Session = Depends(get_db)):
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+):
+    """
+    Return national dashboard aggregate statistics.
+
+    All values come from the live projects table through the shared
+    aggregation functions in app.aggregations.
+
+    Important ML-4 behavior:
+        If expected_completion is unavailable, compute_core_totals()
+        returns delayed_projects=None instead of incorrectly reporting
+        delayed_projects=0.
+
+        DashboardStats also carries:
+            delayed_projects_available
+            delayed_projects_reason
+    """
+
     totals = compute_core_totals(db)
+
     risk_level_counts = compute_risk_level_counts(db)
     by_state = compute_by_state(db)
     by_work_type = compute_by_work_type(db)
@@ -68,49 +94,83 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     )
 
 
-
-@router.get("/role-overview", response_model=RoleDashboardResponse)
+@router.get(
+    "/role-overview",
+    response_model=RoleDashboardResponse,
+)
 def get_role_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return dashboard data authorized by the backend user's stored role.
+    """
+    Return dashboard data authorized by the authenticated user's role.
 
     The current User model has no state, district, constituency, or MP
-    identifier. Non-Ministry roles therefore receive an explicit unavailable
-    response rather than national rows mislabeled as scoped data.
+    identifier. Therefore, non-Ministry roles receive an explicit
+    unavailable response rather than being incorrectly given national
+    data under a false scoped label.
+
+    Ministry/Admin users receive the national dashboard.
     """
+
     role = current_user.role or ""
-    is_ministry = "admin" in role.lower() or "ministry" in role.lower()
+
+    is_ministry = (
+        "admin" in role.lower()
+        or "ministry" in role.lower()
+    )
+
     if not is_ministry:
         return RoleDashboardResponse(
             role=role,
             scope_available=False,
             unavailable_reason=(
-                "Scoped dashboard data is not available because the authenticated "
-                "user has no state, district, constituency, or MP scope configured."
+                "Scoped dashboard data is not available because the "
+                "authenticated user has no state, district, constituency, "
+                "or MP scope configured."
             ),
         )
 
+    # ---------------------------------------------------------------
+    # National aggregate statistics
+    # ---------------------------------------------------------------
+
     totals = compute_core_totals(db)
+
     stats = DashboardStats(
         **totals,
         risk_level_counts=compute_risk_level_counts(db),
         by_state=compute_by_state(db),
         by_work_type=compute_by_work_type(db),
     )
+
+    # ---------------------------------------------------------------
+    # Priority projects
+    # ---------------------------------------------------------------
+
     priority_projects = (
         db.query(Project)
-        .filter(Project.risk_level.in_(["MEDIUM", "HIGH", "CRITICAL"]))
-        .order_by(Project.risk_score.desc().nullslast(), Project.project_id)
+        .filter(
+            Project.risk_level.in_(
+                ["MEDIUM", "HIGH", "CRITICAL"]
+            )
+        )
+        .order_by(
+            Project.risk_score.desc().nullslast(),
+            Project.project_id,
+        )
         .limit(12)
         .all()
     )
+
     return RoleDashboardResponse(
         role=role,
         scope_available=True,
         scope_label="National",
         stats=stats,
         by_state_risk=compute_risk_by_state(db),
-        priority_projects=[ProjectOut.model_validate(project) for project in priority_projects],
+        priority_projects=[
+            ProjectOut.model_validate(project)
+            for project in priority_projects
+        ],
     )

@@ -26,6 +26,21 @@
   "missing_state": 0,
   "missing_constituency": 9697,
   "missing_mp": 0,
+  "missing_district": 0,
+  "district_conflicts": 0,
+  "district_sources": {
+    "sanctioned,completed,recommended": 9567,
+    "sanctioned": 8320,
+    "sanctioned,completed": 7736,
+    "expenditure": 6043,
+    "completed": 4652,
+    "sanctioned,recommended": 4638,
+    "sanctioned,expenditure": 1060,
+    "sanctioned,recommended,expenditure": 846,
+    "sanctioned,completed,recommended,expenditure": 431,
+    "sanctioned,completed,expenditure": 402,
+    "completed,expenditure": 168
+  },
   "missing_sanction_amount": 10863,
   "missing_sanction_date": 10863,
   "missing_completion_date": 20907,
@@ -48,6 +63,12 @@
     "total_expenditure_transactions_aggregated": 13000,
     "mean_transactions_per_project_with_expenditure": 1.45,
     "max_transactions_single_project": 41
+  },
+  "status_counts": {
+    "COMPLETED": 23283,
+    "SANCTIONED": 8109,
+    "ONGOING": 6428,
+    "NOT_SPECIFIED": 6043
   },
   "lifecycle_sanity_flags": {
     "completion_without_sanction": 4820,

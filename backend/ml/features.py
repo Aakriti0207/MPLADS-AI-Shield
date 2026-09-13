@@ -47,9 +47,15 @@ DATE_COLUMNS = (
 RAW_CATEGORICAL_COLUMNS = (
     "houses", "state", "mp", "constituency", "implementing_agency", "elected_nominated",
     "work_category", "work_status", "stages_present",
+    # ML-1: canonical, reconciled lifecycle status (COMPLETED/ONGOING/
+    # SANCTIONED/RECOMMENDED/NOT_SPECIFIED). Passed through as metadata
+    # only -- see ml.status. Kept separate from `work_status`, which
+    # stays the raw, unreconciled Sanctioned-stage text.
+    "status",
 )
 ENCODED_CATEGORICAL_COLUMNS = (
     "houses", "state", "elected_nominated", "work_category", "work_status", "stages_present",
+    "status",
 )
 REQUIRED_SOURCE_COLUMNS = frozenset(
     ("work_id",) + AMOUNT_COLUMNS + PAYMENT_COUNT_COLUMNS + DATE_COLUMNS

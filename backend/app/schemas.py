@@ -7,7 +7,7 @@ Phase 2 update: `ProjectOut` now exposes the Phase 2 ML risk-scoring
 fields that already exist as columns on the `Project` model / `projects`
 table (populated by import_phase2.py from project_risk_scores.csv). No
 new fields were invented here -- every field added below has a matching
-Column on `Project` in app/models.py. Types and nullability mirror that
+Column on Project in app/models.py. Types and nullability mirror that
 model exactly:
   - Numeric(5, 2) / Numeric(5, 4) columns  -> Optional[Decimal]
   - String / Text columns                  -> Optional[str]
@@ -16,6 +16,7 @@ All of them are nullable because they only apply to projects that have
 gone through the Phase 2 pipeline (and even then, several sub-scores are
 only populated when the underlying data components were available for
 that specific project -- see risk_metadata's n_components_available).
+
 These are an advisory risk-prioritization signal for human review, NOT a
 fraud determination -- see app/models.py's Phase 2 docstring.
 """
@@ -31,6 +32,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # Added alongside JWT authentication. Kept in this same module rather
 # than a separate file since the project doesn't otherwise split
 # schemas.py by resource.
+
 
 class RegisterRequest(BaseModel):
     """Request body for POST /auth/register."""
@@ -110,6 +112,7 @@ class ProjectOut(BaseModel):
     # --- Phase 2: ML risk-scoring output (advisory, not a fraud label) --
     # Mirrors app/models.py's Project columns of the same names, in the
     # same order, so the two stay easy to diff against each other.
+
     risk_score: Optional[Decimal] = None
     risk_level: Optional[str] = None
 
@@ -132,11 +135,21 @@ class ProjectOut(BaseModel):
     # n_distinct_vendors, project_size_bucket, peer_group_tier, etc. --
     # see import_phase2.py's build_risk_metadata() for the exact keys).
     # Typed as a plain dict since its values are a mix of str/int/float/bool.
+
     risk_metadata: Optional[dict[str, Any]] = None
 
     created_at: datetime
     updated_at: datetime
 
+class AlertOut(BaseModel):
+    """One advisory alert derived from real project risk signals."""
+
+    alert_id: str
+    project_id: str
+    alert_type: str
+    severity: str
+    message: str
+    created_at: datetime
 
 class RiskFusionOut(BaseModel):
     """Current Phase 9 Risk Fusion output for one persisted project.
@@ -204,7 +217,15 @@ class DashboardStats(BaseModel):
     average_physical_progress: Optional[Decimal] = None
     active_projects: int
     completed_projects: int
-    delayed_projects: int
+
+    # ML-4: delayed-project count is nullable because a value of 0
+    # must not be reported when expected_completion data is unavailable.
+    delayed_projects: Optional[int] = None
+
+    # ML-4: explicitly communicate whether delayed-project calculation
+    # is currently possible and why it may be unavailable.
+    delayed_projects_available: bool = False
+    delayed_projects_reason: Optional[str] = None
 
     # Phase 3C addition: real counts of projects per Phase 2 risk_level
     # (LOW/MEDIUM/HIGH/CRITICAL), grouped straight from the Project table.
@@ -212,6 +233,7 @@ class DashboardStats(BaseModel):
     # same risk_level column already populated by the Phase 2 import.
     # A risk_level value that is legitimately NULL (unscored) is omitted
     # from this dict rather than being folded into any bucket.
+
     risk_level_counts: Optional[dict[str, int]] = None
 
     # Phase 3E additions: real, small aggregates for the Analytics page.
@@ -219,6 +241,7 @@ class DashboardStats(BaseModel):
     # no new table, no per-project data, no invented metrics. NULL/blank
     # state and work_type are grouped under "Not specified" rather than
     # dropped or silently merged into another bucket.
+
     by_state: Optional[list[ByStateStat]] = None
     by_work_type: Optional[list[ByWorkTypeStat]] = None
 
@@ -338,7 +361,8 @@ class EstimatedCostSummary(BaseModel):
 class ProgressSummary(BaseModel):
     """Phase 4: summary statistics for a progress field (financial_progress
     or physical_progress). Same None-means-no-data semantics as
-    RiskScoreSummary/EstimatedCostSummary above."""
+    RiskScoreSummary/EstimatedCostSummary above.
+    """
 
     average: Optional[Decimal] = None
     minimum: Optional[Decimal] = None
@@ -361,6 +385,7 @@ class AnalyticsResponse(BaseModel):
     """
 
     # --- Shared with DashboardStats (same aggregation functions) ---
+
     total_projects: int
     total_sanctioned_amount: Decimal
     total_expenditure: Decimal
@@ -368,12 +393,22 @@ class AnalyticsResponse(BaseModel):
     average_physical_progress: Optional[Decimal] = None
     active_projects: int
     completed_projects: int
-    delayed_projects: int
+
+    # ML-4: delayed-project count is nullable because a value of 0
+    # must not be reported when expected_completion data is unavailable.
+    delayed_projects: Optional[int] = None
+
+    # ML-4: explicitly communicate whether delayed-project calculation
+    # is currently possible and why it may be unavailable.
+    delayed_projects_available: bool = False
+    delayed_projects_reason: Optional[str] = None
+
     risk_level_counts: dict[str, int]
     by_state: list[ByStateStat]
     by_work_type: list[ByWorkTypeStat]
 
     # --- New Phase 4 aggregates ---
+
     risk_score_summary: RiskScoreSummary
     estimated_cost_summary: EstimatedCostSummary
     financial_progress_summary: ProgressSummary
@@ -381,26 +416,8 @@ class AnalyticsResponse(BaseModel):
     status_distribution: list[StatusCount]
 
 
-class AlertOut(BaseModel):
-    """
-    Response shape for a single alert.
-
-    TEMPORARY / MOCK for Day 1: there is no `alerts` table yet. This
-    schema describes the shape the real ML risk engine's alerts will
-    eventually take once it exists, so the route contract stays the
-    same when the mock data is swapped for real data later.
-    """
-
-    alert_id: str
-    project_id: str
-    alert_type: str
-    severity: str
-    message: str
-    created_at: datetime
-
-
 # --- Phase 5: POST /upload-analyze --------------------------------------
-#
+
 # IMPORTANT SCOPE NOTE: the real Project.risk_score / risk_level (Phase 2)
 # are produced by an OFFLINE pipeline that combines compliance, anomaly,
 # and duplicate-detection signals with a weighting step that exists only
@@ -411,10 +428,11 @@ class AlertOut(BaseModel):
 # unchanged, at request time is the Phase 4 compliance rule engine
 # (ml/compliance/rules.py + ml/compliance/engine.py's
 # build_compliance_outputs) -- those 12 rules are pure, deterministic,
-# and operate on a single project's fields, so they are safe to run on
-# a newly uploaded project with no offline/corpus-wide step required.
+# and operate on a single project's fields, so they are safe to run on a
+# newly uploaded project with no offline/corpus-wide step required.
 # See app/upload_analysis.py for the glue that adapts uploaded fields
 # into what those rules expect.
+
 
 class ComplianceFindingOut(BaseModel):
     """One rule's real, unmodified output from ml/compliance/rules.py's
@@ -445,8 +463,8 @@ class ComplianceSummaryOut(BaseModel):
 
 class UploadRowValidationError(BaseModel):
     """One field-level problem found while parsing/validating an
-    uploaded CSV row. Row-level, so one bad row never fails the rest of
-    the file."""
+    uploaded CSV row. Row-level, so one bad row never fails the rest
+    of the file."""
 
     field: str
     message: str
@@ -463,7 +481,7 @@ class BasicMetricsOut(BaseModel):
 
 
 class UploadRowResult(BaseModel):
-    """Analysis result for one row of the uploaded CSV."""
+    """Analysis result for one uploaded CSV row."""
 
     row_number: int  # 1-based, matches the row's position in the CSV (excluding header)
     work_id: Optional[str] = None
