@@ -21,7 +21,7 @@ export default function AppShell() {
   return (
     <div className="min-h-screen">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="md:ml-64">
+      <main className="md:ml-60">
         <Topbar
           title={title}
           description={DEFAULT_DESCRIPTION}

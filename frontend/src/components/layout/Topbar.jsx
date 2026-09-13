@@ -10,27 +10,26 @@ import Breadcrumbs from './Breadcrumbs'
  */
 export default function Topbar({ title, description, onOpenSidebar }) {
   return (
-    <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
-      <div className="h-16 px-4 md:px-8 flex items-center justify-between">
+    <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-line">
+      <div className="h-14 px-4 md:px-6 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <button
             className="md:hidden shrink-0"
             onClick={onOpenSidebar}
             aria-label="Open navigation menu"
             aria-controls="app-sidebar"
-          ><Menu aria-hidden="true" /></button>
+          ><Menu size={18} aria-hidden="true" /></button>
           <div className="min-w-0">
             <Breadcrumbs />
-            <div className="font-bold truncate">{title}</div>
-            {description && <div className="text-xs text-slate-500 truncate">{description}</div>}
+            <div className="font-semibold text-[14px] text-ink truncate">{title}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <NavLink
             to="/alerts"
-            className="h-9 w-9 rounded-xl border border-slate-200 flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy"
+            className="h-8 w-8 rounded-md border border-line flex items-center justify-center text-muted hover:text-ink hover:bg-panel focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy"
             aria-label="View alerts"
-          ><BellRing size={17} aria-hidden="true" /></NavLink>
+          ><BellRing size={15} aria-hidden="true" /></NavLink>
         </div>
       </div>
     </header>
