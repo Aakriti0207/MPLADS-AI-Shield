@@ -34,7 +34,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.models import Project
-from app.schemas import ByStateStat, ByWorkTypeStat, StatusCount
+from app.schemas import ByStateStat, ByWorkTypeStat, StateRiskStat, StatusCount
 
 
 def compute_core_totals(db: Session) -> dict:
@@ -132,6 +132,23 @@ def compute_by_work_type(db: Session) -> list[ByWorkTypeStat]:
         .all()
     )
     return [ByWorkTypeStat(work_type=work_type, count=count) for work_type, count in rows]
+
+
+def compute_risk_by_state(db: Session) -> list[StateRiskStat]:
+    """Count stored advisory risk levels by state for the national view."""
+    state_label = func.coalesce(Project.state, "Not specified")
+    rows = (
+        db.query(state_label.label("state"), Project.risk_level, func.count(Project.project_id))
+        .group_by(state_label, Project.risk_level)
+        .all()
+    )
+    grouped = {}
+    for state, level, count in rows:
+        values = grouped.setdefault(state, {"low": 0, "medium": 0, "high": 0, "critical": 0})
+        key = (level or "").lower()
+        if key in values:
+            values[key] = count
+    return [StateRiskStat(state=state, **values) for state, values in sorted(grouped.items())]
 
 
 def compute_status_distribution(db: Session) -> list[StatusCount]:

@@ -1,4 +1,5 @@
 import Home from '../pages/Home'
+import About from '../pages/About'
 import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import Projects from '../pages/Projects'
@@ -26,6 +27,7 @@ import Reports from '../pages/Reports'
 
 export const publicRoutes = [
   { path: '/', element: Home, title: 'MPLADS Insight' },
+  { path: '/about', element: About, title: 'About' },
   { path: '/login', element: Login, title: 'Sign in' },
 ]
 

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { matchAppRoute } from '../../app/routes'
+import { useAuth } from '../../context/AuthContext'
 
 const DEFAULT_DESCRIPTION = 'Public-sector project monitoring workspace'
 
@@ -17,14 +18,16 @@ export default function AppShell() {
   const location = useLocation()
   const current = matchAppRoute(location.pathname)
   const title = current?.title || 'MPLADS Insight'
+  const { isDemo } = useAuth()
 
   return (
     <div className="min-h-screen">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="md:ml-60">
+      <main className="md:ml-[220px]">
         <Topbar
           title={title}
           description={DEFAULT_DESCRIPTION}
+          isDemo={isDemo}
           onOpenSidebar={() => setSidebarOpen(true)}
         />
         <Outlet />

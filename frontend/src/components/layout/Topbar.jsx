@@ -8,7 +8,7 @@ import Breadcrumbs from './Breadcrumbs'
  * and a right-side utility area. Visual-shell only -- the alerts entry
  * point links to the real Alerts page, but no notification logic lives here.
  */
-export default function Topbar({ title, description, onOpenSidebar }) {
+export default function Topbar({ title, description, onOpenSidebar, isDemo }) {
   return (
     <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-line">
       <div className="h-14 px-4 md:px-6 flex items-center justify-between">
@@ -25,6 +25,7 @@ export default function Topbar({ title, description, onOpenSidebar }) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {isDemo && <span className="rounded border border-warn/30 bg-warn-bg px-2 py-1 text-[10px] font-semibold tracking-wide text-warn">DEMO MODE</span>}
           <NavLink
             to="/alerts"
             className="h-8 w-8 rounded-md border border-line flex items-center justify-center text-muted hover:text-ink hover:bg-panel focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy"

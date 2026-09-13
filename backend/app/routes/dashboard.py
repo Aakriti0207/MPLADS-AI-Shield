@@ -39,10 +39,12 @@ from app.aggregations import (
     compute_by_work_type,
     compute_core_totals,
     compute_risk_level_counts,
+    compute_risk_by_state,
 )
 from app.database import get_db
 from app.auth import get_current_user
-from app.schemas import DashboardStats
+from app.models import Project, User
+from app.schemas import DashboardStats, RoleDashboardResponse, ProjectOut
 
 router = APIRouter(
     prefix="/dashboard",
@@ -63,4 +65,52 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         risk_level_counts=risk_level_counts,
         by_state=by_state,
         by_work_type=by_work_type,
+    )
+
+
+
+@router.get("/role-overview", response_model=RoleDashboardResponse)
+def get_role_dashboard(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return dashboard data authorized by the backend user's stored role.
+
+    The current User model has no state, district, constituency, or MP
+    identifier. Non-Ministry roles therefore receive an explicit unavailable
+    response rather than national rows mislabeled as scoped data.
+    """
+    role = current_user.role or ""
+    is_ministry = "admin" in role.lower() or "ministry" in role.lower()
+    if not is_ministry:
+        return RoleDashboardResponse(
+            role=role,
+            scope_available=False,
+            unavailable_reason=(
+                "Scoped dashboard data is not available because the authenticated "
+                "user has no state, district, constituency, or MP scope configured."
+            ),
+        )
+
+    totals = compute_core_totals(db)
+    stats = DashboardStats(
+        **totals,
+        risk_level_counts=compute_risk_level_counts(db),
+        by_state=compute_by_state(db),
+        by_work_type=compute_by_work_type(db),
+    )
+    priority_projects = (
+        db.query(Project)
+        .filter(Project.risk_level.in_(["MEDIUM", "HIGH", "CRITICAL"]))
+        .order_by(Project.risk_score.desc().nullslast(), Project.project_id)
+        .limit(12)
+        .all()
+    )
+    return RoleDashboardResponse(
+        role=role,
+        scope_available=True,
+        scope_label="National",
+        stats=stats,
+        by_state_risk=compute_risk_by_state(db),
+        priority_projects=[ProjectOut.model_validate(project) for project in priority_projects],
     )

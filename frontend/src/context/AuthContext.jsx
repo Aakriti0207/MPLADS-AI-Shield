@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { clearAuthToken, getAuthToken, setAuthToken } from '../lib/authToken'
 import { API_BASE, setUnauthorizedHandler } from '../lib/api'
+import { clearDemoRole, getDemoRole, isDemoModeEnabled, setDemoRole } from '../lib/demoSession'
 
 /**
  * Global authentication state.
@@ -56,6 +57,7 @@ async function fetchCurrentUser(token) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [demoRole, setDemoRoleState] = useState(() => getDemoRole())
   // 'checking' | 'authenticated' | 'unauthenticated'
   const [status, setStatus] = useState('checking')
 
@@ -66,6 +68,15 @@ export function AuthProvider({ children }) {
     let cancelled = false
 
     async function restoreSession() {
+      const storedDemoRole = getDemoRole()
+      if (storedDemoRole) {
+        if (!cancelled) {
+          setDemoRoleState(storedDemoRole)
+          setUser({ email: 'demo@mplads-ai-shield.local', role: storedDemoRole, is_demo: true })
+          setStatus('authenticated')
+        }
+        return
+      }
       const token = getAuthToken()
       if (!token) {
         if (!cancelled) setStatus('unauthenticated')
@@ -134,8 +145,19 @@ export function AuthProvider({ children }) {
 
   function logout() {
     clearAuthToken()
+    clearDemoRole()
+    setDemoRoleState(null)
     setUser(null)
     setStatus('unauthenticated')
+  }
+
+  function enterDemo(role) {
+    if (!isDemoModeEnabled() || !setDemoRole(role)) return false
+    clearAuthToken()
+    setDemoRoleState(role)
+    setUser({ email: 'demo@mplads-ai-shield.local', role, is_demo: true })
+    setStatus('authenticated')
+    return true
   }
 
   // Phase 5: whenever any authenticated request made through
@@ -145,16 +167,22 @@ export function AuthProvider({ children }) {
   // resulting status change and redirects to /login on its own; no
   // navigation call is made from here.
   useEffect(() => {
-    setUnauthorizedHandler(logout)
+    setUnauthorizedHandler(() => {
+      if (!getDemoRole()) logout()
+    })
     return () => setUnauthorizedHandler(null)
   }, [])
 
   const value = {
     user,
+    demoRole,
+    isDemo: Boolean(demoRole),
+    demoModeEnabled: isDemoModeEnabled(),
     status,
     isAuthenticated: status === 'authenticated',
     isChecking: status === 'checking',
     login,
+    enterDemo,
     logout,
   }
 

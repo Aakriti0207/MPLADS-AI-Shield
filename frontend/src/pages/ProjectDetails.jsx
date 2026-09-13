@@ -15,8 +15,8 @@ function LifecycleStep({ label, date, active, last }) {
   return (
     <div className="flex-1 flex flex-col items-start relative min-w-[110px]">
       <div className="flex items-center w-full">
-        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: active ? '#0b3355' : '#c7ced5' }} />
-        {!last && <div className="flex-1 h-[2px]" style={{ backgroundColor: active ? '#0b3355' : '#dce2e8' }} />}
+        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: active ? '#0b2e4f' : '#c7ced5' }} />
+        {!last && <div className="flex-1 h-[2px]" style={{ backgroundColor: active ? '#0b2e4f' : '#dce2e8' }} />}
       </div>
       <div className="mt-2">
         <div className="text-xs font-semibold" style={{ color: active ? '#16232e' : '#55636e' }}>{label}</div>
@@ -223,7 +223,7 @@ export default function ProjectDetails() {
         </div>
 
         <div className="card p-4 h-fit">
-          <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink"><Sparkles style={{ color: '#0b3355' }} size={16} /> AI Risk Intelligence</div>
+          <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink"><Sparkles style={{ color: '#0b2e4f' }} size={16} /> AI Risk Intelligence</div>
           <p className="text-xs text-muted mt-1">Advisory signal · human verification required</p>
           <div className="mt-5 flex items-end justify-between">
             <div><div className="text-[28px] font-bold leading-none text-ink">{p.riskScore !== null ? p.riskScore.toFixed(1) : '—'}</div><div className="text-xs text-muted mt-1">risk score / 100</div></div>

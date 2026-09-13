@@ -22,7 +22,7 @@ const NAV_ICONS = {
  * see lib/roles.js), and the signed-in user + real role label + sign-out.
  */
 export default function Sidebar({ open, onClose }) {
-  const { logout, user } = useAuth()
+  const { logout, user, isDemo, demoRole, enterDemo } = useAuth()
   const navigate = useNavigate()
 
   const role = normalizeRole(user?.role)
@@ -35,6 +35,11 @@ export default function Sidebar({ open, onClose }) {
     navigate('/login')
   }
 
+  function handleDemoRoleChange(event) {
+    const nextRole = event.target.value
+    if (enterDemo(nextRole)) navigate('/dashboard')
+  }
+
   const identity = user?.full_name || user?.name || user?.email || 'Authorized user'
 
   return (
@@ -42,14 +47,14 @@ export default function Sidebar({ open, onClose }) {
       <aside
         id="app-sidebar"
         aria-label="Main navigation"
-        className={`fixed z-40 inset-y-0 left-0 w-60 bg-navy text-white flex flex-col transform transition-transform md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed z-40 inset-y-0 left-0 w-[220px] bg-navy text-white flex flex-col transform transition-transform md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex items-center justify-between gap-2.5 px-4 h-14 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
           <NavLink to="/" className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
               <ShieldCheck size={15} aria-hidden="true" />
             </div>
-            <div className="text-[12.5px] font-bold leading-tight truncate">MPLADS<br />Insight</div>
+            <div className="text-[12.5px] font-bold leading-tight truncate">MPLADS<br />AI SHIELD</div>
           </NavLink>
           <button onClick={onClose} className="md:hidden shrink-0" aria-label="Close navigation menu"><X size={18} aria-hidden="true" /></button>
         </div>
@@ -65,11 +70,15 @@ export default function Sidebar({ open, onClose }) {
                 className={({ isActive }) =>
                   `flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium border-l-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white ${
                     isActive
-                      ? 'text-white border-l-white'
+                      ? 'text-white'
                       : 'text-white/60 border-l-transparent hover:bg-white/10 hover:text-white/90'
                   }`
                 }
-                style={({ isActive }) => (isActive ? { backgroundColor: 'rgba(255,255,255,0.10)' } : undefined)}
+                style={({ isActive }) =>
+                  isActive
+                    ? { backgroundColor: 'rgba(255,255,255,0.10)', borderLeftColor: '#6FA8DC' }
+                    : undefined
+                }
               >
                 {Icon && <Icon size={15} aria-hidden="true" />}
                 {label}
@@ -87,6 +96,21 @@ export default function Sidebar({ open, onClose }) {
           <div className="text-[10px] uppercase tracking-wide text-white/45">Signed in as</div>
           <div className="text-[12.5px] font-semibold truncate" title={identity}>{identity}</div>
           <div className="text-[11px] text-white/55 mb-2">{user?.role || ROLE_VIEW_LABEL[role]}</div>
+          {isDemo && (
+            <label className="block mb-2">
+              <span className="sr-only">Switch demo role</span>
+              <select
+                value={demoRole || role}
+                onChange={handleDemoRoleChange}
+                className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] text-white outline-none"
+              >
+                <option className="text-ink" value="ministry">Ministry / Admin</option>
+                <option className="text-ink" value="state">State Nodal Authority</option>
+                <option className="text-ink" value="district">District Authority</option>
+                <option className="text-ink" value="mp">Member of Parliament</option>
+              </select>
+            </label>
+          )}
           <button type="button" onClick={handleSignOut} className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white">
             <LogOut size={13} aria-hidden="true" /> Sign out
           </button>

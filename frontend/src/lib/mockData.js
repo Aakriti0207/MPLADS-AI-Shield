@@ -9,67 +9,36 @@
 // callers already consume these as plain arrays/objects.
 // ---------------------------------------------------------------------
 
-// Used by: Home.jsx (public, unauthenticated state-wise map) and as a
-// visual reference for state names/positions elsewhere.
-// Needs: a real "/dashboard/by-state-geo" (or similar) endpoint
-// returning { state, project_count, review_count } -- state names
-// already exist per-project (normalizeProject().state), but there's no
-// aggregated geo/tier endpoint yet.
+// Used by: components/home/IndiaStateGrid.jsx, purely for the cartogram's
+// grid POSITION (row/col) of each state -- not a statistic, just layout,
+// so it's safe to use regardless of auth state. Any tier color or number
+// drawn on top of this layout comes from the real GET /dashboard/stats
+// `by_state` array (state + total_expenditure) passed into that
+// component, never from a field here.
 export const STATE_STATS = [
-  { name: 'Jammu & Kashmir', row: 1, col: 4, tier: 'low' },
-  { name: 'Punjab', row: 2, col: 3, tier: 'low' },
-  { name: 'Himachal Pradesh', row: 2, col: 4, tier: 'low' },
-  { name: 'Uttarakhand', row: 2, col: 5, tier: 'low' },
-  { name: 'Haryana', row: 3, col: 3, tier: 'medium' },
-  { name: 'Delhi', row: 3, col: 4, tier: 'low' },
-  { name: 'Uttar Pradesh', row: 3, col: 5, tier: 'medium' },
-  { name: 'Assam', row: 3, col: 8, tier: 'medium' },
-  { name: 'Rajasthan', row: 4, col: 2, tier: 'medium' },
-  { name: 'Madhya Pradesh', row: 4, col: 4, tier: 'low' },
-  { name: 'Bihar', row: 4, col: 6, tier: 'high' },
-  { name: 'West Bengal', row: 4, col: 7, tier: 'medium' },
-  { name: 'Gujarat', row: 5, col: 1, tier: 'low' },
-  { name: 'Chhattisgarh', row: 5, col: 5, tier: 'low' },
-  { name: 'Jharkhand', row: 5, col: 6, tier: 'medium' },
-  { name: 'Odisha', row: 5, col: 7, tier: 'low' },
-  { name: 'Maharashtra', row: 6, col: 3, tier: 'medium' },
-  { name: 'Telangana', row: 6, col: 5, tier: 'low' },
-  { name: 'Andhra Pradesh', row: 7, col: 5, tier: 'low' },
-  { name: 'Karnataka', row: 7, col: 3, tier: 'low' },
-  { name: 'Tamil Nadu', row: 8, col: 4, tier: 'low' },
-  { name: 'Kerala', row: 8, col: 3, tier: 'low' },
+  { name: 'Jammu & Kashmir', row: 1, col: 4 },
+  { name: 'Punjab', row: 2, col: 3 },
+  { name: 'Himachal Pradesh', row: 2, col: 4 },
+  { name: 'Uttarakhand', row: 2, col: 5 },
+  { name: 'Haryana', row: 3, col: 3 },
+  { name: 'Delhi', row: 3, col: 4 },
+  { name: 'Uttar Pradesh', row: 3, col: 5 },
+  { name: 'Assam', row: 3, col: 8 },
+  { name: 'Rajasthan', row: 4, col: 2 },
+  { name: 'Madhya Pradesh', row: 4, col: 4 },
+  { name: 'Bihar', row: 4, col: 6 },
+  { name: 'West Bengal', row: 4, col: 7 },
+  { name: 'Gujarat', row: 5, col: 1 },
+  { name: 'Chhattisgarh', row: 5, col: 5 },
+  { name: 'Jharkhand', row: 5, col: 6 },
+  { name: 'Odisha', row: 5, col: 7 },
+  { name: 'Maharashtra', row: 6, col: 3 },
+  { name: 'Telangana', row: 6, col: 5 },
+  { name: 'Andhra Pradesh', row: 7, col: 5 },
+  { name: 'Karnataka', row: 7, col: 3 },
+  { name: 'Tamil Nadu', row: 8, col: 4 },
+  { name: 'Kerala', row: 8, col: 3 },
 ]
-
-// Used by: Home.jsx, only for anonymous (unauthenticated) visitors, since
-// /dashboard/stats and /projects both require auth. Once a public,
-// unauthenticated summary endpoint exists, this whole block can go and
-// Home can always fetch real figures.
-export const DEMO_PUBLIC_SNAPSHOT = {
-  totalProjects: 43863,
-  totalSanctioned: 23040000000, // paise-free rupee value, matches formatCurrency's /1e7 = ₹2,304 Cr
-  totalExpenditure: 2080000000, // -> ₹208 Cr
-  completedProjects: 22956,
-  requiresReview: 1667,
-  statusDistribution: [
-    { name: 'Recommended', value: 5210 },
-    { name: 'Sanctioned', value: 6890 },
-    { name: 'Completed', value: 22956 },
-    { name: 'Requires Review', value: 1667 },
-  ],
-  trend: [
-    { month: 'Apr', expenditure: 96 }, { month: 'May', expenditure: 108 }, { month: 'Jun', expenditure: 121 },
-    { month: 'Jul', expenditure: 133 }, { month: 'Aug', expenditure: 129 }, { month: 'Sep', expenditure: 148 },
-    { month: 'Oct', expenditure: 156 }, { month: 'Nov', expenditure: 151 }, { month: 'Dec', expenditure: 163 },
-    { month: 'Jan', expenditure: 172 }, { month: 'Feb', expenditure: 181 }, { month: 'Mar', expenditure: 208 },
-  ],
-  sampleProjects: [
-    { id: 'WS/MP1042/2024-2025/017', state: 'Bihar', district: 'Muzaffarpur', mpName: 'R. K. Choudhary', workType: 'Health Infrastructure', sanctioned: 145000000, expenditure: 129000000, risk: 'High' },
-    { id: 'WS/MP0512/2024-2025/003', state: 'Uttar Pradesh', district: 'Gorakhpur', mpName: 'S. N. Tiwari', workType: 'Road Infrastructure', sanctioned: 220000000, expenditure: 216000000, risk: 'Low' },
-    { id: 'WS/MP0217/2024-2025/009', state: 'Rajasthan', district: 'Jodhpur', mpName: 'V. P. Rathore', workType: 'Street Lighting', sanctioned: 82000000, expenditure: 0, risk: 'Medium' },
-    { id: 'WS/MP0876/2024-2025/021', state: 'West Bengal', district: 'Murshidabad', mpName: 'A. Halder', workType: 'Education Facility', sanctioned: 114000000, expenditure: 61000000, risk: 'Medium' },
-    { id: 'WS/MP1298/2024-2025/005', state: 'Odisha', district: 'Cuttack', mpName: 'B. Mohanty', workType: 'Irrigation', sanctioned: 96000000, expenditure: 94000000, risk: 'Low' },
-  ],
-}
 
 // Used by: UploadAnalysis.jsx, purely as stage LABELS for the visual
 // pipeline while the real (single-request) backend call is in flight.

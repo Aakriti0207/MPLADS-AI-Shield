@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Banknote, CheckCircle2, FolderKanban, ShieldAlert, TrendingUp } from 'lucide-react'
-import { fetchProjects } from '../../features/projects/api'
+import { fetchRoleDashboard } from '../../features/dashboard/api'
 import { formatCurrency } from '../../lib/formatters'
 import { ROLE_VIEW_LABEL } from '../../lib/roles'
+import { useAuth } from '../../context/AuthContext'
 import { RiskBadge, Progress, Disclaimer } from '../UI'
 import KpiCard from '../ui/KpiCard'
 import LoadingState from '../ui/LoadingState'
 import ErrorState from '../ui/ErrorState'
+import EmptyState from '../ui/EmptyState'
 
 // Fetches one large page of REAL projects (the backend has no scoped
 // aggregate endpoint per state/district/MP yet) and filters/aggregates
@@ -20,21 +22,32 @@ const SCOPE_FIELD = { state: 'state', district: 'district', mp: 'constituency' }
 const SCOPE_LABEL = { state: 'State', district: 'District', mp: 'Constituency' }
 
 export default function ScopedDashboard({ role }) {
+  const { isDemo } = useAuth()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [scope, setScope] = useState('')
+  const [scopeAvailable, setScopeAvailable] = useState(false)
 
   useEffect(() => {
+    if (isDemo) {
+      setScopeAvailable(false)
+      setLoading(false)
+      return undefined
+    }
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchProjects({ skip: 0, limit: SCAN_LIMIT })
-      .then(data => { if (!cancelled) setRows(data) })
+    fetchRoleDashboard()
+      .then(data => {
+        if (cancelled) return
+        setScopeAvailable(Boolean(data.scope_available))
+        setRows(data.scope_available ? (data.scoped_projects || []) : [])
+      })
       .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [isDemo])
 
   const field = SCOPE_FIELD[role] || 'state'
   const options = useMemo(() => [...new Set(rows.map(r => r[field]).filter(Boolean))].sort(), [rows, field])
@@ -61,6 +74,7 @@ export default function ScopedDashboard({ role }) {
 
   if (loading) return <LoadingState text="Loading scoped project data…" />
   if (error) return <ErrorState title="Could not load projects" message={error} />
+  if (!scopeAvailable) return <UnavailableScopedDashboard role={role} />
 
   const totalSanctioned = scoped.reduce((a, r) => a + (r.sanctioned || 0), 0)
   const totalExpenditure = scoped.reduce((a, r) => a + (r.expenditure || 0), 0)
@@ -145,6 +159,65 @@ export default function ScopedDashboard({ role }) {
           <div className="mt-4"><Disclaimer compact /></div>
         </>
       )}
+    </div>
+  )
+}
+
+function UnavailableScopedDashboard({ role }) {
+  const title = {
+    state: 'State Monitoring Overview',
+    district: 'District Operations Overview',
+    mp: 'Constituency Overview',
+  }[role] || `${ROLE_VIEW_LABEL[role]} Overview`
+  const scopeLabel = role === 'state' ? 'State' : role === 'district' ? 'District' : 'Constituency'
+  const projectTitle = role === 'mp' ? 'My Projects' : role === 'district' ? 'Project Monitoring' : 'Projects in Scope'
+  const trendTitle = role === 'mp' ? 'Recommended vs Sanctioned vs Completed' : 'Sanction vs Expenditure Trend'
+
+  return (
+    <div>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-5">
+        <div>
+          <h1 className="text-[19px] font-semibold text-ink">{title}</h1>
+          <p className="text-[13px] text-muted mt-0.5 max-w-2xl">This view uses only records authorized by the backend scope for the authenticated account.</p>
+        </div>
+        <select disabled value="unavailable" aria-label={`${scopeLabel} selector`} className="border border-line rounded-md px-3 py-2 text-[13px] bg-white text-muted">
+          <option value="unavailable">{scopeLabel} scope unavailable</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <KpiCard label={role === 'mp' ? 'Recommended Works' : 'Projects in Scope'} value="—" icon={FolderKanban} tone="navy" />
+        <KpiCard label="Sanctioned Amount" value="—" icon={Banknote} tone="navy" />
+        <KpiCard label="Expenditure" value="—" icon={TrendingUp} tone="blue" />
+        <KpiCard label={role === 'mp' ? 'Completed Works' : 'Requiring Review'} value="—" icon={role === 'mp' ? CheckCircle2 : AlertTriangle} tone="amber" />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4 mb-4">
+        <div className="card p-4">
+          <h3 className="text-[13.5px] font-semibold text-ink">{trendTitle}</h3>
+          <p className="text-xs text-muted mt-0.5">Monthly, backend-scoped</p>
+          <EmptyState text="Trend data not available from the current source." />
+        </div>
+        <div className="card p-4">
+          <h3 className="text-[13.5px] font-semibold text-ink">Work-Category Distribution</h3>
+          <p className="text-xs text-muted mt-0.5">Backend-scoped category data</p>
+          <EmptyState text="Work-category data not available from the current source." />
+        </div>
+      </div>
+
+      {role === 'state' && (
+        <div className="card p-4 mb-4">
+          <h3 className="text-[13.5px] font-semibold text-ink">District Comparison</h3>
+          <p className="text-xs text-muted mt-0.5">Backend-scoped district data</p>
+          <EmptyState text="District data not available from the current source." />
+        </div>
+      )}
+
+      <div className="card p-4">
+        <h3 className="text-[13.5px] font-semibold text-ink">{projectTitle}</h3>
+        <p className="text-xs text-muted mt-0.5">Only backend-authorized records can appear here.</p>
+        <EmptyState text={`${scopeLabel} data not available from the current source.`} />
+      </div>
     </div>
   )
 }

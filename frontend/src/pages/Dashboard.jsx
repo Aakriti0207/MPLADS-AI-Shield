@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, AlertTriangle, Banknote, CheckCircle2, FolderKanban, Gauge, ShieldAlert, TrendingUp } from 'lucide-react'
+import { Activity, AlertTriangle, Banknote, BarChart3, CheckCircle2, FolderKanban, Gauge, Info, ShieldAlert, TrendingUp } from 'lucide-react'
 import { toNumber } from '../lib/formatters'
 import { normalizeRole } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
 import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
-import { fetchDashboardStats } from '../features/dashboard/api'
+import EmptyState from '../components/ui/EmptyState'
+import ChartCard from '../components/ui/ChartCard'
 import PageContainer from '../components/layout/PageContainer'
 import DashboardKpiGrid from '../components/dashboard/DashboardKpiGrid'
 import DashboardFinancialOverview from '../components/dashboard/DashboardFinancialOverview'
@@ -14,6 +15,9 @@ import DashboardRiskOverview from '../components/dashboard/DashboardRiskOverview
 import DashboardPortfolioInsights from '../components/dashboard/DashboardPortfolioInsights'
 import DashboardQuickAccess from '../components/dashboard/DashboardQuickAccess'
 import ScopedDashboard from '../components/dashboard/ScopedDashboard'
+import { RiskBadge } from '../components/UI'
+import { fetchPublicOverview, fetchRoleDashboard } from '../features/dashboard/api'
+import { CHART_COLORS } from '../components/dashboard/dashboardColors'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -33,7 +37,8 @@ export default function Dashboard() {
 }
 
 function MinistryDashboard() {
-  const [stats, setStats] = useState(null)
+  const { isDemo } = useAuth()
+  const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -41,12 +46,15 @@ function MinistryDashboard() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchDashboardStats()
-      .then(data => { if (!cancelled) setStats(data) })
+    const request = isDemo
+      ? fetchPublicOverview().then(stats => ({ stats, scope_available: true }))
+      : fetchRoleDashboard()
+    request
+      .then(data => { if (!cancelled) setOverview(data) })
       .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [isDemo])
 
   if (loading) return <PageContainer><LoadingState text="Loading dashboard…" /></PageContainer>
 
@@ -55,10 +63,13 @@ function MinistryDashboard() {
       <ErrorState
         title="Could not load dashboard statistics"
         message={error}
-        onRetry={() => { setLoading(true); setError(null); fetchDashboardStats().then(setStats).catch(err => setError(err.message)).finally(() => setLoading(false)) }}
+        onRetry={() => { setLoading(true); setError(null); fetchRoleDashboard().then(setOverview).catch(err => setError(err.message)).finally(() => setLoading(false)) }}
       />
     </PageContainer>
   )
+
+  const stats = overview?.stats
+  if (!stats) return <PageContainer><ErrorState title="Dashboard scope unavailable" message="The backend did not return a Ministry dashboard scope." /></PageContainer>
 
   const totalProjects = toNumber(stats.total_projects)
   const totalSanctioned = toNumber(stats.total_sanctioned_amount)
@@ -74,24 +85,24 @@ function MinistryDashboard() {
 
   const riskCounts = stats.risk_level_counts || {}
   const hasRiskCounts = Object.keys(riskCounts).length > 0
-  const highPlusCritical = (riskCounts.HIGH || 0) + (riskCounts.CRITICAL || 0)
+  const high = toNumber(riskCounts.HIGH)
+  const medium = toNumber(riskCounts.MEDIUM)
+  const critical = toNumber(riskCounts.CRITICAL)
+  const highPlusCritical = (high || 0) + (critical || 0)
+  const reviewQueue = hasRiskCounts ? (high || 0) + (medium || 0) + (critical || 0) : null
 
   const kpiItems = [
-    { key: 'total', label: 'Total Projects', value: totalProjects, format: 'number', hint: 'Full MPLADS portfolio', icon: FolderKanban, tone: 'navy' },
-    { key: 'sanctioned', label: 'Sanctioned Amount', value: totalSanctioned, format: 'currency', hint: 'Total approved allocation', icon: Banknote, tone: 'navy' },
-    { key: 'expenditure', label: 'Expenditure', value: totalExpenditure, format: 'currency', hint: utilizationPct !== null ? `${utilizationPct}% utilized` : 'Utilization not available', icon: TrendingUp, tone: 'blue' },
-    { key: 'completed', label: 'Completed Projects', value: completedProjects, format: 'number', hint: 'Fully executed works', icon: CheckCircle2, tone: 'green' },
-    { key: 'active', label: 'Active Projects', value: activeProjects, format: 'number', hint: 'Currently under execution', icon: Activity, tone: 'blue' },
-    { key: 'delayed', label: 'Delayed Projects', value: delayedProjects, format: 'number', hint: 'Behind expected timeline', icon: AlertTriangle, tone: 'amber' },
-    { key: 'avgProgress', label: 'Avg. Financial Progress', value: avgFinancialProgress, format: 'percent', hint: 'Across scored projects', icon: Gauge, tone: 'navy' },
-    { key: 'highRisk', label: 'Requiring Review', value: hasRiskCounts ? highPlusCritical : null, format: 'number', hint: 'High + Critical risk', icon: ShieldAlert, tone: 'red' },
+    { key: 'critical', label: 'Critical', value: critical, format: 'number', hint: 'Stored critical signals', icon: AlertTriangle, tone: 'red' },
+    { key: 'high', label: 'High', value: high, format: 'number', hint: 'Stored high-risk signals', icon: ShieldAlert, tone: 'amber' },
+    { key: 'medium', label: 'Medium', value: medium, format: 'number', hint: 'Stored medium-risk signals', icon: Info, tone: 'navy' },
+    { key: 'reviewQueue', label: 'Review Queue', value: reviewQueue, format: 'number', hint: 'Medium + High + Critical', icon: CheckCircle2, tone: 'blue' },
   ]
 
   return (
     <PageContainer>
       <div className="mb-5">
-        <h1 className="text-[19px] font-semibold text-ink">National Monitoring Overview</h1>
-        <p className="text-[13px] text-muted mt-0.5 max-w-2xl">A consolidated snapshot of the MPLADS project portfolio, financial execution, and AI-assisted risk signals for authorized review.</p>
+        <h1 className="text-[19px] font-semibold text-ink">National AI Command Center</h1>
+        <p className="text-[13px] text-muted mt-0.5 max-w-2xl">Monitor project health, anomalies and review priorities across MPLADS.</p>
       </div>
 
       <div className="mb-4"><DashboardKpiGrid items={kpiItems} /></div>
@@ -124,6 +135,8 @@ function MinistryDashboard() {
         />
       </div>
 
+      <div className="mb-4"><StateRiskOverview rows={overview.by_state_risk} /></div>
+
       <div className="card p-4 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="font-semibold text-[13.5px] text-ink">Prioritized Review</div>
@@ -136,6 +149,32 @@ function MinistryDashboard() {
         <Link to="/projects" className="btn-primary shrink-0">Review projects</Link>
       </div>
 
+      {overview.priority_projects?.length > 0 && (
+        <div className="card overflow-hidden mb-4">
+          <div className="px-4 pt-4 pb-3">
+            <h3 className="text-[13.5px] font-semibold text-ink">Priority Review Queue</h3>
+            <p className="text-xs text-muted mt-0.5">Real projects with stored medium, high, or critical advisory signals</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead><tr>{['Work ID', 'State', 'Risk Score', 'Risk', 'Progress', ''].map(label => <th key={label}>{label}</th>)}</tr></thead>
+              <tbody>
+                {overview.priority_projects.map(project => (
+                  <tr key={project.id}>
+                    <td className="font-mono font-semibold text-navy whitespace-nowrap">{project.id}</td>
+                    <td>{project.state || '—'}</td>
+                    <td>{project.riskScore !== null ? project.riskScore : '—'}</td>
+                    <td><RiskBadge risk={project.risk} /></td>
+                    <td>{project.financialProgress !== null ? `${project.financialProgress}%` : '—'}</td>
+                    <td><Link to={`/projects/${encodeURIComponent(project.id)}`} className="text-xs font-semibold text-navy">Review →</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4"><DashboardQuickAccess /></div>
 
       <div className="text-xs text-muted flex items-center gap-1.5">
@@ -144,3 +183,34 @@ function MinistryDashboard() {
     </PageContainer>
   )
 }
+
+function StateRiskOverview({ rows }) {
+    const ranked = (rows || [])
+      .map(row => ({ ...row, review: row.medium + row.high + row.critical }))
+      .filter(row => row.review > 0)
+      .sort((a, b) => b.review - a.review)
+      .slice(0, 8)
+    const max = ranked[0]?.review || 1
+
+    return (
+      <div className="card p-4">
+        <div className="font-semibold text-[13.5px] text-ink">State-wise Risk Overview</div>
+        <p className="text-xs text-muted mt-0.5 mb-3">States with the highest stored review indicators</p>
+        {ranked.length ? (
+          <div className="space-y-2.5">
+            {ranked.map(row => (
+              <div key={row.state}>
+                <div className="flex items-baseline justify-between text-xs mb-1">
+                  <span className="text-ink truncate pr-2">{row.state}</span>
+                  <span className="font-semibold text-ink">{row.review.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-panel overflow-hidden">
+                  <div className="h-full rounded-full bg-warn" style={{ width: `${Math.max(4, Math.round((row.review / max) * 100))}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : <EmptyState text="State risk data not available." />}
+      </div>
+    )
+  }

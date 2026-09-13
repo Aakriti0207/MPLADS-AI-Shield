@@ -46,7 +46,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.routes import alerts, analytics, auth, dashboard, projects, upload
+from app.routes import alerts, analytics, auth, dashboard, projects, public, upload
 
 load_dotenv()
 
@@ -197,6 +197,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(dashboard.router)
+app.include_router(public.router)
 app.include_router(alerts.router)
 app.include_router(analytics.router)
 app.include_router(upload.router)

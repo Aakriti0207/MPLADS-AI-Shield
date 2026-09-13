@@ -39,7 +39,14 @@ export function normalizeRisk(risk = {}) {
 }
 
 export function normalizeDashboardStats(stats = {}) {
-  return { ...stats, risk_level_counts: stats.risk_level_counts || {}, by_state: stats.by_state || [], by_work_type: stats.by_work_type || [] }
+  return {
+    ...stats,
+    risk_level_counts: stats.risk_level_counts || {},
+    by_state: stats.by_state || [],
+    by_work_type: stats.by_work_type || [],
+    status_distribution: stats.status_distribution || [],
+    recent_projects: (stats.recent_projects || []).map(normalizeProject),
+  }
 }
 
 export function normalizeAnalytics(stats = {}) {

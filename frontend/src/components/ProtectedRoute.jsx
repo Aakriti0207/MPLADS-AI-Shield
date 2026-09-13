@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext'
  * send the user back to the page they originally asked for.
  */
 export default function ProtectedRoute({ children }) {
-  const { status } = useAuth()
+  const { status, isDemo } = useAuth()
   const location = useLocation()
 
   if (status === 'checking') {
@@ -29,7 +29,7 @@ export default function ProtectedRoute({ children }) {
     )
   }
 
-  if (status === 'unauthenticated') {
+  if (status === 'unauthenticated' && !isDemo) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 

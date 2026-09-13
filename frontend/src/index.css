@@ -12,7 +12,7 @@ button, input, select { font: inherit; }
 @layer components {
   /* Structural card: restrained radius + hairline border, shadow is a
      hint only -- matches the government-portal reference exactly. */
-  .card { @apply bg-white border border-line rounded-md shadow-soft; }
+  .card { @apply bg-white border border-line rounded-md; }
 
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold transition; }
   .btn-primary { @apply btn bg-navy text-white hover:bg-navy700; }

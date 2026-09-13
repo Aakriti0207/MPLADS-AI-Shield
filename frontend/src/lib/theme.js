@@ -7,7 +7,7 @@
 // renders the same colour no matter which screen it appears on.
 
 export const CHART_COLORS = {
-  navy: '#0b3355',
+  navy: '#0b2e4f',
   blue: '#1d63a8',
   green: '#1b8a5a',
   amber: '#b7791f',

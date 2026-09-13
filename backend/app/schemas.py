@@ -223,6 +223,41 @@ class DashboardStats(BaseModel):
     by_work_type: Optional[list[ByWorkTypeStat]] = None
 
 
+class StateRiskStat(BaseModel):
+    state: str
+    low: int
+    medium: int
+    high: int
+    critical: int
+
+
+class RoleDashboardResponse(BaseModel):
+    """Role-aware dashboard data without trusting frontend role selection."""
+
+    role: str
+    scope_available: bool
+    scope_label: Optional[str] = None
+    stats: Optional[DashboardStats] = None
+    by_state_risk: list[StateRiskStat] = []
+    priority_projects: list[ProjectOut] = []
+    unavailable_reason: Optional[str] = None
+
+
+class PublicProjectOut(BaseModel):
+    """Public-safe project fields for the national Overview page."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id: str
+    state: Optional[str] = None
+    constituency: Optional[str] = None
+    work_type: Optional[str] = None
+    sanctioned_amount: Optional[Decimal] = None
+    expenditure: Optional[Decimal] = None
+    financial_progress: Optional[Decimal] = None
+    status: Optional[str] = None
+
+
 class StatusCount(BaseModel):
     """One row of the Phase 4 status-distribution aggregate. `status` is
     "Not specified" for NULL/blank values rather than dropping those
@@ -230,6 +265,22 @@ class StatusCount(BaseModel):
 
     status: str
     count: int
+
+
+class PublicOverview(BaseModel):
+    """Aggregate MPLADS information safe for anonymous visitors."""
+
+    total_projects: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    average_financial_progress: Optional[Decimal] = None
+    completed_projects: Optional[int] = None
+    active_projects: Optional[int] = None
+    delayed_projects: Optional[int] = None
+    risk_level_counts: dict[str, int]
+    by_state: list[ByStateStat]
+    status_distribution: list[StatusCount]
+    recent_projects: list[PublicProjectOut]
 
 
 class RiskScoreSummary(BaseModel):

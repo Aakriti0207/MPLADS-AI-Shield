@@ -8,7 +8,7 @@ export default {
         // Shield visual reference exactly (see src/lib/theme.js, the
         // single source of truth these hexes are also exported from for
         // Recharts / inline-style consumers).
-        navy: '#0b3355',
+        navy: '#0b2e4f',
         navy700: '#123a5c',
         ink: '#16232e',
         muted: '#55636e',
