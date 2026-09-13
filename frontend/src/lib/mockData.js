@@ -61,3 +61,9 @@ export const PIPELINE_STAGES = [
 // backend's real sanction_date / start_date / actual_completion columns
 // (via GET /projects/:id), with "—" for any stage the backend has no
 // date for -- see src/pages/ProjectDetails.jsx.
+export const placeholderLifecycleDates = {
+  recommended: null,
+  sanctioned: null,
+  completed: null,
+  expenditure: null,
+};
