@@ -58,71 +58,63 @@ export default function Login() {
     }
   }
 
-  return <div className="min-h-screen grid lg:grid-cols-2 bg-white">
-    <div className="hidden lg:flex bg-[#082f57] text-white p-12 flex-col justify-between">
-      <Link to="/" className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
-          <ShieldCheck/>
-        </div>
-        <b>MPLADS Insight</b>
-      </Link>
-      <div>
-        <div className="eyebrow !text-blue-200">Secure workspace</div>
-        <h1 className="text-4xl font-extrabold mt-3">Role-based access for project monitoring teams.</h1>
-        <p className="text-blue-100 mt-5 max-w-md leading-7">The prototype separates public visibility from authenticated operational workflows. MPLADS Project Intelligence Platform
-        Monitor projects. Identify risks. Improve transparency.
-        AI-powered monitoring for smarter public infrastructure..</p>
-      </div>
-      <div className="text-xs text-blue-200">Sign in with your registered account</div>
-    </div>
-    <div className="flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <Link to="/" className="text-sm text-slate-500 inline-flex items-center gap-2 mb-8"><ArrowLeft size={15}/> Back to home</Link>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-panel p-4">
+      <div className="w-full max-w-[420px]">
+        <Link to="/" className="text-sm text-muted inline-flex items-center gap-1.5 mb-4"><ArrowLeft size={14} /> Back to home</Link>
+
         <form onSubmit={handleSubmit} className="card p-7" noValidate>
-          <div className="h-12 w-12 rounded-xl bg-blue-50 text-navy flex items-center justify-center"><LockKeyhole/></div>
-          <h2 className="text-2xl font-extrabold mt-5">Sign in</h2>
-          <p className="text-sm text-slate-500 mt-1">Access the monitoring workspace</p>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-navy text-white"><ShieldCheck size={16} /></div>
+            <span className="text-[15px] font-bold text-navy">MPLADS Insight</span>
+          </div>
+          <p className="text-xs text-muted mb-5">Secure access for authorized stakeholders</p>
 
           {formError && (
-            <div className="mt-5 text-sm text-rose-700 bg-rose-50 border border-rose-100 rounded-xl p-3">
+            <div className="mb-4 text-sm rounded-md p-3 bg-bad-bg" style={{ color: '#c0392b' }}>
               {formError}
             </div>
           )}
 
-          <label className="block text-sm font-semibold mt-6">Email</label>
+          <label className="block text-xs font-medium text-muted">Official Email / User ID</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-3"
-            placeholder="you@example.gov.in"
+            className="mt-1.5 w-full border border-line rounded-md px-3 py-2.5 text-[13px] outline-none focus:border-navy"
+            placeholder="you@mospi.gov.in"
             disabled={loading}
             autoComplete="username"
           />
-          {fieldErrors.email && <p className="text-xs text-rose-600 mt-1">{fieldErrors.email}</p>}
+          {fieldErrors.email && <p className="text-xs mt-1" style={{ color: '#c0392b' }}>{fieldErrors.email}</p>}
 
-          <label className="block text-sm font-semibold mt-4">Password</label>
+          <label className="block text-xs font-medium text-muted mt-4">Password</label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-3"
+            className="mt-1.5 w-full border border-line rounded-md px-3 py-2.5 text-[13px] outline-none focus:border-navy"
             placeholder="••••••••"
             disabled={loading}
             autoComplete="current-password"
           />
-          {fieldErrors.password && <p className="text-xs text-rose-600 mt-1">{fieldErrors.password}</p>}
+          {fieldErrors.password && <p className="text-xs mt-1" style={{ color: '#c0392b' }}>{fieldErrors.password}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full mt-6 flex items-center justify-center gap-2 disabled:opacity-70"
+            className="btn-primary w-full mt-6 disabled:opacity-70"
           >
-            {loading && <Loader2 size={16} className="animate-spin"/>}
+            {loading && <Loader2 size={15} className="animate-spin" />}
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
+
+          <p className="text-[10.5px] text-muted mt-4 text-center leading-4">
+            <LockKeyhole size={10} className="inline -mt-0.5 mr-1" />
+            Access is restricted to registered monitoring-workspace accounts.
+          </p>
         </form>
       </div>
     </div>
-  </div>
+  )
 }

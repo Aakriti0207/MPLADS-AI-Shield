@@ -1,91 +1,175 @@
-import React,{useEffect,useState} from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, BarChart3, BellRing, CheckCircle2, FileSearch, Loader2, Map, ShieldCheck, Sparkles } from 'lucide-react'
+import { Area, AreaChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ArrowRight, Eye, ShieldCheck } from 'lucide-react'
 import { fetchDashboardStats } from '../features/dashboard/api'
-import { formatCurrency } from '../lib/formatters'
+import { formatCurrency, toNumber } from '../lib/formatters'
+import { CHART_COLORS } from '../lib/theme'
+import { DEMO_PUBLIC_SNAPSHOT } from '../lib/mockData'
 import { useAuth } from '../context/AuthContext'
+import { RiskBadge, Disclaimer, Progress } from '../components/UI'
+import IndiaStateGrid from '../components/home/IndiaStateGrid'
 
-const toNumber = v => {
- if (v === null || v === undefined || v === '') return null
- const n = Number(v)
- return Number.isFinite(n) ? n : null
-}
+/**
+ * Public Overview -- always shows the full layout (KPIs, state map,
+ * status donut, expenditure trend, recent-projects table), matching the
+ * approved visual reference. Real /dashboard/stats figures are overlaid
+ * wherever the backend already supports them (KPI row, status donut,
+ * via toNumber/formatCurrency); everything the backend doesn't yet
+ * expose (state-wise tiers, monthly trend, a public projects sample)
+ * falls back to the labeled DEMO_PUBLIC_SNAPSHOT in lib/mockData.js so
+ * the page is never empty for an anonymous visitor.
+ */
+export default function Home() {
+  const { isAuthenticated, status } = useAuth()
+  const [stats, setStats] = useState(null)
 
-export default function Home(){
- const { isAuthenticated, status } = useAuth()
- const [stats,setStats]=useState(null)
- const [loading,setLoading]=useState(true)
- const [error,setError]=useState(null)
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let cancelled = false
+    fetchDashboardStats().then(data => { if (!cancelled) setStats(data) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [isAuthenticated])
 
- useEffect(()=>{
-  // /dashboard/stats is a protected endpoint. Home is the public landing
-  // page, so anonymous visitors must never trigger a request to it (that
-  // would just be a guaranteed 401) -- backend protection stays intact,
-  // and only authenticated visitors see live figures here.
-  if (status === 'loading') return
-  if (!isAuthenticated) {
-   setLoading(false)
-   setError(null)
-   setStats(null)
-   return
-  }
-  let cancelled=false
-  setLoading(true)
-  setError(null)
-  fetchDashboardStats()
-   .then(data=>{ if(!cancelled) setStats(data) })
-   .catch(err=>{ if(!cancelled) setError(err.message || 'Failed to reach the API') })
-   .finally(()=>{ if(!cancelled) setLoading(false) })
-  return ()=>{ cancelled=true }
- },[isAuthenticated,status])
+  const live = stats && isAuthenticated
+  const totalProjects = live ? toNumber(stats.total_projects) : DEMO_PUBLIC_SNAPSHOT.totalProjects
+  const totalSanctioned = live ? toNumber(stats.total_sanctioned_amount) : DEMO_PUBLIC_SNAPSHOT.totalSanctioned
+  const totalExpenditure = live ? toNumber(stats.total_expenditure) : DEMO_PUBLIC_SNAPSHOT.totalExpenditure
+  const completedProjects = live ? toNumber(stats.completed_projects) : DEMO_PUBLIC_SNAPSHOT.completedProjects
+  const riskCounts = live ? (stats.risk_level_counts || {}) : null
+  const requiresReview = riskCounts ? (riskCounts.HIGH || 0) + (riskCounts.CRITICAL || 0) + (riskCounts.MEDIUM || 0) : DEMO_PUBLIC_SNAPSHOT.requiresReview
 
- const totalProjects = stats ? (stats.total_projects ?? null) : null
- const totalSanctioned = stats ? toNumber(stats.total_sanctioned_amount) : null
- const totalExpenditure = stats ? toNumber(stats.total_expenditure) : null
- const riskCounts = stats ? (stats.risk_level_counts || {}) : {}
- const hasRiskCounts = stats ? Object.keys(riskCounts).length>0 : false
- const highPlusCritical = (riskCounts.HIGH||0) + (riskCounts.CRITICAL||0)
- // Guarded so a missing/zero sanctioned amount can never produce NaN/Infinity.
- const utilizationPct = (totalSanctioned && totalExpenditure!==null)
-  ? Math.round((totalExpenditure/totalSanctioned)*100) : null
+  const statusData = live
+    ? [
+        { name: 'Active', value: toNumber(stats.active_projects) || 0, color: CHART_COLORS.blue },
+        { name: 'Completed', value: toNumber(stats.completed_projects) || 0, color: CHART_COLORS.green },
+        { name: 'Delayed', value: toNumber(stats.delayed_projects) || 0, color: CHART_COLORS.amber },
+      ]
+    : DEMO_PUBLIC_SNAPSHOT.statusDistribution.map((d, i) => ({ ...d, color: [CHART_COLORS.muted, CHART_COLORS.blue, CHART_COLORS.green, CHART_COLORS.amber][i] }))
 
- const snapshotItems = [
-  ['Projects', totalProjects!==null ? totalProjects.toLocaleString() : 'Not available'],
-  ['High + Critical risk', hasRiskCounts ? highPlusCritical.toLocaleString() : 'Not available'],
-  ['Sanctioned', formatCurrency(totalSanctioned)],
-  ['Expenditure', formatCurrency(totalExpenditure)],
- ]
+  const kpis = [
+    ['Total Projects', totalProjects !== null ? totalProjects.toLocaleString() : 'Not available', 'All recorded works'],
+    ['Sanctioned Amount', formatCurrency(totalSanctioned), 'Cumulative sanction'],
+    ['Expenditure', formatCurrency(totalExpenditure), live ? 'Live figure' : 'This fiscal year'],
+    ['Completed Works', completedProjects !== null ? completedProjects.toLocaleString() : 'Not available', live ? '' : `${Math.round((completedProjects / totalProjects) * 100)}% of total`],
+    ['Requiring Review', requiresReview.toLocaleString(), 'AI Shield indicators'],
+  ]
 
- return <div className="min-h-screen bg-white">
-   <header className="border-b border-slate-200 bg-white"><div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between"><Link to="/" className="flex items-center gap-3"><div className="h-10 w-10 bg-navy text-white rounded-xl flex items-center justify-center"><ShieldCheck/></div><div><b>MPLADS Insight</b><div className="text-[10px] text-slate-500">Project Monitoring & Risk Intelligence</div></div></Link><div className="flex gap-2"><Link to="/dashboard" className="btn-secondary">Public Dashboard</Link><Link to="/login" className="btn-primary">Login <ArrowRight size={15}/></Link></div></div></header>
+  const sampleProjects = DEMO_PUBLIC_SNAPSHOT.sampleProjects
 
-   <section className="bg-gradient-to-br from-[#082f57] to-[#0d4c86] text-white"><div className="max-w-7xl mx-auto px-5 py-20 md:py-24 grid md:grid-cols-2 gap-12 items-center">
-    <div><div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-semibold mb-5"><Sparkles size={14}/> AI-assisted monitoring layer</div><h1 className="text-4xl md:text-6xl font-extrabold leading-tight">From project data to <span className="text-blue-200">actionable oversight.</span></h1><p className="text-blue-100 mt-5 max-w-xl leading-7">A modern monitoring workspace for tracking MPLADS projects, financial utilization, geographic spread and emerging risk signals.</p><div className="flex flex-wrap gap-3 mt-7"><Link to="/dashboard" className="btn bg-white text-navy hover:bg-blue-50">Explore Dashboard <ArrowRight size={16}/></Link><Link to="/projects" className="btn bg-white/10 border border-white/20 text-white">Browse Projects</Link></div></div>
+  return (
+    <div className="min-h-screen bg-panel">
+      <header className="bg-white border-b border-line">
+        <div className="max-w-[1200px] mx-auto px-5 h-14 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="h-8 w-8 bg-navy text-white rounded-md flex items-center justify-center"><ShieldCheck size={16} /></div>
+            <div className="leading-tight">
+              <div className="text-[14px] font-bold text-navy">MPLADS Insight</div>
+              <div className="text-[10px] text-muted">AI-Powered Project Monitoring</div>
+            </div>
+          </Link>
+          <div className="flex gap-2">
+            {isAuthenticated ? <Link to="/dashboard" className="btn-secondary">Dashboard</Link> : null}
+            <Link to="/login" className="btn-primary">Secure Login <ArrowRight size={14} /></Link>
+          </div>
+        </div>
+      </header>
 
-    <div className="card bg-white/10 border-white/20 p-5 backdrop-blur">
-     <div className="text-sm text-blue-100 mb-4">Live portfolio snapshot</div>
+      <div className="max-w-[1200px] mx-auto px-5 py-6">
+        <h1 className="text-[21px] font-semibold text-ink">MPLADS Project Monitoring &amp; AI-Powered Risk Intelligence</h1>
+        <p className="text-[13px] text-muted mt-1.5 max-w-[640px]">
+          Transparent monitoring of MPLADS works, expenditure, progress and AI-powered indicators requiring review.
+        </p>
+        {!live && status !== 'checking' && (
+          <p className="text-xs text-muted mt-2">
+            Showing illustrative national figures. <Link to="/login" className="text-blue underline">Sign in</Link> to see this replaced with your live portfolio data.
+          </p>
+        )}
 
-     {(loading || status==='loading') && <div className="rounded-xl bg-white/10 p-6 flex items-center justify-center gap-2 text-blue-100"><Loader2 className="animate-spin" size={18}/><span className="text-sm">Loading live figures…</span></div>}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+          {kpis.map(([label, value, hint]) => (
+            <div className="card p-4" key={label}>
+              <div className="text-xs text-muted">{label}</div>
+              <div className="text-[20px] font-semibold mt-1.5 text-ink">{value}</div>
+              {hint && <div className="text-[11px] text-muted mt-1.5">{hint}</div>}
+            </div>
+          ))}
+        </div>
 
-     {!loading && status!=='loading' && !isAuthenticated && <div className="rounded-xl bg-white/10 p-4 text-sm text-blue-100">
-      <div className="font-semibold text-white">Sign in to view live figures</div>
-      <p className="mt-1 text-xs">Portfolio snapshot data is only shown to authenticated users. <Link to="/login" className="underline">Login</Link> to see it here.</p>
-     </div>}
+        <div className="grid lg:grid-cols-5 gap-4 mt-4">
+          <div className="card p-4 lg:col-span-3">
+            <h3 className="text-[13.5px] font-semibold text-ink">State-wise MPLADS Monitoring</h3>
+            <p className="text-xs text-muted mt-0.5 mb-3">Illustrative state grid -- select a state to view its indicator tier</p>
+            <IndiaStateGrid />
+          </div>
+          <div className="card p-4 lg:col-span-2">
+            <h3 className="text-[13.5px] font-semibold text-ink">Project Status Distribution</h3>
+            <p className="text-xs text-muted mt-0.5">{live ? 'Live, national' : 'Illustrative, national'}</p>
+            <div style={{ height: 230 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={78} paddingAngle={2}>
+                    {statusData.map(d => <Cell key={d.name} fill={d.color} />)}
+                  </Pie>
+                  <Legend verticalAlign="bottom" height={44} iconSize={9} wrapperStyle={{ fontSize: 11 }} />
+                  <Tooltip formatter={v => Number(v).toLocaleString()} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
 
-     {!loading && status!=='loading' && isAuthenticated && error && <div className="rounded-xl bg-white/10 p-4 text-sm text-blue-100">
-      <div className="flex items-center gap-2 font-semibold text-white"><AlertTriangle size={16}/> Could not load live figures</div>
-      <p className="mt-1 text-xs">{error}</p>
-     </div>}
+        <div className="card p-4 mt-4">
+          <h3 className="text-[13.5px] font-semibold text-ink">Expenditure Trend</h3>
+          <p className="text-xs text-muted mt-0.5">Illustrative, monthly (₹ crore) -- pending a real time-series endpoint</p>
+          <div style={{ height: 220 }}>
+            <ResponsiveContainer>
+              <AreaChart data={DEMO_PUBLIC_SNAPSHOT.trend} margin={{ left: -14, right: 8, top: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.line} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={v => `₹${v} Cr`} />
+                <Area type="monotone" dataKey="expenditure" name="Expenditure (₹ Cr)" stroke={CHART_COLORS.blue} fill={CHART_COLORS.blue} fillOpacity={0.15} strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-     {!loading && status!=='loading' && isAuthenticated && !error && <>
-      <div className="grid grid-cols-2 gap-3">{snapshotItems.map(x=><div key={x[0]} className="rounded-xl bg-white/10 p-4"><div className="text-xs text-blue-100">{x[0]}</div><div className="text-xl font-extrabold mt-1">{x[1]}</div></div>)}</div>
-      <div className="mt-4 rounded-xl bg-white p-4 text-slate-800"><div className="flex justify-between text-sm"><span>Overall utilization</span><b>{utilizationPct!==null ? `${utilizationPct}%` : 'Not available'}</b></div><div className="h-2 bg-slate-100 rounded-full mt-2"><div className="h-full bg-navy rounded-full" style={{width:`${utilizationPct ?? 0}%`}}/></div></div>
-     </>}
+        <div className="card mt-4 overflow-hidden">
+          <div className="px-4 pt-4 pb-3">
+            <h3 className="text-[13.5px] font-semibold text-ink">Recently Monitored Projects</h3>
+            <p className="text-xs text-muted mt-0.5">Illustrative sample -- sign in for the full, live Project Explorer</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead><tr>{['Work ID', 'State', 'District', 'MP', 'Category', 'Sanctioned', 'Expenditure', 'Risk'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <tbody>
+                {sampleProjects.map(p => (
+                  <tr key={p.id}>
+                    <td className="font-mono font-semibold text-navy whitespace-nowrap">{p.id}</td>
+                    <td className="whitespace-nowrap">{p.state}</td>
+                    <td className="whitespace-nowrap">{p.district}</td>
+                    <td className="whitespace-nowrap">{p.mpName}</td>
+                    <td className="whitespace-nowrap">{p.workType}</td>
+                    <td className="whitespace-nowrap">{formatCurrency(p.sanctioned)}</td>
+                    <td className="whitespace-nowrap">{formatCurrency(p.expenditure)}</td>
+                    <td><RiskBadge risk={p.risk} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-4"><Disclaimer /></div>
+      </div>
+
+      <footer className="border-t border-line bg-white mt-10">
+        <div className="max-w-[1200px] mx-auto px-5 py-5 text-xs text-muted flex flex-wrap justify-between gap-3">
+          <span>© 2026 MPLADS Insight -- SIH prototype</span>
+          <span className="flex items-center gap-1.5"><Eye size={12} /> AI-assisted advisory signals -- not an official Government of India portal</span>
+        </div>
+      </footer>
     </div>
-   </div></section>
-
-   <section className="max-w-7xl mx-auto px-5 py-16"><div className="text-center max-w-2xl mx-auto"><div className="eyebrow">What the platform adds</div><h2 className="text-3xl font-extrabold mt-2">More than a data portal</h2><p className="text-slate-500 mt-3">Designed as an intelligence and workflow layer over project information—not a replacement for official systems.</p></div><div className="grid md:grid-cols-3 gap-5 mt-10">{[[BarChart3,'Decision dashboard','Turn scattered project indicators into one operational view.'],[BellRing,'Early risk alerts','Surface risk signals and utilization patterns for review.'],[Map,'Geographic intelligence','Understand project concentration and risk across states and districts.'],[FileSearch,'Project 360°','See financial, risk, and agency information together.'],[CheckCircle2,'Review workflow','Keep human verification and official decision-making in the loop.'],[ShieldCheck,'Trust & governance','Clearly label AI outputs as advisory with audit-ready design principles.']].map(([I,t,d])=><div className="card p-6" key={t}><div className="h-11 w-11 rounded-xl bg-blue-50 text-navy flex items-center justify-center"><I/></div><h3 className="font-bold mt-4">{t}</h3><p className="text-sm text-slate-500 mt-2 leading-6">{d}</p></div>)}</div></section>
-
-   <footer className="border-t border-slate-200"><div className="max-w-7xl mx-auto px-5 py-7 text-sm text-slate-500 flex flex-wrap justify-between gap-3"><span>© 2026 MPLADS Insight — SIH prototype</span><span>AI-assisted advisory signals • Not an official Government of India portal</span></div></footer>
- </div>
+  )
 }
