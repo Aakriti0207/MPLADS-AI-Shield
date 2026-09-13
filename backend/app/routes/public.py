@@ -1,6 +1,6 @@
 """Anonymous, public-safe national Overview data."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -53,6 +53,30 @@ def list_public_projects(
         skip=skip,
         limit=limit,
     )
+
+
+@router.get("/projects/{project_id:path}", response_model=PublicProjectOut)
+def get_public_project(project_id: str, db: Session = Depends(get_db)):
+    """Anonymous-safe single-project detail lookup.
+
+    Added so the public Overview's "Recently Monitored Projects" list
+    (and the public /projects explorer) can link to a project detail
+    page without requiring a session. This deliberately reuses
+    PublicProjectOut -- the same sanitized shape already used by
+    list_public_projects/get_public_overview above -- so this route
+    can never leak risk_score, risk_level, risk reasons, internal
+    review/anomaly notes, or any stakeholder/user data: those fields
+    simply are not on PublicProjectOut. `GET /projects/{id}` (in
+    routes/projects.py) is untouched and still requires
+    authentication for the full, risk-inclusive record.
+    """
+    project = db.query(Project).filter(Project.project_id == project_id).first()
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    return project
 
 
 @router.get("/overview", response_model=PublicOverview)

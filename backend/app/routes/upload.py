@@ -26,14 +26,24 @@ This endpoint:
 
 Protected the same way as the other project/business-data endpoints
 (projects.py, dashboard.py, alerts.py, analytics.py): router-level
-Depends(get_current_user).
+authentication via Depends(get_current_user).
+
+Phase 7 addition: dataset upload/analysis is also restricted to the
+Ministry/Admin role. The only role this backend actually treats as
+privileged today is ADMIN_ROLE ("Administrator" -- see app/auth.py),
+so the router now depends on require_role(ADMIN_ROLE) instead of the
+bare get_current_user. require_role() already depends on
+get_current_user internally, so authentication (401 for missing/
+invalid token) and authorization (403 for a valid but non-Administrator
+user) are both enforced here, server-side -- this is not something the
+frontend can bypass by hiding the Upload nav item or route.
 """
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import ADMIN_ROLE, require_role
 from app.database import get_db
 from app.rate_limit import rate_limit
 from app.schemas import (
@@ -56,7 +66,7 @@ from app.upload_analysis import (
 router = APIRouter(
     prefix="/upload-analyze",
     tags=["upload-analyze"],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_role(ADMIN_ROLE))],
 )
 
 # Phase 6: a looser limit than login/register (this is an authenticated,
