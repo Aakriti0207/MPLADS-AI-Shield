@@ -6,6 +6,7 @@ import ProjectDetails from '../pages/ProjectDetails'
 import UploadAnalysis from '../pages/UploadAnalysis'
 import Alerts from '../pages/Alerts'
 import Analytics from '../pages/Analytics'
+import AiShield from '../pages/AiShield'
 import MapPage from '../pages/MapPage'
 import Reports from '../pages/Reports'
 
@@ -32,6 +33,7 @@ export const appRoutes = [
   { path: '/dashboard', element: Dashboard, title: 'Overview', nav: 'Dashboard' },
   { path: '/projects', element: Projects, title: 'Projects', nav: 'Projects' },
   { path: '/projects/:id', element: ProjectDetails, title: 'Project Intelligence', parent: '/projects' },
+  { path: '/ai-shield', element: AiShield, title: 'AI Shield', nav: 'AI Shield' },
   { path: '/upload', element: UploadAnalysis, title: 'Upload & Analyze', nav: 'Upload & Analyze' },
   { path: '/alerts', element: Alerts, title: 'Alerts', nav: 'Alerts' },
   { path: '/analytics', element: Analytics, title: 'Analytics', nav: 'Analytics' },
