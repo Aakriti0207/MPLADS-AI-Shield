@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.aggregations import (
     compute_by_state,
+    compute_by_work_type,
     compute_core_totals,
     compute_risk_level_counts,
     compute_status_distribution,
@@ -84,6 +85,7 @@ def get_public_overview(
         delayed_projects=totals["delayed_projects"] if has_explicit_status else None,
         risk_level_counts=compute_risk_level_counts(db),
         by_state=compute_by_state(db),
+        by_work_type=compute_by_work_type(db),
         status_distribution=status_distribution,
         recent_projects=[PublicProjectOut.model_validate(project) for project in projects],
     )

@@ -297,6 +297,7 @@ class PublicOverview(BaseModel):
     delayed_projects: Optional[int] = None
     risk_level_counts: dict[str, int]
     by_state: list[ByStateStat]
+    by_work_type: list[ByWorkTypeStat]
     status_distribution: list[StatusCount]
     recent_projects: list[PublicProjectOut]
 

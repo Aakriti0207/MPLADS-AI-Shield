@@ -55,26 +55,9 @@ export const PIPELINE_STAGES = [
   'Risk fusion & explainability',
 ]
 
-// Used by: ProjectDetails.jsx lifecycle stepper.
-// Needs: real recommendation_date / sanction_date / completion_date
-// fields on the project record -- the backend currently returns none of
-// these (confirmed against lib/normalizers.js). Dates below are
-// deterministically derived from the project's own ID (not random) so
-// the same project always shows the same placeholder dates across
-// reloads, but they are NOT real sanction/completion dates.
-export function placeholderLifecycleDates(projectId) {
-  let hash = 0
-  for (let i = 0; i < (projectId || '').length; i++) hash = (hash * 31 + projectId.charCodeAt(i)) >>> 0
-  const baseYear = 2023 + (hash % 3)
-  const baseMonth = hash % 12
-  const day = 3 + (hash % 24)
-  const start = new Date(baseYear, baseMonth, day)
-  const addDays = n => { const d = new Date(start); d.setDate(d.getDate() + n); return d }
-  const fmt = d => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-  return {
-    recommended: fmt(start),
-    sanctioned: fmt(addDays(45 + (hash % 30))),
-    expenditureBegins: fmt(addDays(80 + (hash % 30))),
-    completed: fmt(addDays(240 + (hash % 90))),
-  }
-}
+// Phase 5 removed placeholderLifecycleDates(), which used to render
+// ID-hash-derived fake recommendation/sanction/completion dates on
+// ProjectDetails.jsx's lifecycle stepper. That page now shows only the
+// backend's real sanction_date / start_date / actual_completion columns
+// (via GET /projects/:id), with "—" for any stage the backend has no
+// date for -- see src/pages/ProjectDetails.jsx.

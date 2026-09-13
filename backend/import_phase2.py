@@ -45,6 +45,16 @@ for the full rationale):
       use different, non-equivalent vocabularies (see app/models.py's
       `status` column comment), so status is also left untouched. The
       raw work_status value is preserved in risk_metadata instead.
+    - work_category -> work_type, verbatim (e.g. "Normal/Others",
+      "Repair and Renovation", "Trust and Society", "Bar and
+      Associations"; blank in the source for ~41% of rows, which stays
+      NULL here rather than becoming an empty string). Originally this
+      was only folded into risk_metadata alongside work_status, but
+      unlike work_status it IS the same concept as the dedicated
+      `work_type` column (a work category, not a status), so it's
+      mapped there directly -- this is what powers the frontend's
+      Project Explorer "Category" filter. Still also kept in
+      risk_metadata for anyone consuming that JSON blob directly.
     - is_synthetic is always set to False here (this is real data, never
       the seed_data.py demo data).
 """
@@ -217,6 +227,7 @@ def transform_row(row: dict) -> Optional[dict]:
         "state": parse_str(row.get("state")),
         "constituency": parse_str(row.get("constituency")),
         "mp_name": parse_str(row.get("mp_name_clean")),
+        "work_type": parse_str(row.get("work_category")),
         "implementing_agency": parse_str(row.get("ida")),  # verbatim, no district parsing
         "sanctioned_amount": to_decimal(parse_float(row.get("sanction_amount")), 2),
         "expenditure": to_decimal(parse_float(row.get("total_expenditure")), 2),

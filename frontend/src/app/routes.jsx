@@ -1,6 +1,7 @@
 import Home from '../pages/Home'
 import About from '../pages/About'
 import Login from '../pages/Login'
+import AiInsights from '../pages/AiInsights'
 import Dashboard from '../pages/Dashboard'
 import Projects from '../pages/Projects'
 import ProjectDetails from '../pages/ProjectDetails'
@@ -27,6 +28,10 @@ import Reports from '../pages/Reports'
 
 export const publicRoutes = [
   { path: '/', element: Home, title: 'MPLADS Insight' },
+  // Phase 6: public, anonymous-safe AI Insights. Aggregate-only (see
+  // pages/AiInsights.jsx) -- must never redirect to /login, so it lives
+  // in publicRoutes like Home/About/Login, not appRoutes+ProtectedRoute.
+  { path: '/ai-insights', element: AiInsights, title: 'AI Insights' },
   { path: '/about', element: About, title: 'About' },
   { path: '/login', element: Login, title: 'Sign in' },
 ]

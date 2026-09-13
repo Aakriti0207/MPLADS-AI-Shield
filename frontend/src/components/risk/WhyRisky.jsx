@@ -5,7 +5,7 @@ import React from 'react'
 // list -- makes each independent signal visually distinct.
 export default function WhyRisky({ reasons = [], evidence = [] }) {
   if (!reasons.length) {
-    return <p className="text-sm text-muted">No risk driver was recorded for the available data.</p>
+    return <p className="text-sm text-muted">No specific risk indicators were returned for this project.</p>
   }
   return (
     <div>
@@ -25,4 +25,4 @@ export default function WhyRisky({ reasons = [], evidence = [] }) {
       )}
     </div>
   )
-}
+}   
