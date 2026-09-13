@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children }) {
 
   if (status === 'checking') {
     return (
-      <div className="min-h-screen flex items-center justify-center gap-2 text-slate-500">
+      <div className="min-h-screen flex items-center justify-center gap-2 text-muted">
         <Loader2 className="animate-spin" size={20} />
         <span className="text-sm">Checking your session…</span>
       </div>
