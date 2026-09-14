@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, Building2, IndianRupee, Loader2, Lock, MapPin, ShieldAlert, Sparkles, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Building2, Download, IndianRupee, Loader2, Lock, MapPin, ShieldAlert, Sparkles, Users } from 'lucide-react'
 import { money } from '../data'
 import { RiskBadge, Progress, Section, Disclaimer } from '../components/UI'
 import RiskBreakdown from '../components/risk/RiskBreakdown'
 import WhyRisky from '../components/risk/WhyRisky'
 
 import { fetchProject, fetchProjectRisk, fetchPublicProject } from '../features/projects/api'
+import { downloadProjectReport } from '../features/reports/api'
 import { API_BASE } from '../lib/api'
 import { formatDate } from '../lib/formatters'
 import PageContainer from '../components/layout/PageContainer'
@@ -95,6 +96,8 @@ export default function ProjectDetails() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [notFound, setNotFound] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
 
   useEffect(() => {
     if (!authReady) return
@@ -131,6 +134,22 @@ export default function ProjectDetails() {
     }
     return () => { cancelled = true }
   }, [id, authReady, useProtectedApi])
+
+  // GET /reports/project/{id} requires a real JWT (see
+  // app/routes/reports.py), so this is only wired up for a real
+  // authenticated session -- never for anonymous or demo visitors,
+  // matching useProtectedApi above.
+  async function handleExportReport() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      await downloadProjectReport(id)
+    } catch (err) {
+      setExportError(err.message || 'Report generation failed. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Wraps whatever this page wants to render for the current state
   // (checking session / loading / not found / error / loaded) in the
@@ -241,6 +260,14 @@ export default function ProjectDetails() {
             <span className="inline-flex gap-1.5 items-center"><Users size={13} />{p.constituency || 'Not available'}{p.mpName ? ` · ${p.mpName}` : ''}</span>
             <span className="inline-flex gap-1.5 items-center"><Building2 size={13} />{p.agency || 'Not available'}</span>
           </div>
+          {useProtectedApi && (
+            <div className="mt-3">
+              <button onClick={handleExportReport} disabled={exporting} className="btn-secondary disabled:opacity-50">
+                {exporting ? <Loader2 className="animate-spin" size={15} /> : <Download size={15} />} Export Report
+              </button>
+              {exportError && <p className="text-xs mt-1.5" style={{ color: '#c0392b' }}>{exportError}</p>}
+            </div>
+          )}
         </div>
         {showRiskIntelligence ? (
           <div className="card p-3.5 min-w-[200px]">
