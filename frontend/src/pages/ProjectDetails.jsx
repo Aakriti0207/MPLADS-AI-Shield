@@ -231,6 +231,11 @@ export default function ProjectDetails() {
   const showRiskIntelligence =
     isAuthenticated || isDemo
 
+  // Report export requires a real authenticated JWT.
+  // Demo sessions intentionally cannot use the protected reports API.
+  const useProtectedApi =
+    isAuthenticated && !isDemo
+
   const [raw, setRaw] = useState(null)
   const [riskResult, setRiskResult] =
     useState(null)

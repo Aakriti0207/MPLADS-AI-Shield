@@ -376,6 +376,14 @@ def get_demo_dashboard_stats():
         canonical_df
     )
 
+    # DashboardStats requires delayed_projects to be an integer.
+    # The canonical dataset may not have enough information to
+    # calculate delayed projects, in which case the aggregation
+    # returns None. Use 0 rather than failing schema validation.
+    totals["delayed_projects"] = int(
+        totals.get("delayed_projects") or 0
+    )
+
     by_state = compute_by_state_from_canonical(
         canonical_df
     )
@@ -413,6 +421,14 @@ def get_demo_role_dashboard(
 
     totals = compute_core_totals_from_canonical(
         canonical_df
+    )
+
+    # DashboardStats requires delayed_projects to be an integer.
+    # The canonical dataset may not have enough information to
+    # calculate delayed projects, in which case the aggregation
+    # returns None. Use 0 rather than failing schema validation.
+    totals["delayed_projects"] = int(
+        totals.get("delayed_projects") or 0
     )
 
     risk_level_counts = (

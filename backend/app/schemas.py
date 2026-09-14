@@ -110,16 +110,16 @@ class ProjectOut(BaseModel):
     # --- Phase 2: ML risk-scoring output (advisory, not a fraud label) --
     # Mirrors app/models.py's Project columns of the same names, in the
     # same order, so the two stay easy to diff against each other.
-    risk_score: Optional[Decimal] = None
+    risk_score: Optional[float] = None
     risk_level: Optional[str] = None
 
-    financial_risk_score: Optional[Decimal] = None
-    payment_risk_score: Optional[Decimal] = None
-    execution_risk_score: Optional[Decimal] = None
-    peer_anomaly_score: Optional[Decimal] = None
-    isolation_forest_score: Optional[Decimal] = None
-    anomaly_risk_score: Optional[Decimal] = None
-    duplicate_risk_score: Optional[Decimal] = None
+    financial_risk_score: Optional[float] = None
+    payment_risk_score: Optional[float] = None
+    execution_risk_score: Optional[float] = None
+    peer_anomaly_score: Optional[float] = None
+    isolation_forest_score: Optional[float] = None
+    anomaly_risk_score: Optional[float] = None
+    duplicate_risk_score: Optional[float] = None
 
     raw_max_similarity: Optional[Decimal] = None
     most_similar_work_id: Optional[str] = None
