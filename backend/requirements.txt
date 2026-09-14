@@ -15,6 +15,11 @@ python-multipart
 pandas
 python-multipart
 
+# Phase 8 (GET /reports/generate, GET /reports/project/{id}): reportlab
+# builds the PDF export at runtime (app/routes/reports.py). No other PDF
+# dependency existed to preserve -- this is a new, additive capability.
+reportlab
+
 # --- Dev / testing only ---
 pytest
 httpx

@@ -204,7 +204,7 @@ class DashboardStats(BaseModel):
     average_physical_progress: Optional[Decimal] = None
     active_projects: int
     completed_projects: int
-    delayed_projects: Optional[int] = None
+    delayed_projects: int
 
     # Phase 3C addition: real counts of projects per Phase 2 risk_level
     # (LOW/MEDIUM/HIGH/CRITICAL), grouped straight from the Project table.
@@ -386,7 +386,7 @@ class AnalyticsResponse(BaseModel):
     average_physical_progress: Optional[Decimal] = None
     active_projects: int
     completed_projects: int
-    delayed_projects: Optional[int] = None
+    delayed_projects: int
     risk_level_counts: dict[str, int]
     by_state: list[ByStateStat]
     by_work_type: list[ByWorkTypeStat]
@@ -500,6 +500,84 @@ class UploadRowResult(BaseModel):
     # above and UploadAnalyzeResponse.risk_scoring_note below.
     risk_score: None = None
     risk_level: None = None
+
+
+class ReportTypeInfo(BaseModel):
+    """One report type the authenticated caller is actually allowed to
+    generate. Only real, backend-supported types are ever listed --
+    see app/routes/reports.py's REPORT_TYPES."""
+
+    id: str
+    label: str
+    description: str
+
+
+class ReportsMeta(BaseModel):
+    """Tells the frontend what report generation is actually available
+    for the authenticated caller, mirroring RoleDashboardResponse's
+    scope_available pattern (see app/routes/dashboard.py) so
+    Reports.jsx never has to guess or fall back to frontend-only role
+    logic. Non-Ministry/Admin roles get scope_available=False with an
+    explanatory reason, exactly like the role-scoped dashboard, because
+    the User model still has no state/district/constituency/MP scope
+    to authorize a narrower report against."""
+
+    role: str
+    scope_available: bool
+    scope_label: Optional[str] = None
+    unavailable_reason: Optional[str] = None
+    report_types: list[ReportTypeInfo] = []
+    filters_supported: list[str] = []
+    export_formats: list[str] = []
+
+
+class ReportProjectRow(BaseModel):
+    """One project-level row inside a generated report or export.
+    Every field here mirrors an existing Project/ProjectOut column --
+    nothing is invented for the report."""
+
+    project_id: str
+    work_type: Optional[str] = None
+    state: Optional[str] = None
+    district: Optional[str] = None
+    constituency: Optional[str] = None
+    implementing_agency: Optional[str] = None
+    status: Optional[str] = None
+    sanctioned_amount: Optional[Decimal] = None
+    expenditure: Optional[Decimal] = None
+    financial_progress: Optional[Decimal] = None
+    risk_level: Optional[str] = None
+    risk_score: Optional[Decimal] = None
+    risk_reasons: list[str] = []
+
+
+class ReportOut(BaseModel):
+    """A generated report (format=json). CSV/PDF exports of the same
+    report_type + filters are built from the same underlying query --
+    see app/routes/reports.py."""
+
+    report_type: str
+    title: str
+    generated_at: datetime
+    scope: str
+    filters_applied: dict[str, Optional[str]] = {}
+
+    total_projects: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    average_financial_progress: Optional[Decimal] = None
+
+    # NULL/empty (no scored projects in scope) is reported as an empty
+    # dict, not zeroed-out keys -- consistent with
+    # aggregations.compute_risk_level_counts.
+    risk_level_counts: dict[str, int] = {}
+    projects_requiring_review: int
+    duplicate_indicators: int
+    anomaly_indicators: int
+
+    priority_projects: list[ReportProjectRow] = []
+    data_quality_notes: list[str] = []
+    disclaimer: str
 
 
 class UploadAnalyzeResponse(BaseModel):
