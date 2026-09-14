@@ -1,71 +1,656 @@
 """
-Shared SQL aggregation helpers over the `projects` table.
+Shared aggregation helpers.
 
-Phase 4 extraction: app/routes/dashboard.py originally computed all of
-its aggregates inline. GET /analytics (Phase 4) needs several of the
-same aggregates (core totals, risk_level_counts, by_state, by_work_type)
-plus some new ones. Per the "no duplication" rule, the shared aggregates
-were moved here so both routes call the exact same query logic instead of
-two copies that could quietly drift apart. app/routes/dashboard.py's
-response
-is unchanged -- these functions return the same values it always computed.
+There are two data sources in the application:
 
-Every function here does its aggregation in SQL (COUNT/SUM/AVG/MIN/MAX/
-GROUP BY) via SQLAlchemy -- none of them pull the 56,323-row `projects`
-table into Python and aggregate there.
+1. Canonical ML dataset:
+       data/processed/canonical_projects.csv
 
-NULL handling, consistent throughout:
-    - SQL AVG/MIN/MAX/COUNT(column) already ignore NULL rows for that
-      column -- exactly the behavior wanted here (a project with no
-      estimated_cost shouldn't drag the average toward zero or count as
-      a min/max candidate). No manual NULL-filtering is needed for those.
-    - Grouped fields (state, work_type, status) fold NULL/blank into an
-      explicit "Not specified" bucket rather than dropping those projects
-      from the total, so grouped counts still reconcile with
-      total_projects.
-    - risk_level is the one exception: a NULL risk_level means "not yet
-      scored," which is not one of LOW/MEDIUM/HIGH/CRITICAL, so those
-      rows are excluded from risk_level_counts entirely rather than
-      folded into a bucket -- consistent with how dashboard.py already
-      treated this before the Phase 4 extraction.
+   This is the authoritative 43,863-project project universe used by
+   the current ML/Risk Fusion pipeline.
 
-ML-4 handling:
-    - Delayed projects can only be calculated when at least one project
-      has an expected_completion date.
-    - If no expected_completion dates exist, delayed_projects is returned
-      as None rather than 0.
-    - This prevents "0 delayed projects" from being incorrectly presented
-      as evidence that there are no delayed projects when deadline data is
-      unavailable.
+2. Project database:
+       Project
+
+   This remains available for legacy/API compatibility and for
+   authenticated application data.
+
+Dashboard/Analytics should prefer the canonical dataset for national
+project statistics so that totals are consistent with the current
+Risk Fusion universe.
 """
+
+from pathlib import Path
+from typing import Optional, Sequence
+
+import pandas as pd
 
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.models import Project
-from app.schemas import ByStateStat, ByWorkTypeStat, StateRiskStat, StatusCount
+from app.schemas import (
+    ByStateStat,
+    ByWorkTypeStat,
+    StateRiskStat,
+    StatusCount,
+)
 
 
-def compute_core_totals(db: Session) -> dict:
-    """Project counts, financial totals, and progress averages.
+# =====================================================================
+# Paths
+# =====================================================================
 
-    Moved verbatim from app/routes/dashboard.py's get_dashboard_stats --
-    see that module's docstring for the completed/active/delayed status
-    rule.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
-    ML-4:
-    Delayed projects are only calculated when expected_completion data
-    exists. If the field is completely unavailable for the dataset,
-    delayed_projects is returned as None instead of 0.
+PROCESSED_DIR = BACKEND_ROOT / "data" / "processed"
+
+CANONICAL_PROJECTS_PATH = (
+    PROCESSED_DIR / "canonical_projects.csv"
+)
+
+RISK_FUSION_PATH = (
+    PROCESSED_DIR / "project_risk_scores.csv"
+)
+
+
+# =====================================================================
+# Canonical dataset loader
+# =====================================================================
+
+def load_canonical_projects() -> pd.DataFrame:
+    """
+    Load the current canonical project dataset.
+
+    This should contain the same 43,863-project universe used by the
+    current ML pipeline.
     """
 
-    totals = db.query(
-        func.count(Project.project_id),
-        func.coalesce(func.sum(Project.sanctioned_amount), 0),
-        func.coalesce(func.sum(Project.expenditure), 0),
-        func.avg(Project.financial_progress),
-        func.avg(Project.physical_progress),
-    ).one()
+    if not CANONICAL_PROJECTS_PATH.exists():
+        raise FileNotFoundError(
+            f"Canonical project dataset not found: "
+            f"{CANONICAL_PROJECTS_PATH}"
+        )
+
+    df = pd.read_csv(
+        CANONICAL_PROJECTS_PATH,
+        low_memory=False,
+    )
+
+    if "work_id" not in df.columns:
+        raise ValueError(
+            "canonical_projects.csv does not contain work_id."
+        )
+
+    df["work_id"] = (
+        df["work_id"]
+        .astype(str)
+        .str.strip()
+    )
+
+    df = df[
+        (df["work_id"] != "")
+        & (df["work_id"].str.lower() != "nan")
+    ].copy()
+
+    df = df.drop_duplicates(
+        subset=["work_id"]
+    )
+
+    return df
+
+
+# =====================================================================
+# Risk Fusion loader
+# =====================================================================
+
+def load_risk_fusion() -> pd.DataFrame:
+    """
+    Load the current Phase 7 Risk Fusion output.
+    """
+
+    if not RISK_FUSION_PATH.exists():
+        raise FileNotFoundError(
+            f"Risk Fusion output not found: "
+            f"{RISK_FUSION_PATH}"
+        )
+
+    df = pd.read_csv(
+        RISK_FUSION_PATH,
+        low_memory=False,
+    )
+
+    required = {
+        "work_id",
+        "risk_score",
+        "risk_level",
+        "evidence_status",
+    }
+
+    missing = required - set(df.columns)
+
+    if missing:
+        raise ValueError(
+            "Risk Fusion output is missing columns: "
+            + ", ".join(sorted(missing))
+        )
+
+    df["work_id"] = (
+        df["work_id"]
+        .astype(str)
+        .str.strip()
+    )
+
+    df = df[
+        (df["work_id"] != "")
+        & (df["work_id"].str.lower() != "nan")
+    ].copy()
+
+    df = df.drop_duplicates(
+        subset=["work_id"]
+    )
+
+    return df
+
+
+# =====================================================================
+# Canonical numeric helper
+# =====================================================================
+
+def _numeric(
+    df: pd.DataFrame,
+    column: str,
+) -> pd.Series:
+    """
+    Convert a canonical numeric column safely to numeric.
+    """
+
+    if column not in df.columns:
+        return pd.Series(
+            0.0,
+            index=df.index,
+        )
+
+    return pd.to_numeric(
+        df[column],
+        errors="coerce",
+    ).fillna(0)
+
+
+# =====================================================================
+# Canonical core totals
+# =====================================================================
+
+def compute_core_totals_from_canonical(
+    df: pd.DataFrame,
+) -> dict:
+    """
+    Compute Dashboard totals from the canonical 43,863-project
+    dataset.
+
+    Available canonical fields include:
+
+        sanction_amount
+        total_expenditure
+        status
+
+    Financial progress is calculated as:
+
+        total_expenditure / sanction_amount * 100
+
+    Physical progress and expected completion are unavailable in the
+    canonical dataset, so they remain None.
+    """
+
+    total_projects = int(
+        df["work_id"].nunique()
+    )
+
+    sanctioned = _numeric(
+        df,
+        "sanction_amount",
+    )
+
+    expenditure = _numeric(
+        df,
+        "total_expenditure",
+    )
+
+    total_sanctioned_amount = (
+        sanctioned.sum()
+    )
+
+    total_expenditure = (
+        expenditure.sum()
+    )
+
+    # ---------------------------------------------------------------
+    # Financial progress
+    # ---------------------------------------------------------------
+
+    valid_sanction = sanctioned > 0
+
+    if valid_sanction.any():
+
+        financial_progress = (
+            expenditure[valid_sanction]
+            / sanctioned[valid_sanction]
+            * 100
+        )
+
+        average_financial_progress = (
+            financial_progress.mean()
+        )
+
+    else:
+        average_financial_progress = None
+
+    # ---------------------------------------------------------------
+    # Status
+    # ---------------------------------------------------------------
+
+    if "status" in df.columns:
+
+        status = (
+            df["status"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+
+        completed_mask = (
+            status == "completed"
+        )
+
+        completed_projects = int(
+            completed_mask.sum()
+        )
+
+    else:
+
+        completed_projects = 0
+
+    active_projects = (
+        total_projects
+        - completed_projects
+    )
+
+    # ---------------------------------------------------------------
+    # Expected completion / physical progress
+    #
+    # These fields are not present in canonical_projects.csv.
+    # ---------------------------------------------------------------
+
+    delayed_projects = None
+
+    return {
+        "total_projects": total_projects,
+
+        "total_sanctioned_amount": (
+            total_sanctioned_amount
+        ),
+
+        "total_expenditure": (
+            total_expenditure
+        ),
+
+        "average_financial_progress": (
+            average_financial_progress
+        ),
+
+        "average_physical_progress": None,
+
+        "active_projects": active_projects,
+
+        "completed_projects": completed_projects,
+
+        "delayed_projects": delayed_projects,
+
+        "delayed_projects_available": False,
+
+        "delayed_projects_reason": (
+            "Expected completion data is not "
+            "available in canonical_projects.csv."
+        ),
+    }
+
+
+# =====================================================================
+# Canonical state aggregation
+# =====================================================================
+
+def compute_by_state_from_canonical(
+    df: pd.DataFrame,
+) -> list[ByStateStat]:
+    """
+    Compute sanctioned amount and expenditure by state from the
+    canonical dataset.
+    """
+
+    if "state" in df.columns:
+
+        state = (
+            df["state"]
+            .fillna("Not specified")
+            .astype(str)
+            .str.strip()
+        )
+
+        state = state.replace(
+            "",
+            "Not specified",
+        )
+
+    else:
+
+        state = pd.Series(
+            "Not specified",
+            index=df.index,
+        )
+
+    work = df.copy()
+
+    work["_state"] = state
+
+    work["_sanction"] = _numeric(
+        work,
+        "sanction_amount",
+    )
+
+    work["_expenditure"] = _numeric(
+        work,
+        "total_expenditure",
+    )
+
+    grouped = (
+        work
+        .groupby("_state", dropna=False)
+        .agg(
+            total_sanctioned_amount=(
+                "_sanction",
+                "sum",
+            ),
+            total_expenditure=(
+                "_expenditure",
+                "sum",
+            ),
+        )
+        .reset_index()
+    )
+
+    grouped = grouped.sort_values(
+        "total_expenditure",
+        ascending=False,
+    )
+
+    return [
+        ByStateStat(
+            state=str(row["_state"]),
+            total_sanctioned_amount=(
+                row["total_sanctioned_amount"]
+            ),
+            total_expenditure=(
+                row["total_expenditure"]
+            ),
+        )
+        for _, row in grouped.iterrows()
+    ]
+
+
+# =====================================================================
+# Canonical work type aggregation
+# =====================================================================
+
+def compute_by_work_type_from_canonical(
+    df: pd.DataFrame,
+) -> list[ByWorkTypeStat]:
+    """
+    Compute project count by work category.
+
+    canonical_projects.csv uses work_category rather than the legacy
+    database work_type field.
+    """
+
+    if "work_category" in df.columns:
+
+        work_type = (
+            df["work_category"]
+            .fillna("Not specified")
+            .astype(str)
+            .str.strip()
+        )
+
+        work_type = work_type.replace(
+            "",
+            "Not specified",
+        )
+
+    else:
+
+        work_type = pd.Series(
+            "Not specified",
+            index=df.index,
+        )
+
+    grouped = (
+        pd.DataFrame(
+            {
+                "work_type": work_type,
+            }
+        )
+        .groupby("work_type")
+        .size()
+        .reset_index(name="count")
+        .sort_values(
+            "count",
+            ascending=False,
+        )
+    )
+
+    return [
+        ByWorkTypeStat(
+            work_type=str(row["work_type"]),
+            count=int(row["count"]),
+        )
+        for _, row in grouped.iterrows()
+    ]
+
+
+# =====================================================================
+# Current Risk Fusion level counts
+# =====================================================================
+
+def compute_risk_level_counts_from_risk_fusion(
+    risk_df: pd.DataFrame,
+) -> dict[str, int]:
+    """
+    Compute national risk distribution from current Risk Fusion.
+    """
+
+    levels = (
+        risk_df["risk_level"]
+        .fillna("UNKNOWN")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
+
+    counts = levels.value_counts().to_dict()
+
+    return {
+        "LOW": int(counts.get("LOW", 0)),
+        "MEDIUM": int(counts.get("MEDIUM", 0)),
+        "HIGH": int(counts.get("HIGH", 0)),
+        "CRITICAL": int(counts.get("CRITICAL", 0)),
+    }
+
+
+# =====================================================================
+# Current Risk Fusion risk by state
+# =====================================================================
+
+def compute_risk_by_state_from_risk_fusion(
+    canonical_df: pd.DataFrame,
+    risk_df: pd.DataFrame,
+) -> list[StateRiskStat]:
+    """
+    Combine canonical state metadata with current Risk Fusion risk
+    levels.
+    """
+
+    metadata = canonical_df[
+        [
+            "work_id",
+            "state",
+        ]
+    ].copy()
+
+    metadata["work_id"] = (
+        metadata["work_id"]
+        .astype(str)
+        .str.strip()
+    )
+
+    metadata["state"] = (
+        metadata["state"]
+        .fillna("Not specified")
+        .astype(str)
+        .str.strip()
+    )
+
+    metadata.loc[
+        metadata["state"] == "",
+        "state",
+    ] = "Not specified"
+
+    risk = risk_df[
+        [
+            "work_id",
+            "risk_level",
+        ]
+    ].copy()
+
+    risk["work_id"] = (
+        risk["work_id"]
+        .astype(str)
+        .str.strip()
+    )
+
+    risk["risk_level"] = (
+        risk["risk_level"]
+        .fillna("UNKNOWN")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
+
+    merged = metadata.merge(
+        risk,
+        on="work_id",
+        how="inner",
+    )
+
+    result = []
+
+    for state, group in merged.groupby(
+        "state",
+        sort=True,
+    ):
+
+        levels = group["risk_level"]
+
+        result.append(
+            StateRiskStat(
+                state=str(state),
+                low=int(
+                    (levels == "LOW").sum()
+                ),
+                medium=int(
+                    (levels == "MEDIUM").sum()
+                ),
+                high=int(
+                    (levels == "HIGH").sum()
+                ),
+                critical=int(
+                    (levels == "CRITICAL").sum()
+                ),
+            )
+        )
+
+    return result
+
+
+# =====================================================================
+# Legacy SQL helpers
+#
+# These are retained so existing Analytics/other routes do not break.
+# New Dashboard code should use the canonical helpers above.
+# =====================================================================
+
+def _query_with_work_ids(
+    query,
+    work_ids: Optional[Sequence[str]],
+):
+    """
+    Optionally restrict a SQLAlchemy query to a set of project IDs.
+    """
+
+    if work_ids is None:
+        return query
+
+    normalized_ids = [
+        str(work_id)
+        for work_id in work_ids
+        if work_id is not None
+    ]
+
+    if not normalized_ids:
+        return query.filter(
+            Project.project_id == "__NO_MATCH__"
+        )
+
+    return query.filter(
+        Project.project_id.in_(normalized_ids)
+    )
+
+
+def compute_core_totals(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> dict:
+    """
+    Legacy SQL-based core totals.
+
+    Retained for compatibility.
+    """
+
+    base_query = _query_with_work_ids(
+        db.query(Project),
+        work_ids,
+    )
+
+    row = (
+        base_query
+        .with_entities(
+            func.count(Project.project_id),
+            func.coalesce(
+                func.sum(Project.sanctioned_amount),
+                0,
+            ),
+            func.coalesce(
+                func.sum(Project.expenditure),
+                0,
+            ),
+            func.avg(
+                Project.financial_progress
+            ),
+            func.avg(
+                Project.physical_progress
+            ),
+        )
+        .one()
+    )
 
     (
         total_projects,
@@ -73,66 +658,107 @@ def compute_core_totals(db: Session) -> dict:
         total_expenditure,
         average_financial_progress,
         average_physical_progress,
-    ) = totals
+    ) = row
 
-    completed_projects = (
-        db.query(func.count(Project.project_id))
-        .filter(func.lower(Project.status) == "completed")
-        .scalar()
+    completed_query = _query_with_work_ids(
+        db.query(Project),
+        work_ids,
     )
 
-    active_projects = total_projects - completed_projects
+    completed_projects = (
+        completed_query
+        .filter(
+            func.lower(Project.status)
+            == "completed"
+        )
+        .count()
+    )
 
-    # ------------------------------------------------------------
-    # ML-4: Delayed project availability
-    #
-    # Do NOT return 0 when expected_completion is completely absent.
-    # A value of 0 would incorrectly imply that the system has checked
-    # deadlines and found no delayed projects.
-    # ------------------------------------------------------------
+    active_projects = (
+        total_projects - completed_projects
+    )
+
+    expected_completion_query = (
+        _query_with_work_ids(
+            db.query(Project),
+            work_ids,
+        )
+    )
+
     expected_completion_count = (
-        db.query(func.count(Project.project_id))
-        .filter(Project.expected_completion.isnot(None))
-        .scalar()
+        expected_completion_query
+        .filter(
+            Project.expected_completion.isnot(None)
+        )
+        .count()
     )
 
     if expected_completion_count > 0:
+
         delayed_projects = (
-            db.query(func.count(Project.project_id))
+            expected_completion_query
             .filter(
-                func.lower(Project.status) != "completed",
+                func.lower(Project.status)
+                != "completed",
                 Project.expected_completion.isnot(None),
-                Project.expected_completion < func.current_date(),
+                Project.expected_completion
+                < func.current_date(),
             )
-            .scalar()
+            .count()
         )
+
+        delayed_available = True
+        delayed_reason = None
+
     else:
+
         delayed_projects = None
+        delayed_available = False
+        delayed_reason = (
+            "Expected completion data unavailable"
+        )
 
     return {
         "total_projects": total_projects,
-        "total_sanctioned_amount": total_sanctioned_amount,
-        "total_expenditure": total_expenditure,
-        "average_financial_progress": average_financial_progress,
-        "average_physical_progress": average_physical_progress,
+        "total_sanctioned_amount": (
+            total_sanctioned_amount
+        ),
+        "total_expenditure": (
+            total_expenditure
+        ),
+        "average_financial_progress": (
+            average_financial_progress
+        ),
+        "average_physical_progress": (
+            average_physical_progress
+        ),
         "active_projects": active_projects,
         "completed_projects": completed_projects,
         "delayed_projects": delayed_projects,
-        "delayed_projects_available": expected_completion_count > 0,
+        "delayed_projects_available": (
+            delayed_available
+        ),
         "delayed_projects_reason": (
-            None
-            if expected_completion_count > 0
-            else "Expected completion data unavailable"
+            delayed_reason
         ),
     }
 
 
-def compute_risk_level_counts(db: Session) -> dict[str, int]:
-    """GROUP BY count of Project.risk_level. NULL (not yet scored) is
-    excluded -- see module docstring."""
+def compute_risk_level_counts(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> dict[str, int]:
+
+    query = _query_with_work_ids(
+        db.query(
+            Project.risk_level,
+            func.count(Project.project_id),
+        ),
+        work_ids,
+    )
 
     rows = (
-        db.query(Project.risk_level, func.count(Project.project_id))
+        query
         .group_by(Project.risk_level)
         .all()
     )
@@ -144,20 +770,35 @@ def compute_risk_level_counts(db: Session) -> dict[str, int]:
     }
 
 
-def compute_by_state(db: Session) -> list[ByStateStat]:
-    """Sanctioned/expenditure totals grouped by state. NULL state (real
-    for ~41% of Phase 2 rows) is grouped under "Not specified" so the
-    totals still reconcile with total_sanctioned_amount/total_expenditure.
-    """
+def compute_by_state(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> list[ByStateStat]:
 
-    state_label = func.coalesce(Project.state, "Not specified")
+    state_label = func.coalesce(
+        Project.state,
+        "Not specified",
+    )
 
-    rows = (
+    query = _query_with_work_ids(
         db.query(
             state_label.label("state"),
-            func.coalesce(func.sum(Project.sanctioned_amount), 0),
-            func.coalesce(func.sum(Project.expenditure), 0),
-        )
+            func.coalesce(
+                func.sum(
+                    Project.sanctioned_amount
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(Project.expenditure),
+                0,
+            ),
+        ),
+        work_ids,
+    )
+
+    rows = (
+        query
         .group_by(state_label)
         .order_by(
             desc(
@@ -180,22 +821,35 @@ def compute_by_state(db: Session) -> list[ByStateStat]:
     ]
 
 
-def compute_by_work_type(db: Session) -> list[ByWorkTypeStat]:
-    """Project count grouped by work_type. NULL and blank/whitespace-only
-    work_type are both folded into "Not specified"."""
+def compute_by_work_type(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> list[ByWorkTypeStat]:
 
     work_type_label = func.coalesce(
-        func.nullif(func.trim(Project.work_type), ""),
+        func.nullif(
+            func.trim(Project.work_type),
+            "",
+        ),
         "Not specified",
     )
 
-    rows = (
+    query = _query_with_work_ids(
         db.query(
             work_type_label.label("work_type"),
             func.count(Project.project_id),
-        )
+        ),
+        work_ids,
+    )
+
+    rows = (
+        query
         .group_by(work_type_label)
-        .order_by(desc(func.count(Project.project_id)))
+        .order_by(
+            desc(
+                func.count(Project.project_id)
+            )
+        )
         .all()
     )
 
@@ -208,24 +862,38 @@ def compute_by_work_type(db: Session) -> list[ByWorkTypeStat]:
     ]
 
 
-def compute_risk_by_state(db: Session) -> list[StateRiskStat]:
-    """Count stored advisory risk levels by state for the national view."""
+def compute_risk_by_state(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> list[StateRiskStat]:
 
-    state_label = func.coalesce(Project.state, "Not specified")
+    state_label = func.coalesce(
+        Project.state,
+        "Not specified",
+    )
 
-    rows = (
+    query = _query_with_work_ids(
         db.query(
             state_label.label("state"),
             Project.risk_level,
             func.count(Project.project_id),
+        ),
+        work_ids,
+    )
+
+    rows = (
+        query
+        .group_by(
+            state_label,
+            Project.risk_level,
         )
-        .group_by(state_label, Project.risk_level)
         .all()
     )
 
     grouped = {}
 
     for state, level, count in rows:
+
         values = grouped.setdefault(
             state,
             {
@@ -242,30 +910,45 @@ def compute_risk_by_state(db: Session) -> list[StateRiskStat]:
             values[key] = count
 
     return [
-        StateRiskStat(state=state, **values)
-        for state, values in sorted(grouped.items())
+        StateRiskStat(
+            state=state,
+            **values,
+        )
+        for state, values in sorted(
+            grouped.items()
+        )
     ]
 
 
-def compute_status_distribution(db: Session) -> list[StatusCount]:
-    """Project count grouped by status. NULL/blank status is folded into
-    "Not specified" -- real for essentially all Phase-2-imported rows,
-    since the Phase 2 CSV's closest analogue uses a different vocabulary
-    that isn't safely crosswalked into this field (see app/models.py).
-    """
+def compute_status_distribution(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> list[StatusCount]:
 
     status_label = func.coalesce(
-        func.nullif(func.trim(Project.status), ""),
+        func.nullif(
+            func.trim(Project.status),
+            "",
+        ),
         "Not specified",
     )
 
-    rows = (
+    query = _query_with_work_ids(
         db.query(
             status_label.label("status"),
             func.count(Project.project_id),
-        )
+        ),
+        work_ids,
+    )
+
+    rows = (
+        query
         .group_by(status_label)
-        .order_by(desc(func.count(Project.project_id)))
+        .order_by(
+            desc(
+                func.count(Project.project_id)
+            )
+        )
         .all()
     )
 
@@ -278,19 +961,27 @@ def compute_status_distribution(db: Session) -> list[StatusCount]:
     ]
 
 
-def compute_risk_score_summary(db: Session) -> dict:
-    """Average/min/max of Project.risk_score, plus how many projects
-    actually have a (non-NULL) score. COUNT(risk_score) -- as opposed to
-    COUNT(*) -- already skips NULL rows in SQL, so this is exactly the
-    "how many were actually scored" count, not the full table size.
-    """
+def compute_risk_score_summary(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> dict:
 
-    average, minimum, maximum, scored_count = db.query(
-        func.avg(Project.risk_score),
-        func.min(Project.risk_score),
-        func.max(Project.risk_score),
-        func.count(Project.risk_score),
-    ).one()
+    query = _query_with_work_ids(
+        db.query(
+            func.avg(Project.risk_score),
+            func.min(Project.risk_score),
+            func.max(Project.risk_score),
+            func.count(Project.risk_score),
+        ),
+        work_ids,
+    )
+
+    (
+        average,
+        minimum,
+        maximum,
+        scored_count,
+    ) = query.one()
 
     return {
         "average": average,
@@ -300,23 +991,29 @@ def compute_risk_score_summary(db: Session) -> dict:
     }
 
 
-def compute_estimated_cost_summary(db: Session) -> dict:
-    """Sum/average/min/max of Project.estimated_cost, plus how many
-    projects actually have a value for it. Real Phase 2 rows have no
-    source value for estimated_cost at all (see app/models.py /
-    import_phase2.py) -- so on the real dataset,
-    project_count_with_data will legitimately be 0 or close to it, and
-    the other fields will be null. This is reported explicitly rather
-    than silently defaulted to 0.
-    """
+def compute_estimated_cost_summary(
+    db: Session,
+    work_ids: Optional[Sequence[str]] = None,
+) -> dict:
 
-    total, average, minimum, maximum, count_with_data = db.query(
-        func.sum(Project.estimated_cost),
-        func.avg(Project.estimated_cost),
-        func.min(Project.estimated_cost),
-        func.max(Project.estimated_cost),
-        func.count(Project.estimated_cost),
-    ).one()
+    query = _query_with_work_ids(
+        db.query(
+            func.sum(Project.estimated_cost),
+            func.avg(Project.estimated_cost),
+            func.min(Project.estimated_cost),
+            func.max(Project.estimated_cost),
+            func.count(Project.estimated_cost),
+        ),
+        work_ids,
+    )
+
+    (
+        total,
+        average,
+        minimum,
+        maximum,
+        count_with_data,
+    ) = query.one()
 
     return {
         "total": total,
@@ -327,19 +1024,28 @@ def compute_estimated_cost_summary(db: Session) -> dict:
     }
 
 
-def compute_progress_summary(db: Session, column) -> dict:
-    """Average/min/max for a progress column (financial_progress or
-    physical_progress), plus how many projects have a value for it.
-    Generic over `column` so the same query logic backs both fields
-    instead of two near-identical copies.
-    """
+def compute_progress_summary(
+    db: Session,
+    column,
+    work_ids: Optional[Sequence[str]] = None,
+) -> dict:
 
-    average, minimum, maximum, count_with_data = db.query(
-        func.avg(column),
-        func.min(column),
-        func.max(column),
-        func.count(column),
-    ).one()
+    query = _query_with_work_ids(
+        db.query(
+            func.avg(column),
+            func.min(column),
+            func.max(column),
+            func.count(column),
+        ),
+        work_ids,
+    )
+
+    (
+        average,
+        minimum,
+        maximum,
+        count_with_data,
+    ) = query.one()
 
     return {
         "average": average,

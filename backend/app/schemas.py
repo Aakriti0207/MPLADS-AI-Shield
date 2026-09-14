@@ -134,8 +134,8 @@ class ProjectOut(BaseModel):
     # Typed as a plain dict since its values are a mix of str/int/float/bool.
     risk_metadata: Optional[dict[str, Any]] = None
 
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+updated_at: Optional[datetime] = None
 
 
 class RiskFusionOut(BaseModel):

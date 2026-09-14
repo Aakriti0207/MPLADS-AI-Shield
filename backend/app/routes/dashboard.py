@@ -1,54 +1,44 @@
 """
-Routes for dashboard-level aggregate statistics.
+Dashboard routes.
 
-All numbers are computed live from the `projects` table via SQLAlchemy
-aggregate queries - nothing here is hardcoded or cached.
+Current architecture:
 
-Status/date rule used consistently throughout this module:
-    - `status` is treated as the authoritative field for whether a
-      project is "completed". A project is completed when
-      status = 'Completed' (case-insensitive).
+    canonical_projects.csv
+            +
+    project_risk_scores.csv
+            ↓
+        Dashboard
 
-    - "Active" simply means "not completed yet" - i.e. every project
-      that hasn't been marked Completed (Sanctioned, Ongoing, Delayed,
-      or any other in-progress status all count as active).
+The canonical project dataset is the authoritative project universe
+for national Dashboard statistics.
 
-      This keeps active + completed always summing to total_projects,
-      without hardcoding every possible status string that might appear
-      in the source data.
+The Phase 7 Risk Fusion output is the authoritative source for AI risk.
 
-    - "Delayed" is a date-driven refinement of "active": an active
-      (not-yet-completed) project is delayed when it has an
-      expected_completion date and that date has already passed
-      (expected_completion < today).
-
-      This combines the status field (to exclude anything already
-      completed) with the date field (to judge lateness), rather than
-      inventing a separate "Delayed" status string that may or may not
-      exist in the source data.
-
-    - Projects with no expected_completion date are never counted as
-      delayed, since there is no deadline to have missed.
-
-    - When expected_completion is unavailable for the entire dataset,
-      delayed_projects is returned as None rather than 0, together with
-      availability metadata explaining why the value cannot be computed.
-
-Phase 4 update:
-    The actual aggregation queries live in app/aggregations.py so that
-    GET /analytics and the dashboard endpoints reuse the same logic
-    instead of maintaining separate copies.
+The database is used only where the API contract requires existing
+Project/User objects.
 """
 
-from fastapi import APIRouter, Depends
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+)
+
 from sqlalchemy.orm import Session
 
 from app.aggregations import (
-    compute_by_state,
-    compute_by_work_type,
-    compute_core_totals,
-    compute_risk_level_counts,
-    compute_risk_by_state,
+    load_canonical_projects,
+    load_risk_fusion,
+    compute_core_totals_from_canonical,
+    compute_by_state_from_canonical,
+    compute_by_work_type_from_canonical,
+    compute_risk_level_counts_from_risk_fusion,
+    compute_risk_by_state_from_risk_fusion,
 )
 
 from app.database import get_db
@@ -62,12 +52,148 @@ from app.schemas import (
 )
 
 
+# =====================================================================
+# Router
+# =====================================================================
+
 router = APIRouter(
     prefix="/dashboard",
     tags=["dashboard"],
     dependencies=[Depends(get_current_user)],
 )
 
+
+# =====================================================================
+# Priority project helper
+# =====================================================================
+
+def _get_priority_projects(
+    db: Session,
+    risk_df: pd.DataFrame,
+    limit: int = 12,
+) -> list[ProjectOut]:
+    """
+    Return the highest-risk projects according to CURRENT Risk Fusion.
+
+    Risk score and risk level come from project_risk_scores.csv.
+
+    ProjectOut metadata is supplied from the Project DB when a matching
+    DB record exists.
+
+    This does NOT modify or persist the database.
+    """
+
+    priority_df = risk_df[
+        risk_df["risk_level"]
+        .astype(str)
+        .str.upper()
+        .str.strip()
+        .isin(
+            [
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL",
+            ]
+        )
+    ].copy()
+
+    if priority_df.empty:
+        return []
+
+    priority_df["risk_score_numeric"] = pd.to_numeric(
+        priority_df["risk_score"],
+        errors="coerce",
+    ).fillna(0)
+
+    priority_df = (
+        priority_df
+        .sort_values(
+            by=[
+                "risk_score_numeric",
+                "work_id",
+            ],
+            ascending=[
+                False,
+                True,
+            ],
+        )
+        .head(limit)
+    )
+
+    project_ids = (
+        priority_df["work_id"]
+        .astype(str)
+        .tolist()
+    )
+
+    # ---------------------------------------------------------------
+    # Fetch matching DB projects.
+    #
+    # Some canonical projects may not have a corresponding Project
+    # DB row. Those cannot be returned as ProjectOut because that
+    # response schema represents the DB Project model.
+    # ---------------------------------------------------------------
+
+    projects = (
+        db.query(Project)
+        .filter(
+            Project.project_id.in_(project_ids)
+        )
+        .all()
+    )
+
+    project_map = {
+        str(project.project_id).strip(): project
+        for project in projects
+    }
+
+    results: list[ProjectOut] = []
+
+    for _, risk_row in priority_df.iterrows():
+
+        project_id = (
+            str(risk_row["work_id"])
+            .strip()
+        )
+
+        project = project_map.get(
+            project_id
+        )
+
+        if project is None:
+            continue
+
+        project_out = ProjectOut.model_validate(
+            project
+        )
+
+        # -----------------------------------------------------------
+        # Overlay CURRENT Risk Fusion values on the response.
+        # -----------------------------------------------------------
+
+        project_out = project_out.model_copy(
+            update={
+                "risk_score": risk_row[
+                    "risk_score"
+                ],
+                "risk_level": (
+                    str(
+                        risk_row["risk_level"]
+                    )
+                    .upper()
+                    .strip()
+                ),
+            }
+        )
+
+        results.append(project_out)
+
+    return results
+
+
+# =====================================================================
+# GET /dashboard/stats
+# =====================================================================
 
 @router.get(
     "/stats",
@@ -77,37 +203,108 @@ def get_dashboard_stats(
     db: Session = Depends(get_db),
 ):
     """
-    Return national dashboard aggregate statistics.
+    Return national Dashboard statistics.
 
-    All values come from the live projects table through the shared
-    aggregation functions in app.aggregations.
+    Project universe:
+        canonical_projects.csv
 
-    Important ML-4 behavior:
-        If expected_completion is unavailable, compute_core_totals()
-        returns delayed_projects=None instead of incorrectly reporting
-        delayed_projects=0.
+    AI risk:
+        project_risk_scores.csv
 
-        DashboardStats also carries:
-            delayed_projects_available
-            delayed_projects_reason
+    This ensures the project total and Risk Fusion risk distribution
+    refer to the same 43,863-project universe.
     """
 
+    try:
+        canonical_df = (
+            load_canonical_projects()
+        )
+
+        risk_df = (
+            load_risk_fusion()
+        )
+
+    except (
+        FileNotFoundError,
+        ValueError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        )
+
     # ---------------------------------------------------------------
-    # Core national totals
+    # Safety check: canonical and Risk Fusion universes
     # ---------------------------------------------------------------
 
-    totals = compute_core_totals(db)
+    canonical_ids = set(
+        canonical_df["work_id"]
+    )
+
+    risk_ids = set(
+        risk_df["work_id"]
+    )
+
+    if canonical_ids != risk_ids:
+
+        missing_risk = canonical_ids - risk_ids
+        extra_risk = risk_ids - canonical_ids
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Canonical and Risk Fusion project universes "
+                "do not match. "
+                f"Canonical={len(canonical_ids)}, "
+                f"RiskFusion={len(risk_ids)}, "
+                f"missing_risk={len(missing_risk)}, "
+                f"extra_risk={len(extra_risk)}."
+            ),
+        )
 
     # ---------------------------------------------------------------
-    # Supporting dashboard aggregations
+    # Core project totals
     # ---------------------------------------------------------------
 
-    risk_level_counts = compute_risk_level_counts(db)
-    by_state = compute_by_state(db)
-    by_work_type = compute_by_work_type(db)
+    totals = (
+        compute_core_totals_from_canonical(
+            canonical_df
+        )
+    )
 
     # ---------------------------------------------------------------
-    # Build validated dashboard response
+    # Financial aggregation by state
+    # ---------------------------------------------------------------
+
+    by_state = (
+        compute_by_state_from_canonical(
+            canonical_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # Project count by work category
+    # ---------------------------------------------------------------
+
+    by_work_type = (
+        compute_by_work_type_from_canonical(
+            canonical_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # CURRENT Risk Fusion distribution
+    # ---------------------------------------------------------------
+
+    risk_level_counts = (
+        compute_risk_level_counts_from_risk_fusion(
+            risk_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # Response
     # ---------------------------------------------------------------
 
     return DashboardStats(
@@ -117,6 +314,10 @@ def get_dashboard_stats(
         by_work_type=by_work_type,
     )
 
+
+# =====================================================================
+# GET /dashboard/role-overview
+# =====================================================================
 
 @router.get(
     "/role-overview",
@@ -129,18 +330,17 @@ def get_role_dashboard(
     """
     Return dashboard data authorized by the authenticated user's role.
 
-    The current User model has no state, district, constituency, or MP
-    identifier. Therefore, non-Ministry roles receive an explicit
-    unavailable response rather than being incorrectly given national
-    data under a false scoped label.
-
     Ministry/Admin users receive the national dashboard.
+
+    All national project statistics come from canonical_projects.csv.
+
+    All AI risk values come from project_risk_scores.csv.
     """
 
     role = current_user.role or ""
 
     # ---------------------------------------------------------------
-    # Determine whether the user is authorized for national dashboard
+    # Role authorization
     # ---------------------------------------------------------------
 
     is_ministry = (
@@ -149,6 +349,7 @@ def get_role_dashboard(
     )
 
     if not is_ministry:
+
         return RoleDashboardResponse(
             role=role,
             scope_available=False,
@@ -160,39 +361,134 @@ def get_role_dashboard(
         )
 
     # ---------------------------------------------------------------
-    # National aggregate statistics
+    # Load both current production datasets.
     # ---------------------------------------------------------------
 
-    totals = compute_core_totals(db)
+    try:
+
+        canonical_df = (
+            load_canonical_projects()
+        )
+
+        risk_df = (
+            load_risk_fusion()
+        )
+
+    except (
+        FileNotFoundError,
+        ValueError,
+    ) as exc:
+
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        )
+
+    # ---------------------------------------------------------------
+    # Verify that both production datasets describe the same universe.
+    # ---------------------------------------------------------------
+
+    canonical_ids = set(
+        canonical_df["work_id"]
+    )
+
+    risk_ids = set(
+        risk_df["work_id"]
+    )
+
+    if canonical_ids != risk_ids:
+
+        missing_risk = canonical_ids - risk_ids
+        extra_risk = risk_ids - canonical_ids
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Canonical and Risk Fusion project universes "
+                "do not match. "
+                f"Canonical={len(canonical_ids)}, "
+                f"RiskFusion={len(risk_ids)}, "
+                f"missing_risk={len(missing_risk)}, "
+                f"extra_risk={len(extra_risk)}."
+            ),
+        )
+
+    # ---------------------------------------------------------------
+    # Core national totals
+    # ---------------------------------------------------------------
+
+    totals = (
+        compute_core_totals_from_canonical(
+            canonical_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # Current Risk Fusion distribution
+    # ---------------------------------------------------------------
+
+    risk_level_counts = (
+        compute_risk_level_counts_from_risk_fusion(
+            risk_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # State financial aggregation
+    # ---------------------------------------------------------------
+
+    by_state = (
+        compute_by_state_from_canonical(
+            canonical_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # Work-category aggregation
+    # ---------------------------------------------------------------
+
+    by_work_type = (
+        compute_by_work_type_from_canonical(
+            canonical_df
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # Dashboard stats
+    # ---------------------------------------------------------------
 
     stats = DashboardStats(
         **totals,
-        risk_level_counts=compute_risk_level_counts(db),
-        by_state=compute_by_state(db),
-        by_work_type=compute_by_work_type(db),
+        risk_level_counts=risk_level_counts,
+        by_state=by_state,
+        by_work_type=by_work_type,
     )
 
     # ---------------------------------------------------------------
-    # Priority projects
+    # Current Risk Fusion priority projects
     # ---------------------------------------------------------------
 
     priority_projects = (
-        db.query(Project)
-        .filter(
-            Project.risk_level.in_(
-                ["MEDIUM", "HIGH", "CRITICAL"]
-            )
+        _get_priority_projects(
+            db=db,
+            risk_df=risk_df,
+            limit=12,
         )
-        .order_by(
-            Project.risk_score.desc().nullslast(),
-            Project.project_id,
-        )
-        .limit(12)
-        .all()
     )
 
     # ---------------------------------------------------------------
-    # Return role-authorized dashboard
+    # Current Risk Fusion risk by state
+    # ---------------------------------------------------------------
+
+    by_state_risk = (
+        compute_risk_by_state_from_risk_fusion(
+            canonical_df=canonical_df,
+            risk_df=risk_df,
+        )
+    )
+
+    # ---------------------------------------------------------------
+    # Final response
     # ---------------------------------------------------------------
 
     return RoleDashboardResponse(
@@ -200,9 +496,6 @@ def get_role_dashboard(
         scope_available=True,
         scope_label="National",
         stats=stats,
-        by_state_risk=compute_risk_by_state(db),
-        priority_projects=[
-            ProjectOut.model_validate(project)
-            for project in priority_projects
-        ],
+        by_state_risk=by_state_risk,
+        priority_projects=priority_projects,
     )

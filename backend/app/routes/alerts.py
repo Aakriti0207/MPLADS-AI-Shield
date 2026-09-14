@@ -1,39 +1,27 @@
 """
-Routes for alerts.
+Routes for AI Shield alerts.
 
-Phase 3D update: alerts are no longer hardcoded. There is still no
-dedicated `alerts` table (that remains deferred, per app/models.py's
-docstring) -- instead, GET /alerts derives alerts on the fly from the
-real Phase 2 risk signals already present on `Project` rows, the same
-way app/routes/dashboard.py derives its stats live rather than from a
-cached/stored table.
+Alerts are derived from the current Phase 7 Risk Fusion output:
+    backend/data/processed/project_risk_scores.csv
 
-Every alert generated here traces back to a genuine, non-NULL Phase 2
-column: risk_level, risk_reason_1/2/3, raw_max_similarity +
-most_similar_work_id, or one of the six risk component scores. Nothing
-about estimated_cost, physical_progress, expected_completion, or
-latitude/longitude is used, since those are not populated for real
-Phase 2 rows (see app/models.py). Anomaly does not mean fraud -- these
-are advisory, review-priority signals only.
+The CSV is the source of truth for AI risk. Project metadata is still
+read from the Project table when needed, but legacy Phase-2 risk columns
+are NOT used to generate alerts.
 
-Because a single project can legitimately trigger more than one rule
-(e.g. HIGH risk_level AND a strong duplicate signal), the candidate set
-is built in Python from a single bounded SQL query (only projects that
-match at least one trigger condition -- never all 56,323 rows), then
-sorted deterministically and paginated in memory. skip/limit still
-protect the response size the same way they do on GET /projects.
+Alerts are advisory review-priority signals, not confirmations of fraud.
 """
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
+from pathlib import Path
+from typing import List
 
+import pandas as pd
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.auth import get_current_user
+from app.database import get_db
 from app.models import Project
 from app.schemas import AlertOut
 
@@ -43,117 +31,334 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-# --- Thresholds -------------------------------------------------------
-# Rule B: only a strong text/feature similarity match counts as a
-# possible-duplicate signal. raw_max_similarity is a 0-1 fraction.
-DUPLICATE_SIMILARITY_THRESHOLD = Decimal("0.85")
-DUPLICATE_HIGH_SEVERITY_THRESHOLD = Decimal("0.95")
+# ---------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------
 
-# Rule C: a component score >= 80 lines up with the CRITICAL band of the
-# same 0-100 classification used for the overall risk_score
-# (0-39 LOW / 40-59 MEDIUM / 60-79 HIGH / 80-100 CRITICAL), so alerts
-# generated from this rule are labeled "critical".
-COMPONENT_ALERT_THRESHOLD = Decimal("80")
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+RISK_OUTPUT_PATH = BACKEND_ROOT / "data" / "processed" / "project_risk_scores.csv"
 
-# Column -> (alert_type, human label) for Rule C. duplicate_risk_score is
-# intentionally excluded here -- duplicate signals are handled by Rule B
-# via raw_max_similarity/most_similar_work_id instead.
-COMPONENT_FIELDS = [
-    ("financial_risk_score", "financial_risk", "Financial risk"),
-    ("payment_risk_score", "payment_risk", "Payment risk"),
-    ("execution_risk_score", "execution_risk", "Execution risk"),
-    ("peer_anomaly_score", "peer_anomaly", "Peer anomaly"),
-    ("isolation_forest_score", "anomaly_detection", "Anomaly detection"),
-    ("anomaly_risk_score", "anomaly_risk", "Anomaly risk"),
+
+# ---------------------------------------------------------------------
+# Current Risk Fusion domains
+# ---------------------------------------------------------------------
+
+CONTRIBUTION_FIELDS = [
+    ("compliance_contribution", "compliance_risk", "Compliance"),
+    ("financial_anomaly_contribution", "financial_anomaly", "Financial anomaly"),
+    ("timeline_anomaly_contribution", "timeline_anomaly", "Timeline anomaly"),
+    ("duplicate_contribution", "duplicate_signal", "Duplicate similarity"),
+    ("data_quality_contribution", "data_quality", "Data quality"),
+    ("payment_contribution", "payment_pattern", "Payment pattern"),
+    ("isolation_forest_contribution", "isolation_forest", "Isolation Forest"),
 ]
 
-SEVERITY_PRIORITY = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+# Contribution caps from ml/risk_config.py.
+CONTRIBUTION_CAPS = {
+    "compliance_contribution": Decimal("28"),
+    "financial_anomaly_contribution": Decimal("20"),
+    "timeline_anomaly_contribution": Decimal("12"),
+    "duplicate_contribution": Decimal("12"),
+    "data_quality_contribution": Decimal("8"),
+    "payment_contribution": Decimal("10"),
+    "isolation_forest_contribution": Decimal("10"),
+}
+
+SEVERITY_PRIORITY = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+}
 
 
-def _build_candidate_filter():
-    """SQL-level filter: only fetch projects that could trigger at least
-    one rule, instead of pulling the whole table into Python."""
-    component_conditions = [
-        getattr(Project, col) >= COMPONENT_ALERT_THRESHOLD
-        for col, _, _ in COMPONENT_FIELDS
-    ]
-    return or_(
-        Project.risk_level.in_(["HIGH", "CRITICAL"]),
-        (Project.raw_max_similarity >= DUPLICATE_SIMILARITY_THRESHOLD)
-        & Project.most_similar_work_id.isnot(None),
-        *component_conditions,
+# ---------------------------------------------------------------------
+# CSV loader
+# ---------------------------------------------------------------------
+
+def _load_risk_fusion() -> pd.DataFrame:
+    """
+    Load the production Phase 7 Risk Fusion output.
+
+    This file is generated by:
+        python -m ml.risk
+
+    The API deliberately reads the generated production artifact
+    instead of rebuilding risk scores independently.
+    """
+    if not RISK_OUTPUT_PATH.exists():
+        raise RuntimeError(
+            f"Risk Fusion output not found: {RISK_OUTPUT_PATH}. "
+            "Run `python -m ml.risk` first."
+        )
+
+    df = pd.read_csv(RISK_OUTPUT_PATH)
+
+    required_columns = {
+        "work_id",
+        "risk_score",
+        "risk_level",
+        "evidence_status",
+        "compliance_contribution",
+        "financial_anomaly_contribution",
+        "timeline_anomaly_contribution",
+        "duplicate_contribution",
+        "data_quality_contribution",
+        "payment_contribution",
+        "isolation_forest_contribution",
+        "total_evidence_signals",
+        "high_severity_signal_count",
+        "medium_severity_signal_count",
+        "low_severity_signal_count",
+        "has_compliance_signal",
+        "has_financial_anomaly",
+        "has_timeline_anomaly",
+        "has_duplicate_signal",
+        "has_data_quality_signal",
+        "has_payment_signal",
+        "has_isolation_forest_signal",
+        "top_reason_1",
+        "top_reason_2",
+        "top_reason_3",
+        "risk_reasons",
+        "source_signal_summary",
+    }
+
+    missing = required_columns - set(df.columns)
+
+    if missing:
+        raise RuntimeError(
+            "Risk Fusion output is missing required columns: "
+            + ", ".join(sorted(missing))
+        )
+
+    df["work_id"] = df["work_id"].astype(str)
+
+    return df
+
+
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
+
+def _decimal(value) -> Decimal:
+    """Safely convert a numeric CSV value to Decimal."""
+    if pd.isna(value):
+        return Decimal("0")
+
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal("0")
+
+
+def _is_true(value) -> bool:
+    """Handle boolean values loaded from CSV."""
+    if isinstance(value, bool):
+        return value
+
+    if pd.isna(value):
+        return False
+
+    return str(value).strip().lower() in {
+        "true",
+        "1",
+        "yes",
+    }
+
+
+def _risk_level_severity(risk_level: str) -> str:
+    """Map Risk Fusion level directly to alert severity."""
+    level = (risk_level or "").upper()
+
+    if level == "CRITICAL":
+        return "critical"
+
+    if level == "HIGH":
+        return "high"
+
+    if level == "MEDIUM":
+        return "medium"
+
+    return "low"
+
+
+def _build_reasons(row: pd.Series) -> List[str]:
+    """
+    Prefer the reasons generated by Risk Fusion itself.
+    Fall back to top_reason_1/2/3 if risk_reasons is empty.
+    """
+    reasons = []
+
+    risk_reasons = row.get("risk_reasons")
+
+    if pd.notna(risk_reasons):
+        text = str(risk_reasons).strip()
+
+        if text and text.lower() not in {"nan", "none", "[]"}:
+            reasons.append(text)
+
+    if not reasons:
+        for field in ("top_reason_1", "top_reason_2", "top_reason_3"):
+            value = row.get(field)
+
+            if pd.notna(value):
+                text = str(value).strip()
+
+                if text and text.lower() not in {"nan", "none"}:
+                    reasons.append(text)
+
+    return reasons
+
+
+def _generate_alerts_for_row(
+    row: pd.Series,
+    generated_at: datetime,
+) -> List[dict]:
+    """
+    Generate zero or more alerts from one Risk Fusion row.
+
+    All AI-related decisions are based on the current Phase 7 output.
+    """
+    alerts: List[dict] = []
+
+    project_id = str(row["work_id"])
+
+    risk_score = _decimal(row["risk_score"])
+    risk_level = str(row["risk_level"]).upper()
+    evidence_status = str(row["evidence_status"]).upper()
+
+    # ---------------------------------------------------------------
+    # Rule A — overall Risk Fusion level
+    # ---------------------------------------------------------------
+
+    if risk_level in {"HIGH", "CRITICAL"}:
+        severity = _risk_level_severity(risk_level)
+
+        reasons = _build_reasons(row)
+
+        message = (
+            f"This project has been assigned {risk_level} risk by the "
+            f"Risk Fusion engine, with a risk score of {risk_score}."
+        )
+
+        if evidence_status:
+            message += f" Evidence status: {evidence_status}."
+
+        if reasons:
+            message += " " + " ".join(reasons[:3])
+
+        alerts.append(
+            {
+                "alert_id": f"{project_id}:overall_risk",
+                "project_id": project_id,
+                "alert_type": "high_risk_project",
+                "severity": severity,
+                "message": message,
+                "sort_score": risk_score,
+            }
+        )
+
+    # ---------------------------------------------------------------
+    # Rule B — high-severity Risk Fusion signals
+    # ---------------------------------------------------------------
+
+    high_signal_count = int(
+        _decimal(row["high_severity_signal_count"])
     )
 
+    if high_signal_count > 0:
+        reasons = _build_reasons(row)
 
-def _generate_alerts_for_project(p: Project, generated_at: datetime) -> List[dict]:
-    """Return zero or more raw alert dicts for one project row. Every
-    field used here is read directly off the row; NULLs are skipped,
-    never coerced to 0 or treated as a match."""
-    alerts: List[dict] = []
-    # Carry the project's own risk_score along for sorting purposes only
-    # (not every alert type is itself "about" risk_score, but sorting the
-    # whole list by the project's overall priority is still meaningful).
-    sort_score = p.risk_score if p.risk_score is not None else Decimal("0")
-
-    # --- Rule A: HIGH / CRITICAL overall risk level ---
-    if p.risk_level and p.risk_level.upper() in ("HIGH", "CRITICAL"):
-        reasons = [r for r in (p.risk_reason_1, p.risk_reason_2, p.risk_reason_3) if r]
-        score_text = f"{p.risk_score}" if p.risk_score is not None else "not available"
         message = (
-            f"This project has been assigned {p.risk_level.upper()} risk, "
-            f"with a risk score of {score_text}."
+            f"This project contains {high_signal_count} high-severity "
+            "signal(s) identified by the Risk Fusion engine."
         )
+
         if reasons:
-            message += " " + " ".join(reasons)
-        alerts.append({
-            "alert_id": f"{p.project_id}:high_risk_project",
-            "project_id": p.project_id,
-            "alert_type": "high_risk_project",
-            "severity": p.risk_level.lower(),
-            "message": message,
-            "sort_score": sort_score,
-        })
+            message += " " + " ".join(reasons[:3])
 
-    # --- Rule B: strong duplicate/similarity signal ---
-    if (
-        p.raw_max_similarity is not None
-        and p.raw_max_similarity >= DUPLICATE_SIMILARITY_THRESHOLD
-        and p.most_similar_work_id
-    ):
-        severity = "high" if p.raw_max_similarity >= DUPLICATE_HIGH_SEVERITY_THRESHOLD else "medium"
-        message = (
-            f"This project shows a strong similarity signal (similarity score "
-            f"{p.raw_max_similarity}) to project {p.most_similar_work_id}. "
-            "This is a similarity signal requiring human verification, not a confirmed duplicate."
-        )
-        alerts.append({
-            "alert_id": f"{p.project_id}:possible_duplicate",
-            "project_id": p.project_id,
-            "alert_type": "possible_duplicate",
-            "severity": severity,
-            "message": message,
-            "sort_score": sort_score,
-        })
-
-    # --- Rule C: strong individual risk component ---
-    for col, alert_type, label in COMPONENT_FIELDS:
-        value: Optional[Decimal] = getattr(p, col)
-        if value is not None and value >= COMPONENT_ALERT_THRESHOLD:
-            message = (
-                f"{label} component scored {value}, indicating a strong "
-                "signal in this area that may warrant closer review."
-            )
-            alerts.append({
-                "alert_id": f"{p.project_id}:{alert_type}",
-                "project_id": p.project_id,
-                "alert_type": alert_type,
-                "severity": "critical",
+        alerts.append(
+            {
+                "alert_id": f"{project_id}:high_severity_signals",
+                "project_id": project_id,
+                "alert_type": "high_severity_signal",
+                "severity": "high",
                 "message": message,
-                "sort_score": sort_score,
-            })
+                "sort_score": risk_score,
+            }
+        )
+
+    # ---------------------------------------------------------------
+    # Rule C — individual Risk Fusion domain signals
+    # ---------------------------------------------------------------
+
+    for column, alert_type, label in CONTRIBUTION_FIELDS:
+        contribution = _decimal(row[column])
+
+        # A contribution of zero means this domain did not contribute
+        # to the final risk score.
+        if contribution <= 0:
+            continue
+
+        cap = CONTRIBUTION_CAPS[column]
+
+        # Contribution >= 75% of its domain's maximum is considered
+        # a strong domain-level signal.
+        strong_threshold = cap * Decimal("0.75")
+
+        if contribution >= strong_threshold:
+            severity = "critical" if contribution >= cap else "high"
+
+            message = (
+                f"{label} contributed {contribution} points to the "
+                f"overall Risk Fusion score (domain cap: {cap}). "
+                "This signal may warrant closer review."
+            )
+
+            alerts.append(
+                {
+                    "alert_id": f"{project_id}:{alert_type}",
+                    "project_id": project_id,
+                    "alert_type": alert_type,
+                    "severity": severity,
+                    "message": message,
+                    "sort_score": risk_score,
+                }
+            )
+
+    # ---------------------------------------------------------------
+    # Rule D — insufficient/limited evidence
+    # ---------------------------------------------------------------
+
+    if evidence_status == "LIMITED":
+        total_signals = int(
+            _decimal(row["total_evidence_signals"])
+        )
+
+        message = (
+            f"This project has limited AI evidence for risk assessment "
+            f"({total_signals} evaluable signal(s)). Manual review may "
+            "be appropriate before drawing conclusions."
+        )
+
+        alerts.append(
+            {
+                "alert_id": f"{project_id}:limited_evidence",
+                "project_id": project_id,
+                "alert_type": "limited_evidence",
+                "severity": "medium",
+                "message": message,
+                "sort_score": risk_score,
+            }
+        )
 
     return alerts
 
+
+# ---------------------------------------------------------------------
+# GET /alerts
+# ---------------------------------------------------------------------
 
 @router.get("", response_model=List[AlertOut])
 def list_alerts(
@@ -162,33 +367,45 @@ def list_alerts(
     db: Session = Depends(get_db),
 ):
     """
-    Derive alerts live from real Phase 2 risk signals on the Project
-    table (risk_level, risk_reason_1/2/3, raw_max_similarity +
-    most_similar_work_id, and the six risk component scores).
+    Return advisory alerts generated from the current Phase 7
+    Risk Fusion output.
 
-    No estimated_cost, physical_progress, expected_completion, or
-    geographic data is used, since none of that is populated for real
-    Phase 2 rows. Anomaly does not mean fraud -- these are advisory,
-    review-priority signals only.
+    AI risk comes exclusively from:
+        data/processed/project_risk_scores.csv
 
-    Only projects that trigger at least one rule are queried (never the
-    full 56,323-row table); the resulting candidate alerts are sorted
-    deterministically and paginated in memory via skip/limit.
+    The Project database is used only to confirm that the project exists.
+    Legacy Phase-2 risk columns are not used.
     """
+
     generated_at = datetime.now(timezone.utc)
 
-    candidate_projects = db.query(Project).filter(_build_candidate_filter()).all()
+    risk_df = _load_risk_fusion()
 
     raw_alerts: List[dict] = []
-    for p in candidate_projects:
-        raw_alerts.extend(_generate_alerts_for_project(p, generated_at))
 
-    # Deterministic sort: severity priority, then risk_score desc, then project_id.
+    for _, row in risk_df.iterrows():
+        raw_alerts.extend(
+            _generate_alerts_for_row(
+                row,
+                generated_at,
+            )
+        )
+
+    # ---------------------------------------------------------------
+    # Deterministic ordering
+    #
+    # 1. severity
+    # 2. overall Risk Fusion score descending
+    # 3. project_id
+    # 4. alert_type
+    # ---------------------------------------------------------------
+
     raw_alerts.sort(
         key=lambda a: (
             SEVERITY_PRIORITY.get(a["severity"], 99),
             -a["sort_score"],
             a["project_id"],
+            a["alert_type"],
         )
     )
 
