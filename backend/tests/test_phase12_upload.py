@@ -53,10 +53,10 @@ def test_analysis_does_not_write_production_outputs():
     assert after == before
 
 
-def test_upload_endpoint_exposes_phase12_analysis(client, auth_headers):
+def test_upload_endpoint_exposes_phase12_analysis(client, admin_auth_headers):
     response = client.post(
         "/upload-analyze",
-        headers=auth_headers,
+        headers=admin_auth_headers,
         files={"file": ("uploaded.csv", VALID_UPLOAD, "text/csv")},
     )
 

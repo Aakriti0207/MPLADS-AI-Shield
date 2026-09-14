@@ -175,6 +175,33 @@ def require_role(*allowed_roles: str):
     return _check_role
 
 
+def require_ministry_or_admin(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency for the Ministry/Admin-only upload-and-analyze workflow.
+
+    `require_role(ADMIN_ROLE)` alone is too narrow here: `User.role` is
+    free text (see the docstring below), and `GET /dashboard/role-overview`
+    already treats any role containing "admin" OR "ministry"
+    (case-insensitively) as the privileged "Ministry" scope -- see
+    routes/dashboard.py's `is_ministry` check. This reuses that exact
+    same substring rule so a "Ministry" (or "Ministry of Rural
+    Development", "Administrator", etc.) account is authorized
+    consistently across both routes, rather than upload silently
+    rejecting a role dashboard.py would treat as privileged.
+
+    Raises 403 (never 401 -- the caller IS authenticated) for any other
+    role, including the ordinary self-registration default
+    ("District Authority") and roles like "MP" or "State Nodal Officer".
+    """
+    role = (current_user.role or "").lower()
+    if "admin" not in role and "ministry" not in role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to run dataset analysis.",
+        )
+    return current_user
+
+
 # --- Phase 2: registration role policy ---------------------------------
 #
 # `User.role` (app/models.py) is intentionally a free-text string, not a

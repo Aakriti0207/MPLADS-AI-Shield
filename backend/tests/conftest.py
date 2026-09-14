@@ -107,3 +107,41 @@ def auth_headers(client, registered_user):
     assert resp.status_code == 200, resp.text
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def admin_auth_headers(client, db_session):
+    """Log in as a real Ministry/Admin user and return Authorization headers.
+
+    `POST /auth/register` always silently downgrades a requested
+    "Administrator" role to DEFAULT_REGISTRATION_ROLE (see
+    resolve_registration_role / test_rbac.py) -- there is deliberately
+    no way to self-register a privileged account. So, exactly like
+    test_rbac.py's `test_role_check_reflects_current_database_role_...`,
+    this registers+logs in an ordinary user first, then promotes that
+    user directly in the DB (`user.role = ADMIN_ROLE`) before returning
+    headers built from the already-issued token -- `get_current_user`
+    re-reads `.role` from the DB on every request, so the existing
+    token immediately reflects the promotion without a fresh login.
+
+    Used by upload-analyze tests that need a genuinely Ministry/Admin
+    caller now that `/upload-analyze` is role-gated (require_ministry_or_admin).
+    """
+    from app.auth import ADMIN_ROLE
+    from app.models import User
+
+    email, password = "upload.admin@example.gov.in", "SecurePass123"
+    resp = client.post(
+        "/auth/register",
+        json={"email": email, "password": password, "role": "District Authority"},
+    )
+    assert resp.status_code == 201, resp.text
+    login_resp = client.post("/auth/login", json={"email": email, "password": password})
+    assert login_resp.status_code == 200, login_resp.text
+    token = login_resp.json()["access_token"]
+
+    user = db_session.query(User).filter(User.email == email).first()
+    user.role = ADMIN_ROLE
+    db_session.commit()
+
+    return {"Authorization": f"Bearer {token}"}

@@ -26,24 +26,28 @@ This endpoint:
 
 Protected the same way as the other project/business-data endpoints
 (projects.py, dashboard.py, alerts.py, analytics.py): router-level
-authentication via Depends(get_current_user).
+Depends(get_current_user) -- PLUS a role check.
 
-Phase 7 addition: dataset upload/analysis is also restricted to the
-Ministry/Admin role. The only role this backend actually treats as
-privileged today is ADMIN_ROLE ("Administrator" -- see app/auth.py),
-so the router now depends on require_role(ADMIN_ROLE) instead of the
-bare get_current_user. require_role() already depends on
-get_current_user internally, so authentication (401 for missing/
-invalid token) and authorization (403 for a valid but non-Administrator
-user) are both enforced here, server-side -- this is not something the
-frontend can bypass by hiding the Upload nav item or route.
+Role gate: uploading and running the analysis pipeline against an
+arbitrary CSV is a Ministry/Admin-only capability (it is not merely a
+read of existing data, unlike every other route above). Router-level
+`Depends(get_current_user)` alone only proves the caller is *some*
+authenticated, active user -- it does not check role, so an MP, State,
+or District account (or any other self-registered role) could
+previously call this endpoint. `require_ministry_or_admin`
+(app/auth.py) closes that gap: it 401s an unauthenticated/anonymous
+caller (via get_current_user, unchanged) and 403s an authenticated
+caller whose role isn't Ministry/Admin, using the same "admin" or
+"ministry" substring rule GET /dashboard/role-overview already applies.
+Enforced here at the router level (not just hidden behind a frontend
+button) so it can't be bypassed by calling the API directly.
 """
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.auth import ADMIN_ROLE, require_role
+from app.auth import require_ministry_or_admin
 from app.database import get_db
 from app.rate_limit import rate_limit
 from app.schemas import (
@@ -66,7 +70,7 @@ from app.upload_analysis import (
 router = APIRouter(
     prefix="/upload-analyze",
     tags=["upload-analyze"],
-    dependencies=[Depends(require_role(ADMIN_ROLE))],
+    dependencies=[Depends(require_ministry_or_admin)],
 )
 
 # Phase 6: a looser limit than login/register (this is an authenticated,
