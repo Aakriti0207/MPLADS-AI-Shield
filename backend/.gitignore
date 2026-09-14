@@ -23,3 +23,7 @@ data/processed/phase5_anomaly_summary.csv
 data/processed/duplicate_matches.csv
 data/processed/duplicate_summary.csv
 data/processed/risk_quality_report.json
+# Current dashboard data - intentionally tracked
+!data/processed/canonical_projects.csv
+!data/processed/project_risk_scores.csv
+!data/processed/project_risk_scores.csv
