@@ -36,6 +36,17 @@ export async function fetchProject(projectId) {
   return normalizeProject(await response.json())
 }
 
+// Anonymous-safe project detail (see app/routes/public.py's
+// GET /public/projects/{id}). Returns the same sanitized field set as
+// fetchPublicProjectPage's items -- no risk_score/risk_level/reasons --
+// so normalizeProject naturally produces riskScore: null, risk: null
+// for these (it only reads fields that are present).
+export async function fetchPublicProject(projectId) {
+  const response = await apiFetch(`/public/projects/${encodeURIComponent(projectId)}`)
+  if (!response.ok) throw new Error(`Backend returned ${response.status} ${response.statusText}`)
+  return normalizeProject(await response.json())
+}
+
 export async function fetchProjectRisk(projectId) {
   const response = await apiFetch(`/projects/${encodeURIComponent(projectId)}/risk`)
   if (!response.ok) throw new Error(`Backend returned ${response.status} ${response.statusText}`)

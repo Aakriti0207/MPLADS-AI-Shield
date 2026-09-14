@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { Eye } from 'lucide-react'
 import { fetchPublicOverview } from '../features/dashboard/api'
@@ -13,6 +14,7 @@ import PublicNavbar from '../components/layout/PublicNavbar'
  * Public Overview backed by the anonymous, aggregate-only public endpoint.
  */
 export default function Home() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [statsError, setStatsError] = useState(null)
 
@@ -126,8 +128,16 @@ export default function Home() {
                   <thead><tr>{['Work ID', 'Work', 'State', 'Constituency', 'Status', 'Sanctioned', 'Expenditure', 'Progress'].map(h => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {stats.recent_projects.map(p => (
-                      <tr key={p.id}>
-                        <td className="font-mono font-semibold text-navy whitespace-nowrap">{p.id ?? '—'}</td>
+                      <tr
+                        key={p.id}
+                        className={p.id ? 'hover:bg-panel cursor-pointer' : undefined}
+                        onClick={() => p.id && navigate(`/projects/${encodeURIComponent(p.id)}`)}
+                      >
+                        <td className="font-mono font-semibold whitespace-nowrap">
+                          {p.id ? (
+                            <Link to={`/projects/${encodeURIComponent(p.id)}`} onClick={e => e.stopPropagation()} className="text-navy hover:underline">{p.id}</Link>
+                          ) : '—'}
+                        </td>
                         <td className="whitespace-nowrap">{p.workType ?? '—'}</td>
                         <td className="whitespace-nowrap">{p.state ?? '—'}</td>
                         <td className="whitespace-nowrap">{p.constituency ?? '—'}</td>
