@@ -204,7 +204,7 @@ class DashboardStats(BaseModel):
     average_physical_progress: Optional[Decimal] = None
     active_projects: int
     completed_projects: int
-    delayed_projects: int
+    delayed_projects: Optional[int] = None
 
     # Phase 3C addition: real counts of projects per Phase 2 risk_level
     # (LOW/MEDIUM/HIGH/CRITICAL), grouped straight from the Project table.
@@ -386,7 +386,7 @@ class AnalyticsResponse(BaseModel):
     average_physical_progress: Optional[Decimal] = None
     active_projects: int
     completed_projects: int
-    delayed_projects: int
+    delayed_projects: Optional[int] = None
     risk_level_counts: dict[str, int]
     by_state: list[ByStateStat]
     by_work_type: list[ByWorkTypeStat]

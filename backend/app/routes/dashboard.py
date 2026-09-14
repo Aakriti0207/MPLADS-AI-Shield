@@ -8,23 +8,30 @@ Status/date rule used consistently throughout this module:
     - `status` is treated as the authoritative field for whether a
       project is "completed". A project is completed when
       status = 'Completed' (case-insensitive).
+
     - "Active" simply means "not completed yet" - i.e. every project
       that hasn't been marked Completed (Sanctioned, Ongoing, Delayed,
-      or any other in-progress status all count as active). This keeps
-      active + completed always summing to total_projects, without
-      hardcoding every possible status string that might appear in the
-      source data.
+      or any other in-progress status all count as active).
+
+      This keeps active + completed always summing to total_projects,
+      without hardcoding every possible status string that might appear
+      in the source data.
+
     - "Delayed" is a date-driven refinement of "active": an active
       (not-yet-completed) project is delayed when it has an
       expected_completion date and that date has already passed
-      (expected_completion < today). This combines the status field
-      (to exclude anything already completed) with the date field
-      (to judge lateness), rather than inventing a separate "Delayed"
-      status string that may or may not exist in the source data.
+      (expected_completion < today).
+
+      This combines the status field (to exclude anything already
+      completed) with the date field (to judge lateness), rather than
+      inventing a separate "Delayed" status string that may or may not
+      exist in the source data.
+
     - Projects with no expected_completion date are never counted as
       delayed, since there is no deadline to have missed.
+
     - When expected_completion is unavailable for the entire dataset,
-      delayed_projects is returned as NULL rather than 0, together with
+      delayed_projects is returned as None rather than 0, together with
       availability metadata explaining why the value cannot be computed.
 
 Phase 4 update:
@@ -43,9 +50,11 @@ from app.aggregations import (
     compute_risk_level_counts,
     compute_risk_by_state,
 )
+
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project, User
+
 from app.schemas import (
     DashboardStats,
     RoleDashboardResponse,
@@ -60,7 +69,10 @@ router = APIRouter(
 )
 
 
-@router.get("/stats", response_model=DashboardStats)
+@router.get(
+    "/stats",
+    response_model=DashboardStats,
+)
 def get_dashboard_stats(
     db: Session = Depends(get_db),
 ):
@@ -80,11 +92,23 @@ def get_dashboard_stats(
             delayed_projects_reason
     """
 
+    # ---------------------------------------------------------------
+    # Core national totals
+    # ---------------------------------------------------------------
+
     totals = compute_core_totals(db)
+
+    # ---------------------------------------------------------------
+    # Supporting dashboard aggregations
+    # ---------------------------------------------------------------
 
     risk_level_counts = compute_risk_level_counts(db)
     by_state = compute_by_state(db)
     by_work_type = compute_by_work_type(db)
+
+    # ---------------------------------------------------------------
+    # Build validated dashboard response
+    # ---------------------------------------------------------------
 
     return DashboardStats(
         **totals,
@@ -114,6 +138,10 @@ def get_role_dashboard(
     """
 
     role = current_user.role or ""
+
+    # ---------------------------------------------------------------
+    # Determine whether the user is authorized for national dashboard
+    # ---------------------------------------------------------------
 
     is_ministry = (
         "admin" in role.lower()
@@ -162,6 +190,10 @@ def get_role_dashboard(
         .limit(12)
         .all()
     )
+
+    # ---------------------------------------------------------------
+    # Return role-authorized dashboard
+    # ---------------------------------------------------------------
 
     return RoleDashboardResponse(
         role=role,
