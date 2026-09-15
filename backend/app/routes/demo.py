@@ -14,13 +14,20 @@ universe and current Risk Fusion output as the authenticated API.
 from __future__ import annotations
 
 import ast
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, List
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+
+from app.routes.alerts import (
+    SEVERITY_PRIORITY,
+    _generate_alerts_for_row,
+    _load_risk_fusion,
+)
 
 from app.aggregations import (
     load_canonical_projects,
@@ -30,10 +37,12 @@ from app.aggregations import (
     compute_by_work_type_from_canonical,
     compute_risk_level_counts_from_risk_fusion,
     compute_risk_by_state_from_risk_fusion,
+    compute_status_distribution_from_canonical,
+    compute_recent_projects_from_canonical
 )
 
 from app.routes.dashboard import _get_priority_projects
-
+from app.routes.analytics import get_analytics
 from app.routes.projects import (
     _apply_risk_to_project,
     _canonical_row_to_project,
@@ -51,6 +60,7 @@ from app.schemas import (
     ProjectPage,
     RiskFusionOut,
     RoleDashboardResponse,
+    AlertOut,
 )
 
 
@@ -403,6 +413,13 @@ def get_demo_dashboard_stats():
         risk_level_counts=risk_level_counts,
         by_state=by_state,
         by_work_type=by_work_type,
+        status_distribution=compute_status_distribution_from_canonical(
+            canonical_df
+        ),
+        recent_projects=compute_recent_projects_from_canonical(
+            canonical_df,
+            limit=8,
+        ),
     )
 
 
@@ -450,6 +467,13 @@ def get_demo_role_dashboard(
         risk_level_counts=risk_level_counts,
         by_state=by_state,
         by_work_type=by_work_type,
+        status_distribution=compute_status_distribution_from_canonical(
+            canonical_df
+        ),
+        recent_projects=compute_recent_projects_from_canonical(
+            canonical_df,
+            limit=8,
+        ),
     )
 
     priority_projects = _get_priority_projects(
@@ -474,6 +498,82 @@ def get_demo_role_dashboard(
         priority_projects=priority_projects,
     )
 
+
+
+# =====================================================================
+# DEMO ALERTS
+# =====================================================================
+
+@router.get(
+    "/alerts",
+    response_model=List[AlertOut],
+)
+def list_demo_alerts(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+):
+    """
+    Return the same AI Shield advisory alerts as the authenticated
+    /alerts endpoint, but without requiring authentication.
+
+    Demo mode uses the exact same production Risk Fusion output and
+    alert-generation rules as the official authenticated API.
+    """
+
+    generated_at = datetime.now(timezone.utc)
+
+    risk_df = _load_risk_fusion()
+
+    raw_alerts: List[dict] = []
+
+    for _, row in risk_df.iterrows():
+        raw_alerts.extend(
+            _generate_alerts_for_row(
+                row,
+                generated_at,
+            )
+        )
+
+    raw_alerts.sort(
+        key=lambda a: (
+            SEVERITY_PRIORITY.get(a["severity"], 99),
+            -a["sort_score"],
+            a["project_id"],
+            a["alert_type"],
+        )
+    )
+
+    page = raw_alerts[skip: skip + limit]
+
+    return [
+        AlertOut(
+            alert_id=a["alert_id"],
+            project_id=a["project_id"],
+            alert_type=a["alert_type"],
+            severity=a["severity"],
+            message=a["message"],
+            created_at=generated_at,
+        )
+        for a in page
+    ]
+# =====================================================================
+# DEMO ANALYTICS
+# =====================================================================
+
+@router.get(
+    "/analytics",
+)
+def get_demo_analytics(
+    db: Session = Depends(get_db),
+):
+    """
+    Return the same national Analytics data as the authenticated
+    /analytics endpoint, without requiring authentication.
+
+    Demo mode intentionally uses the exact same production
+    canonical project universe and Risk Fusion intelligence.
+    """
+    return get_analytics(db=db)
 
 # =====================================================================
 # DEMO PROJECT LIST

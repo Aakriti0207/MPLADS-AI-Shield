@@ -1,10 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ZAxis
+} from 'recharts'
 import { useAuth } from '../context/AuthContext'
 import { normalizeRole, ROLE_VIEW_LABEL } from '../lib/roles'
-import { fetchProjects } from '../features/projects/api'
-import { fetchPublicOverview, fetchRoleDashboard } from '../features/dashboard/api'
+import {
+  fetchProjects,
+  fetchDemoProjects
+} from '../features/projects/api'
+import { fetchRoleDashboard } from '../features/dashboard/api'
 import { toNumber } from '../lib/formatters'
 import { CHART_COLORS } from '../lib/theme'
 import { Disclaimer, RiskBadge, Stat } from '../components/UI'
@@ -36,14 +50,26 @@ const CATEGORY_FIELDS = [
   ['Peer anomaly', 'peer_anomaly_score'],
   ['Duplicate similarity', 'duplicate_risk_score'],
 ]
+
 const REVIEW_THRESHOLD = 50
 
 export default function AiShield() {
   const { user, isDemo } = useAuth()
   const role = normalizeRole(user?.role)
 
-  if (role !== 'ministry') return <PageContainer><ScopedAiShield role={role} isDemo={isDemo} /></PageContainer>
-  return <PageContainer><MinistryAiShield isDemo={isDemo} /></PageContainer>
+  if (role !== 'ministry') {
+    return (
+      <PageContainer>
+        <ScopedAiShield role={role} isDemo={isDemo} />
+      </PageContainer>
+    )
+  }
+
+  return (
+    <PageContainer>
+      <MinistryAiShield isDemo={isDemo} />
+    </PageContainer>
+  )
 }
 
 /**
@@ -63,106 +89,380 @@ function MinistryAiShield({ isDemo }) {
 
   useEffect(() => {
     let cancelled = false
+
     setLoading(true)
     setError(null)
-    const overviewRequest = isDemo
-      ? fetchPublicOverview().then(stats => ({ stats, priority_projects: [], scope_available: true }))
-      : fetchRoleDashboard()
-    Promise.all([overviewRequest, fetchProjects({ skip: 0, limit: SAMPLE_LIMIT }).catch(() => [])])
-      .then(([data, projects]) => { if (!cancelled) { setOverview(data); setSample(projects) } })
-      .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+
+    // fetchRoleDashboard() automatically selects:
+    //   Ministry -> /dashboard/role-overview
+    //   Demo     -> /demo/dashboard/role-overview
+    //
+    // Both endpoints expose the same dashboard/Risk Fusion intelligence.
+    const overviewRequest = fetchRoleDashboard()
+
+    // Use the matching project universe for each mode:
+    //   Ministry -> authenticated /projects
+    //   Demo     -> anonymous /demo/projects
+    const sampleRequest = isDemo
+      ? fetchDemoProjects({ skip: 0, limit: SAMPLE_LIMIT })
+      : fetchProjects({ skip: 0, limit: SAMPLE_LIMIT })
+
+    Promise.all([
+      overviewRequest,
+      sampleRequest.catch(() => [])
+    ])
+      .then(([data, projects]) => {
+        if (!cancelled) {
+          setOverview(data)
+          setSample(projects)
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setError(err.message || 'Failed to reach the API')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [isDemo])
 
-  const categoryData = useMemo(() => CATEGORY_FIELDS.map(([label, key]) => ({
-    name: label,
-    value: sample.filter(r => toNumber(r.raw?.[key]) !== null && toNumber(r.raw[key]) >= REVIEW_THRESHOLD).length,
-  })), [sample])
+  const categoryData = useMemo(
+    () =>
+      CATEGORY_FIELDS.map(([label, key]) => ({
+        name: label,
+        value: sample.filter(
+          r =>
+            toNumber(r.raw?.[key]) !== null &&
+            toNumber(r.raw[key]) >= REVIEW_THRESHOLD
+        ).length,
+      })),
+    [sample]
+  )
 
-  const scatterData = useMemo(() => sample
-    .filter(r => r.sanctioned && r.expenditure !== null)
-    .map(r => ({ x: Number((r.sanctioned / 10000000).toFixed(2)), y: Math.min(2, Number((r.expenditure / r.sanctioned).toFixed(2))), risk: r.risk, id: r.id })),
-  [sample])
+  const scatterData = useMemo(
+    () =>
+      sample
+        .filter(r => r.sanctioned && r.expenditure !== null)
+        .map(r => ({
+          x: Number((r.sanctioned / 10000000).toFixed(2)),
+          y: Math.min(
+            2,
+            Number((r.expenditure / r.sanctioned).toFixed(2))
+          ),
+          risk: r.risk,
+          id: r.id
+        })),
+    [sample]
+  )
 
-  if (loading) return <LoadingState text="Loading AI Shield intelligence…" />
-  if (error) return <ErrorState title="Could not load AI Shield data" message={error} />
+  if (loading) {
+    return <LoadingState text="Loading AI Shield intelligence…" />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Could not load AI Shield data"
+        message={error}
+      />
+    )
+  }
 
   const stats = overview?.stats
   const riskCounts = stats?.risk_level_counts || {}
   const hasRiskCounts = Object.keys(riskCounts).length > 0
-  const highPlusCritical = (riskCounts.HIGH || 0) + (riskCounts.CRITICAL || 0)
+  const highPlusCritical =
+    (riskCounts.HIGH || 0) + (riskCounts.CRITICAL || 0)
   const totalAnalyzed = toNumber(stats?.total_projects)
   const priorityQueue = overview?.priority_projects || []
 
   return (
     <>
       <div className="mb-5">
-        <h1 className="text-[19px] font-semibold text-ink">AI Shield Command Center</h1>
-        <p className="text-[13px] text-muted mt-0.5 max-w-2xl">National AI risk & monitoring overview, built from real per-project risk data.</p>
+        <h1 className="text-[19px] font-semibold text-ink">
+          AI Shield Command Center
+        </h1>
+        <p className="text-[13px] text-muted mt-0.5 max-w-2xl">
+          National AI risk & monitoring overview, built from real
+          per-project risk data.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Stat label="Total Analyzed" value={totalAnalyzed !== null ? totalAnalyzed.toLocaleString() : 'Not available'} tone="navy" />
-        <Stat label="Low Risk" value={hasRiskCounts ? (riskCounts.LOW || 0).toLocaleString() : 'Not available'} tone="green" />
-        <Stat label="Medium Risk" value={hasRiskCounts ? (riskCounts.MEDIUM || 0).toLocaleString() : 'Not available'} tone="amber" />
-        <Stat label="High + Critical" value={hasRiskCounts ? highPlusCritical.toLocaleString() : 'Not available'} tone="red" />
+        <Stat
+          label="Total Analyzed"
+          value={
+            totalAnalyzed !== null
+              ? totalAnalyzed.toLocaleString()
+              : 'Not available'
+          }
+          tone="navy"
+        />
+
+        <Stat
+          label="Low Risk"
+          value={
+            hasRiskCounts
+              ? (riskCounts.LOW || 0).toLocaleString()
+              : 'Not available'
+          }
+          tone="green"
+        />
+
+        <Stat
+          label="Medium Risk"
+          value={
+            hasRiskCounts
+              ? (riskCounts.MEDIUM || 0).toLocaleString()
+              : 'Not available'
+          }
+          tone="amber"
+        />
+
+        <Stat
+          label="High + Critical"
+          value={
+            hasRiskCounts
+              ? highPlusCritical.toLocaleString()
+              : 'Not available'
+          }
+          tone="red"
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4 mb-4">
-        <ChartCard title="Anomaly Categories" subtitle={`Sample of ${sample.length.toLocaleString()} loaded projects with a real sub-score ≥ ${REVIEW_THRESHOLD}, by category`} height={260}>
+        <ChartCard
+          title="Anomaly Categories"
+          subtitle={`Sample of ${sample.length.toLocaleString()} loaded projects with a real sub-score ≥ ${REVIEW_THRESHOLD}, by category`}
+          height={260}
+        >
           {sample.length ? (
             <ResponsiveContainer>
-              <BarChart data={categoryData} layout="vertical" margin={{ left: 24 }}>
-                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke={CHART_COLORS.line} />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11.5, fill: CHART_COLORS.ink }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${CHART_COLORS.line}` }} />
-                <Bar dataKey="value" fill={CHART_COLORS.blue} radius={[0, 4, 4, 0]} barSize={16} />
+              <BarChart
+                data={categoryData}
+                layout="vertical"
+                margin={{ left: 24 }}
+              >
+                <CartesianGrid
+                  horizontal={false}
+                  strokeDasharray="3 3"
+                  stroke={CHART_COLORS.line}
+                />
+
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  tick={{
+                    fontSize: 11,
+                    fill: CHART_COLORS.muted
+                  }}
+                  axisLine={{
+                    stroke: CHART_COLORS.line
+                  }}
+                  tickLine={false}
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  tick={{
+                    fontSize: 11.5,
+                    fill: CHART_COLORS.ink
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+
+                <Tooltip
+                  contentStyle={{
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: `1px solid ${CHART_COLORS.line}`
+                  }}
+                />
+
+                <Bar
+                  dataKey="value"
+                  fill={CHART_COLORS.blue}
+                  radius={[0, 4, 4, 0]}
+                  barSize={16}
+                />
               </BarChart>
             </ResponsiveContainer>
-          ) : <EmptyState text="Category-level anomaly data is not available for the current dataset." />}
+          ) : (
+            <EmptyState text="Category-level anomaly data is not available for the current dataset." />
+          )}
         </ChartCard>
-        <ChartCard title="Peer-Relative Analysis" subtitle="Sanction amount (₹ Cr) vs. expenditure ratio — real project sample" height={260}>
+
+        <ChartCard
+          title="Peer-Relative Analysis"
+          subtitle="Sanction amount (₹ Cr) vs. expenditure ratio — real project sample"
+          height={260}
+        >
           {scatterData.length ? (
             <ResponsiveContainer>
-              <ScatterChart margin={{ left: -10, right: 12, top: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.line} />
-                <XAxis type="number" dataKey="x" name="Sanction (₹ Cr)" tick={{ fontSize: 10.5, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
-                <YAxis type="number" dataKey="y" name="Expenditure ratio" tick={{ fontSize: 10.5, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
+              <ScatterChart
+                margin={{ left: -10, right: 12, top: 8 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={CHART_COLORS.line}
+                />
+
+                <XAxis
+                  type="number"
+                  dataKey="x"
+                  name="Sanction (₹ Cr)"
+                  tick={{
+                    fontSize: 10.5,
+                    fill: CHART_COLORS.muted
+                  }}
+                  axisLine={{
+                    stroke: CHART_COLORS.line
+                  }}
+                  tickLine={false}
+                />
+
+                <YAxis
+                  type="number"
+                  dataKey="y"
+                  name="Expenditure ratio"
+                  tick={{
+                    fontSize: 10.5,
+                    fill: CHART_COLORS.muted
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+
                 <ZAxis range={[24, 24]} />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${CHART_COLORS.line}` }} />
-                <Scatter data={scatterData.filter(d => d.risk !== 'High' && d.risk !== 'Critical')} fill="#9fb6cc" fillOpacity={0.6} />
-                <Scatter data={scatterData.filter(d => d.risk === 'High' || d.risk === 'Critical')} fill={CHART_COLORS.red} fillOpacity={0.85} />
+
+                <Tooltip
+                  cursor={{
+                    strokeDasharray: '3 3'
+                  }}
+                  contentStyle={{
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: `1px solid ${CHART_COLORS.line}`
+                  }}
+                />
+
+                <Scatter
+                  data={scatterData.filter(
+                    d =>
+                      d.risk !== 'High' &&
+                      d.risk !== 'Critical'
+                  )}
+                  fill="#9fb6cc"
+                  fillOpacity={0.6}
+                />
+
+                <Scatter
+                  data={scatterData.filter(
+                    d =>
+                      d.risk === 'High' ||
+                      d.risk === 'Critical'
+                  )}
+                  fill={CHART_COLORS.red}
+                  fillOpacity={0.85}
+                />
               </ScatterChart>
             </ResponsiveContainer>
-          ) : <EmptyState text="Peer-relative data is not available for the current dataset." />}
+          ) : (
+            <EmptyState text="Peer-relative data is not available for the current dataset." />
+          )}
         </ChartCard>
       </div>
 
       <div className="card overflow-hidden mb-4">
-        <div className="px-4 pt-4 pb-1"><h3 className="text-[13.5px] font-semibold text-ink">Priority Review Queue</h3><p className="text-xs text-muted mt-0.5">Real projects with stored medium, high, or critical advisory signals</p></div>
+        <div className="px-4 pt-4 pb-1">
+          <h3 className="text-[13.5px] font-semibold text-ink">
+            Priority Review Queue
+          </h3>
+
+          <p className="text-xs text-muted mt-0.5">
+            Real projects with stored medium, high, or critical advisory
+            signals
+          </p>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="data-table">
-            <thead><tr>{['Work ID', 'State', 'Risk Score', 'Risk', 'Progress', ''].map(h => <th key={h}>{h}</th>)}</tr></thead>
+            <thead>
+              <tr>
+                {[
+                  'Work ID',
+                  'State',
+                  'Risk Score',
+                  'Risk',
+                  'Progress',
+                  ''
+                ].map(h => (
+                  <th key={h}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+
             <tbody>
               {priorityQueue.map(p => (
                 <tr key={p.id}>
-                  <td className="font-mono font-semibold text-navy whitespace-nowrap">{p.id}</td>
-                  <td className="whitespace-nowrap">{p.state || '—'}</td>
-                  <td className="font-semibold text-ink">{p.riskScore !== null && p.riskScore !== undefined ? p.riskScore : '—'}</td>
-                  <td><RiskBadge risk={p.risk} /></td>
-                  <td>{p.financialProgress !== null ? `${p.financialProgress}%` : '—'}</td>
-                  <td><Link to={`/projects/${encodeURIComponent(p.id)}`} className="text-xs font-semibold text-navy">Review →</Link></td>
+                  <td className="font-mono font-semibold text-navy whitespace-nowrap">
+                    {p.id}
+                  </td>
+
+                  <td className="whitespace-nowrap">
+                    {p.state || '—'}
+                  </td>
+
+                  <td className="font-semibold text-ink">
+                    {p.riskScore !== null &&
+                    p.riskScore !== undefined
+                      ? p.riskScore
+                      : '—'}
+                  </td>
+
+                  <td>
+                    <RiskBadge risk={p.risk} />
+                  </td>
+
+                  <td>
+                    {p.financialProgress !== null
+                      ? `${p.financialProgress}%`
+                      : '—'}
+                  </td>
+
+                  <td>
+                    <Link
+                      to={`/projects/${encodeURIComponent(p.id)}`}
+                      className="text-xs font-semibold text-navy"
+                    >
+                      Review →
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {priorityQueue.length === 0 && <div className="p-8 text-center text-sm text-muted">No High, Medium or Critical risk projects were returned by the backend for the current scope.</div>}
+
+          {priorityQueue.length === 0 && (
+            <div className="p-8 text-center text-sm text-muted">
+              No High, Medium or Critical risk projects were returned
+              by the backend for the current scope.
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mb-4"><Methodology compact /></div>
+      <div className="mb-4">
+        <Methodology compact />
+      </div>
 
       <Disclaimer />
     </>
@@ -190,19 +490,44 @@ function ScopedAiShield({ role, isDemo }) {
       setLoading(false)
       return undefined
     }
+
     let cancelled = false
+
     setLoading(true)
     setError(null)
+
     fetchRoleDashboard()
       .then(data => {
         if (cancelled) return
+
         setScopeAvailable(Boolean(data.scope_available))
-        setRows(data.scope_available ? (data.scoped_projects || []) : [])
-        setPriorityQueue(data.scope_available ? (data.priority_projects || []) : [])
+
+        setRows(
+          data.scope_available
+            ? (data.scoped_projects || [])
+            : []
+        )
+
+        setPriorityQueue(
+          data.scope_available
+            ? (data.priority_projects || [])
+            : []
+        )
       })
-      .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .catch(err => {
+        if (!cancelled) {
+          setError(
+            err.message || 'Failed to reach the API'
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [isDemo])
 
   // Unlike the ministry sample (which comes straight from fetchProjects
@@ -210,74 +535,225 @@ function ScopedAiShield({ role, isDemo }) {
   // `.raw`), `scoped_projects` here follows the SAME already-flat field
   // convention ScopedDashboard.jsx relies on for r.sanctioned/r.risk/etc.
   // -- so sub-scores are read directly off each row, not under `.raw`.
-  const categoryData = useMemo(() => CATEGORY_FIELDS.map(([label, key]) => ({
-    name: label,
-    value: rows.filter(r => toNumber(r[key]) !== null && toNumber(r[key]) >= REVIEW_THRESHOLD).length,
-  })), [rows])
+  const categoryData = useMemo(
+    () =>
+      CATEGORY_FIELDS.map(([label, key]) => ({
+        name: label,
+        value: rows.filter(
+          r =>
+            toNumber(r[key]) !== null &&
+            toNumber(r[key]) >= REVIEW_THRESHOLD
+        ).length,
+      })),
+    [rows]
+  )
 
-  if (loading) return <LoadingState text="Loading AI Shield intelligence…" />
-  if (error) return <ErrorState title="Could not load AI Shield data" message={error} />
+  if (loading) {
+    return <LoadingState text="Loading AI Shield intelligence…" />
+  }
 
-  const scopedQueue = priorityQueue.length ? priorityQueue : rows.filter(r => r.risk === 'High' || r.risk === 'Critical')
+  if (error) {
+    return (
+      <ErrorState
+        title="Could not load AI Shield data"
+        message={error}
+      />
+    )
+  }
+
+  const scopedQueue = priorityQueue.length
+    ? priorityQueue
+    : rows.filter(
+        r =>
+          r.risk === 'High' ||
+          r.risk === 'Critical'
+      )
 
   return (
     <>
       <div className="mb-5">
-        <h1 className="text-[19px] font-semibold text-ink">AI Shield — {ROLE_VIEW_LABEL[role]}</h1>
+        <h1 className="text-[19px] font-semibold text-ink">
+          AI Shield — {ROLE_VIEW_LABEL[role]}
+        </h1>
+
         <p className="text-[13px] text-muted mt-0.5 max-w-2xl">
           {scopeAvailable
-            ? `Scoped to your account's authorized ${role === 'mp' ? 'constituency' : role} records, as returned by the backend.`
-            : `${role === 'mp' ? 'Constituency' : role === 'state' ? 'State' : 'District'}-scoped AI intelligence is not available for this account.`}
+            ? `Scoped to your account's authorized ${
+                role === 'mp'
+                  ? 'constituency'
+                  : role
+              } records, as returned by the backend.`
+            : `${
+                role === 'mp'
+                  ? 'Constituency'
+                  : role === 'state'
+                    ? 'State'
+                    : 'District'
+              }-scoped AI intelligence is not available for this account.`}
         </p>
       </div>
 
       {!scopeAvailable ? (
         <div className="card p-10 text-center text-sm text-muted mb-4">
-          {role === 'mp' ? 'Constituency' : role === 'state' ? 'State' : 'District'}-scoped AI intelligence is not available for this account. This view stays intact so it can be connected to a real scope once the backend provides one.
+          {role === 'mp'
+            ? 'Constituency'
+            : role === 'state'
+              ? 'State'
+              : 'District'}-scoped AI intelligence is not available for this
+          account. This view stays intact so it can be connected to a real
+          scope once the backend provides one.
         </div>
       ) : (
         <>
           <div className="card mb-4">
-            <div className="px-4 pt-4 pb-1"><h3 className="text-[13.5px] font-semibold text-ink">Anomaly Categories</h3><p className="text-xs text-muted mt-0.5">Real sub-score ≥ {REVIEW_THRESHOLD}, within your scope</p></div>
+            <div className="px-4 pt-4 pb-1">
+              <h3 className="text-[13.5px] font-semibold text-ink">
+                Anomaly Categories
+              </h3>
+
+              <p className="text-xs text-muted mt-0.5">
+                Real sub-score ≥ {REVIEW_THRESHOLD}, within your scope
+              </p>
+            </div>
+
             <div className="p-4" style={{ height: 220 }}>
               {rows.length ? (
                 <ResponsiveContainer>
-                  <BarChart data={categoryData} layout="vertical" margin={{ left: 24 }}>
-                    <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke={CHART_COLORS.line} />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11.5, fill: CHART_COLORS.ink }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${CHART_COLORS.line}` }} />
-                    <Bar dataKey="value" fill={CHART_COLORS.blue} radius={[0, 4, 4, 0]} barSize={16} />
+                  <BarChart
+                    data={categoryData}
+                    layout="vertical"
+                    margin={{ left: 24 }}
+                  >
+                    <CartesianGrid
+                      horizontal={false}
+                      strokeDasharray="3 3"
+                      stroke={CHART_COLORS.line}
+                    />
+
+                    <XAxis
+                      type="number"
+                      allowDecimals={false}
+                      tick={{
+                        fontSize: 11,
+                        fill: CHART_COLORS.muted
+                      }}
+                      axisLine={{
+                        stroke: CHART_COLORS.line
+                      }}
+                      tickLine={false}
+                    />
+
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={110}
+                      tick={{
+                        fontSize: 11.5,
+                        fill: CHART_COLORS.ink
+                      }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+
+                    <Tooltip
+                      contentStyle={{
+                        fontSize: 12,
+                        borderRadius: 6,
+                        border: `1px solid ${CHART_COLORS.line}`
+                      }}
+                    />
+
+                    <Bar
+                      dataKey="value"
+                      fill={CHART_COLORS.blue}
+                      radius={[0, 4, 4, 0]}
+                      barSize={16}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <EmptyState text="Category-level anomaly data is not available for your scope." />}
+              ) : (
+                <EmptyState text="Category-level anomaly data is not available for your scope." />
+              )}
             </div>
           </div>
 
           <div className="card overflow-hidden mb-4">
-            <div className="px-4 pt-4 pb-1"><h3 className="text-[13.5px] font-semibold text-ink">Priority Review Queue</h3><p className="text-xs text-muted mt-0.5">Real High/Critical risk projects, in your authorized scope</p></div>
+            <div className="px-4 pt-4 pb-1">
+              <h3 className="text-[13.5px] font-semibold text-ink">
+                Priority Review Queue
+              </h3>
+
+              <p className="text-xs text-muted mt-0.5">
+                Real High/Critical risk projects, in your authorized
+                scope
+              </p>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="data-table">
-                <thead><tr>{['Work ID', 'Location', 'Risk Score', 'Risk', ''].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <thead>
+                  <tr>
+                    {[
+                      'Work ID',
+                      'Location',
+                      'Risk Score',
+                      'Risk',
+                      ''
+                    ].map(h => (
+                      <th key={h}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+
                 <tbody>
                   {scopedQueue.slice(0, 12).map(p => (
                     <tr key={p.id}>
-                      <td className="font-mono font-semibold text-navy whitespace-nowrap">{p.id}</td>
-                      <td className="whitespace-nowrap">{p.district || '—'}, {p.state || '—'}</td>
-                      <td className="font-semibold text-ink">{p.riskScore !== null && p.riskScore !== undefined ? p.riskScore : '—'}</td>
-                      <td><RiskBadge risk={p.risk} /></td>
-                      <td><Link to={`/projects/${encodeURIComponent(p.id)}`} className="text-xs font-semibold text-navy">Review →</Link></td>
+                      <td className="font-mono font-semibold text-navy whitespace-nowrap">
+                        {p.id}
+                      </td>
+
+                      <td className="whitespace-nowrap">
+                        {p.district || '—'}, {p.state || '—'}
+                      </td>
+
+                      <td className="font-semibold text-ink">
+                        {p.riskScore !== null &&
+                        p.riskScore !== undefined
+                          ? p.riskScore
+                          : '—'}
+                      </td>
+
+                      <td>
+                        <RiskBadge risk={p.risk} />
+                      </td>
+
+                      <td>
+                        <Link
+                          to={`/projects/${encodeURIComponent(p.id)}`}
+                          className="text-xs font-semibold text-navy"
+                        >
+                          Review →
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {scopedQueue.length === 0 && <div className="p-8 text-center text-sm text-muted">No High or Critical risk projects in your current scope.</div>}
+
+              {scopedQueue.length === 0 && (
+                <div className="p-8 text-center text-sm text-muted">
+                  No High or Critical risk projects in your current
+                  scope.
+                </div>
+              )}
             </div>
           </div>
         </>
       )}
 
-      <div className="mb-4"><Methodology compact /></div>
+      <div className="mb-4">
+        <Methodology compact />
+      </div>
 
       <Disclaimer />
     </>

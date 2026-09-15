@@ -21,7 +21,7 @@ Risk Fusion universe.
 """
 
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import pandas as pd
 
@@ -460,6 +460,147 @@ def compute_by_work_type_from_canonical(
 # =====================================================================
 # Current Risk Fusion level counts
 # =====================================================================
+
+def _none_if_blank_value(value):
+    """Return None for missing/blank values, otherwise a stripped string."""
+    if value is None or pd.isna(value):
+        return None
+
+    value = str(value).strip()
+
+    return value
+
+
+def compute_status_distribution_from_canonical(
+    canonical_df: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    """Return project counts grouped by canonical lifecycle status.
+
+    NULL/blank status is represented explicitly as ``Not specified``.
+    """
+    if "status" not in canonical_df.columns:
+        return []
+
+    status = (
+        canonical_df["status"]
+        .fillna("Not specified")
+        .astype(str)
+        .str.strip()
+        .replace("", "Not specified")
+    )
+
+    counts = status.value_counts().sort_values(ascending=False)
+
+    return [
+        {
+            "status": str(name),
+            "count": int(count),
+        }
+        for name, count in counts.items()
+    ]
+
+
+def compute_recent_projects_from_canonical(
+    canonical_df: pd.DataFrame,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """Return recently active projects using real canonical dates.
+
+    ``last_expenditure_date`` is preferred because it represents actual
+    project activity. Projects without that date are ordered after projects
+    with activity. No dates are fabricated.
+    """
+    if canonical_df.empty or limit <= 0:
+        return []
+
+    df = canonical_df.copy()
+
+    date_columns = [
+        "last_expenditure_date",
+        "completion_date",
+        "sanction_date",
+    ]
+
+    for column in date_columns:
+        if column in df.columns:
+            df[column] = pd.to_datetime(df[column], errors="coerce")
+
+    if "last_expenditure_date" in df.columns:
+        sort_date = df["last_expenditure_date"]
+    elif "completion_date" in df.columns:
+        sort_date = df["completion_date"]
+    elif "sanction_date" in df.columns:
+        sort_date = df["sanction_date"]
+    else:
+        return []
+
+    df["_recent_date"] = sort_date
+
+    df = (
+        df.sort_values(
+            by=["_recent_date", "work_id"],
+            ascending=[False, True],
+            na_position="last",
+        )
+        .head(limit)
+    )
+
+    results = []
+
+    for _, row in df.iterrows():
+        def _date_value(column):
+            value = row.get(column)
+            if pd.isna(value):
+                return None
+            return value.date()
+
+        sanction_amount = pd.to_numeric(
+            row.get("sanction_amount"),
+            errors="coerce",
+        )
+        expenditure = pd.to_numeric(
+            row.get("total_expenditure"),
+            errors="coerce",
+        )
+
+        financial_progress = None
+        if pd.notna(sanction_amount) and sanction_amount > 0 and pd.notna(expenditure):
+            financial_progress = float(
+                expenditure / sanction_amount * 100
+            )
+
+        results.append(
+            {
+                "project_id": str(row.get("work_id")),
+                "state": _none_if_blank_value(row.get("state")),
+                "district": _none_if_blank_value(row.get("district")),
+                "constituency": _none_if_blank_value(row.get("constituency")),
+                "mp_name": _none_if_blank_value(row.get("mp")),
+                "work_type": _none_if_blank_value(row.get("work_category")),
+                "implementing_agency": _none_if_blank_value(
+                    row.get("implementing_agency")
+                ),
+                "sanctioned_amount": (
+                    float(sanction_amount)
+                    if pd.notna(sanction_amount)
+                    else None
+                ),
+                "expenditure": (
+                    float(expenditure)
+                    if pd.notna(expenditure)
+                    else None
+                ),
+                "financial_progress": financial_progress,
+                "status": _none_if_blank_value(row.get("status")),
+                "sanction_date": _date_value("sanction_date"),
+                "start_date": _date_value("sanction_date"),
+                "expected_completion": None,
+                "actual_completion": _date_value("completion_date"),
+            }
+        )
+
+    return results
+
 
 def compute_risk_level_counts_from_risk_fusion(
     risk_df: pd.DataFrame,

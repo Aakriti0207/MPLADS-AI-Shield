@@ -221,6 +221,8 @@ class DashboardStats(BaseModel):
     # dropped or silently merged into another bucket.
     by_state: Optional[list[ByStateStat]] = None
     by_work_type: Optional[list[ByWorkTypeStat]] = None
+    status_distribution: Optional[list["StatusCount"]] = None
+    recent_projects: Optional[list["PublicProjectOut"]] = None
 
 
 class StateRiskStat(BaseModel):

@@ -39,6 +39,8 @@ from app.aggregations import (
     compute_by_work_type_from_canonical,
     compute_risk_level_counts_from_risk_fusion,
     compute_risk_by_state_from_risk_fusion,
+    compute_status_distribution_from_canonical,
+    compute_recent_projects_from_canonical,
 )
 
 from app.database import get_db
@@ -304,6 +306,23 @@ def get_dashboard_stats(
     )
 
     # ---------------------------------------------------------------
+    # Phase 4: status distribution and recently active projects
+    # ---------------------------------------------------------------
+
+    status_distribution = (
+        compute_status_distribution_from_canonical(
+            canonical_df
+        )
+    )
+
+    recent_projects = (
+        compute_recent_projects_from_canonical(
+            canonical_df,
+            limit=8,
+        )
+    )
+
+    # ---------------------------------------------------------------
     # Response
     # ---------------------------------------------------------------
 
@@ -312,6 +331,8 @@ def get_dashboard_stats(
         risk_level_counts=risk_level_counts,
         by_state=by_state,
         by_work_type=by_work_type,
+        status_distribution=status_distribution,
+        recent_projects=recent_projects,
     )
 
 
@@ -462,6 +483,13 @@ def get_role_dashboard(
         risk_level_counts=risk_level_counts,
         by_state=by_state,
         by_work_type=by_work_type,
+        status_distribution=compute_status_distribution_from_canonical(
+            canonical_df
+        ),
+        recent_projects=compute_recent_projects_from_canonical(
+            canonical_df,
+            limit=8,
+        ),
     )
 
     # ---------------------------------------------------------------
