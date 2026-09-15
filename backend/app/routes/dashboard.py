@@ -477,7 +477,7 @@ def get_role_dashboard(
     # ---------------------------------------------------------------
     # Dashboard stats
     # ---------------------------------------------------------------
-
+    totals["delayed_projects"] = int(totals.get("delayed_projects") or 0)
     stats = DashboardStats(
         **totals,
         risk_level_counts=risk_level_counts,
