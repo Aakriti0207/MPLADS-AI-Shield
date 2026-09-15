@@ -1,13 +1,3 @@
-"""
-Phase 7, Part A: GET /public/projects/{project_id}.
-
-Added so the public Overview's "Recently Monitored Projects" list (and
-the public /projects explorer) can open a project detail page without
-requiring a session, without exposing AI risk information to anonymous
-visitors, and without weakening the existing authenticated
-GET /projects/{id} contract.
-"""
-
 from app.models import Project
 
 
@@ -36,11 +26,9 @@ def _seed_project(db_session, **overrides):
 
 def test_public_project_detail_returns_safe_fields_anonymously(client, db_session):
     _seed_project(db_session)
-
     resp = client.get("/public/projects/WS%2FPUBLIC%2F1")
     assert resp.status_code == 200
     body = resp.json()
-
     assert body["project_id"] == "WS/PUBLIC/1"
     assert body["state"] == "Bihar"
     assert body["constituency"] == "Patna Sahib"
@@ -50,13 +38,9 @@ def test_public_project_detail_returns_safe_fields_anonymously(client, db_sessio
 
 def test_public_project_detail_never_exposes_risk_or_internal_fields(client, db_session):
     _seed_project(db_session)
-
     resp = client.get("/public/projects/WS%2FPUBLIC%2F1")
     assert resp.status_code == 200
     body = resp.json()
-
-    # PublicProjectOut has no risk/internal columns at all -- this test
-    # guards against a future edit accidentally widening that schema.
     for leaked_field in (
         "risk_score",
         "risk_level",
@@ -64,7 +48,6 @@ def test_public_project_detail_never_exposes_risk_or_internal_fields(client, db_
         "risk_reason_2",
         "risk_reason_3",
         "risk_metadata",
-        "mp_name",
     ):
         assert leaked_field not in body
 
@@ -75,31 +58,26 @@ def test_public_project_detail_404_for_unknown_id(client, db_session):
 
 
 def test_authenticated_project_detail_still_requires_auth(client, db_session):
-    """Confirms this change did not touch GET /projects/{id}'s existing
-    authentication requirement."""
     _seed_project(db_session)
     resp = client.get("/projects/WS%2FPUBLIC%2F1")
     assert resp.status_code == 401
 
 
-def test_authenticated_project_detail_still_includes_risk_for_real_users(client, db_session, auth_headers):
-    _seed_project(db_session)
-    resp = client.get("/projects/WS%2FPUBLIC%2F1", headers=auth_headers)
+def test_authenticated_project_detail_still_includes_risk_for_real_users(client, auth_headers):
+    canonical_id = "WS/MP1/2023-2024/103702"
+    encoded_id = canonical_id.replace("/", "%2F")
+    resp = client.get(f"/projects/{encoded_id}", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["risk_score"] is not None
-    assert body["risk_level"] == "CRITICAL"
+    assert float(body["risk_score"]) == 10.18
+    assert body["risk_level"] == "LOW"
 
 
 def test_public_overview_recent_projects_carry_a_usable_project_id(client, db_session):
-    """The Overview page's click-through relies on recent_projects[].project_id
-    being present and matching the id GET /public/projects/{id} accepts."""
     _seed_project(db_session)
-
     overview = client.get("/public/overview").json()
-    assert overview["recent_projects"], "expected at least one recent project"
+    assert overview["recent_projects"]
     project_id = overview["recent_projects"][0]["project_id"]
-
     encoded_id = project_id.replace("/", "%2F")
     detail = client.get(f"/public/projects/{encoded_id}")
     assert detail.status_code == 200

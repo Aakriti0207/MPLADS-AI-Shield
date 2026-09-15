@@ -282,7 +282,7 @@ def compute_core_totals_from_canonical(
     # These fields are not present in canonical_projects.csv.
     # ---------------------------------------------------------------
 
-    delayed_projects = None
+    delayed_projects = 0
 
     return {
         "total_projects": total_projects,
@@ -712,7 +712,7 @@ def compute_core_totals(
 
     else:
 
-        delayed_projects = None
+        delayed_projects = 0
         delayed_available = False
         delayed_reason = (
             "Expected completion data unavailable"
