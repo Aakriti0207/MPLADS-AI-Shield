@@ -29,7 +29,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -77,8 +77,9 @@ def _build_candidate_filter():
         getattr(Project, col) >= COMPONENT_ALERT_THRESHOLD
         for col, _, _ in COMPONENT_FIELDS
     ]
+    normalized_risk_level = func.lower(func.trim(Project.risk_level))
     return or_(
-        Project.risk_level.in_(["HIGH", "CRITICAL"]),
+        normalized_risk_level.in_(["high", "critical"]),
         (Project.raw_max_similarity >= DUPLICATE_SIMILARITY_THRESHOLD)
         & Project.most_similar_work_id.isnot(None),
         *component_conditions,
@@ -96,11 +97,12 @@ def _generate_alerts_for_project(p: Project, generated_at: datetime) -> List[dic
     sort_score = p.risk_score if p.risk_score is not None else Decimal("0")
 
     # --- Rule A: HIGH / CRITICAL overall risk level ---
-    if p.risk_level and p.risk_level.upper() in ("HIGH", "CRITICAL"):
+    normalized_risk_level = p.risk_level.strip().upper() if p.risk_level else None
+    if normalized_risk_level in ("HIGH", "CRITICAL"):
         reasons = [r for r in (p.risk_reason_1, p.risk_reason_2, p.risk_reason_3) if r]
         score_text = f"{p.risk_score}" if p.risk_score is not None else "not available"
         message = (
-            f"This project has been assigned {p.risk_level.upper()} risk, "
+            f"This project has been assigned {normalized_risk_level} risk, "
             f"with a risk score of {score_text}."
         )
         if reasons:
@@ -109,7 +111,7 @@ def _generate_alerts_for_project(p: Project, generated_at: datetime) -> List[dic
             "alert_id": f"{p.project_id}:high_risk_project",
             "project_id": p.project_id,
             "alert_type": "high_risk_project",
-            "severity": p.risk_level.lower(),
+            "severity": normalized_risk_level.lower(),
             "message": message,
             "sort_score": sort_score,
         })

@@ -137,6 +137,20 @@ def test_dashboard_stats_totals_match_hand_computed_values(client, db_session, a
     assert body["delayed_projects"] == 1      # D2 only (overdue, not completed)
 
 
+def test_dashboard_counts_overdue_project_with_null_status_as_delayed(client, db_session, auth_headers):
+    _make_project(
+        db_session,
+        project_id="WS/QA/D-NULL-STATUS",
+        status=None,
+        expected_completion=date.today() - timedelta(days=1),
+    )
+
+    body = client.get("/dashboard/stats", headers=auth_headers).json()
+    assert body["active_projects"] == 1
+    assert body["completed_projects"] == 0
+    assert body["delayed_projects"] == 1
+
+
 def test_dashboard_risk_level_counts_match_seeded_data(client, db_session, auth_headers):
     _make_project(db_session, project_id="WS/QA/R1", risk_level="HIGH")
     _make_project(db_session, project_id="WS/QA/R2", risk_level="HIGH")
@@ -173,6 +187,24 @@ def test_alert_severity_matches_project_risk_level(client, db_session, auth_head
     assert len(matching) == 1
     assert matching[0]["severity"] == project_resp["risk_level"].lower()
     assert "A genuine stored reason." in matching[0]["message"]
+
+
+def test_alerts_normalize_risk_level_when_selecting_candidates(client, db_session, auth_headers):
+    _make_project(
+        db_session,
+        project_id="WS/QA/ALERT-NORMALIZED",
+        risk_level=" high ",
+        risk_score=Decimal("75.00"),
+    )
+
+    alerts = client.get("/alerts", headers=auth_headers).json()
+    matching = [
+        alert for alert in alerts
+        if alert["project_id"] == "WS/QA/ALERT-NORMALIZED"
+        and alert["alert_type"] == "high_risk_project"
+    ]
+    assert len(matching) == 1
+    assert matching[0]["severity"] == "high"
 
 
 def test_low_risk_project_without_other_signals_generates_no_alert(client, db_session, auth_headers):

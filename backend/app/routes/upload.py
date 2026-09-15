@@ -33,7 +33,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import get_current_user, user_project_scope_filter
 from app.database import get_db
 from app.rate_limit import rate_limit
 from app.schemas import (
@@ -44,6 +44,7 @@ from app.schemas import (
     UploadRowValidationError,
 )
 from app.phase12_analysis import AnalysisInputError, analyze_csv
+from app.models import Project, User
 from app.upload_analysis import (
     UploadFormatError,
     compute_basic_metrics,
@@ -92,6 +93,7 @@ RISK_SCORING_NOTE = (
 async def upload_analyze(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     raw_bytes = await file.read()
 
@@ -121,7 +123,8 @@ async def upload_analyze(
     parsed_rows = [parse_row(i, row) for i, (_, row) in enumerate(df.iterrows(), start=1)]
 
     candidate_ids = [r.work_id for r in parsed_rows if r.work_id]
-    existing_ids = existing_project_ids(db, candidate_ids)
+    authorized_projects = user_project_scope_filter(current_user, db.query(Project))
+    existing_ids = existing_project_ids(db, candidate_ids, project_query=authorized_projects)
 
     results: list[UploadRowResult] = []
     valid_count = 0

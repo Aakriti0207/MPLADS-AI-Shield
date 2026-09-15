@@ -166,7 +166,10 @@ def _parse_decimal(raw: str) -> Optional[Decimal]:
     if raw == "":
         return None
     try:
-        return Decimal(raw)
+        parsed = Decimal(raw)
+        if not parsed.is_finite():
+            raise ValueError(f"'{raw}' is not a finite number")
+        return parsed
     except InvalidOperation:
         raise ValueError(f"'{raw}' is not a valid number")
 
@@ -315,13 +318,16 @@ def _json_loads_or_empty(raw: str) -> dict:
         return {}
 
 
-def existing_project_ids(db: Session, work_ids: list[str]) -> set[str]:
+def existing_project_ids(db: Session, work_ids: list[str], project_query=None) -> set[str]:
     """Single bounded query against the real `projects` table -- looks
     up only the work_ids present in this upload, never scans all 56,323
     rows."""
     if not work_ids:
         return set()
-    rows = db.execute(
-        select(Project.project_id).where(Project.project_id.in_(work_ids))
-    ).all()
+    if project_query is None:
+        rows = db.execute(
+            select(Project.project_id).where(Project.project_id.in_(work_ids))
+        ).all()
+    else:
+        rows = project_query.with_entities(Project.project_id).filter(Project.project_id.in_(work_ids)).all()
     return {r[0] for r in rows}

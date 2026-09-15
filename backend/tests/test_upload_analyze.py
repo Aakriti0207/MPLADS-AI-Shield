@@ -185,6 +185,40 @@ def test_upload_new_work_id_does_not_match_existing_project(client, auth_headers
     assert row["matches_existing_project_id"] is False
 
 
+def test_scoped_upload_does_not_reveal_out_of_scope_existing_project(client, db_session):
+    db_session.add(Project(project_id="WS/OTHER/1", state="Tamil Nadu", is_synthetic=True))
+    db_session.commit()
+
+    register_resp = client.post(
+        "/auth/register",
+        json={
+            "email": "upload.scope@example.gov.in",
+            "password": "SecurePass123",
+            "role": "District Authority",
+            "state": "Kerala",
+        },
+    )
+    assert register_resp.status_code == 201
+    login_resp = client.post(
+        "/auth/login",
+        json={"email": "upload.scope@example.gov.in", "password": "SecurePass123"},
+    )
+    headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    resp = _upload(client, headers, "work_id,sanctioned_amount\nWS/OTHER/1,100000\n")
+    assert resp.status_code == 200
+    assert resp.json()["results"][0]["matches_existing_project_id"] is False
+
+
+def test_upload_non_finite_numeric_value_is_a_row_level_error(client, auth_headers):
+    csv_content = "work_id,sanctioned_amount\nWS/NAN/1,NaN\nWS/INF/1,Infinity\n"
+    resp = _upload(client, auth_headers, csv_content)
+    assert resp.status_code == 200
+    rows = {row["work_id"]: row for row in resp.json()["results"]}
+    assert all(row["is_valid"] is False for row in rows.values())
+    assert all(row["compliance"] is None for row in rows.values())
+
+
 # --- Database safety: nothing is persisted --------------------------------
 
 def test_upload_does_not_persist_to_database(client, db_session, auth_headers):

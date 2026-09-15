@@ -30,7 +30,7 @@ NULL handling, consistent throughout:
       treated this before the Phase 4 extraction.
 """
 
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Project
@@ -106,7 +106,10 @@ def compute_core_totals(db: Session, query=None) -> dict:
     delayed_projects = (
         base_query.with_entities(func.count(Project.project_id))
         .filter(
-            func.lower(func.trim(Project.status)) != "completed",
+            or_(
+                Project.status.is_(None),
+                func.lower(func.trim(Project.status)) != "completed",
+            ),
             Project.expected_completion.isnot(None),
             Project.expected_completion < func.current_date(),
         )
