@@ -37,8 +37,8 @@ from app.aggregations import (
     compute_status_distribution,
 )
 from app.database import get_db
-from app.auth import get_current_user
-from app.models import Project
+from app.auth import get_current_user, user_project_scope_filter
+from app.models import Project, User
 from app.schemas import (
     AnalyticsResponse,
     EstimatedCostSummary,
@@ -54,7 +54,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=AnalyticsResponse)
-def get_analytics(db: Session = Depends(get_db)):
+def get_analytics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Return the full Phase 4 analytics contract, computed live from the
     `projects` table.
@@ -65,20 +65,21 @@ def get_analytics(db: Session = Depends(get_db)):
     summary, an estimated-cost summary, financial/physical progress
     summaries, and a status distribution on top.
     """
-    totals = compute_core_totals(db)
-    risk_level_counts = compute_risk_level_counts(db)
-    by_state = compute_by_state(db)
-    by_work_type = compute_by_work_type(db)
+    authorized_projects = user_project_scope_filter(current_user, db.query(Project))
+    totals = compute_core_totals(db, query=authorized_projects)
+    risk_level_counts = compute_risk_level_counts(db, query=authorized_projects)
+    by_state = compute_by_state(db, query=authorized_projects)
+    by_work_type = compute_by_work_type(db, query=authorized_projects)
 
-    risk_score_summary = RiskScoreSummary(**compute_risk_score_summary(db))
-    estimated_cost_summary = EstimatedCostSummary(**compute_estimated_cost_summary(db))
+    risk_score_summary = RiskScoreSummary(**compute_risk_score_summary(db, query=authorized_projects))
+    estimated_cost_summary = EstimatedCostSummary(**compute_estimated_cost_summary(db, query=authorized_projects))
     financial_progress_summary = ProgressSummary(
-        **compute_progress_summary(db, Project.financial_progress)
+        **compute_progress_summary(db, Project.financial_progress, query=authorized_projects)
     )
     physical_progress_summary = ProgressSummary(
-        **compute_progress_summary(db, Project.physical_progress)
+        **compute_progress_summary(db, Project.physical_progress, query=authorized_projects)
     )
-    status_distribution = compute_status_distribution(db)
+    status_distribution = compute_status_distribution(db, query=authorized_projects)
 
     return AnalyticsResponse(
         **totals,

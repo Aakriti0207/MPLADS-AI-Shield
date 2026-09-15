@@ -38,6 +38,9 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     role: str = Field(min_length=1, max_length=50)
+    state: Optional[str] = None
+    district: Optional[str] = None
+    constituency: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -62,6 +65,9 @@ class UserResponse(BaseModel):
     id: int
     email: EmailStr
     role: str
+    state: Optional[str] = None
+    district: Optional[str] = None
+    constituency: Optional[str] = None
     is_active: bool
     created_at: datetime
 

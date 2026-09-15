@@ -44,7 +44,7 @@ from app.auth import (
     require_role,
     resolve_registration_role,
 )
-from app.models import User
+from app.models import Project, User
 
 
 def _fake_user(role: str) -> User:
@@ -258,3 +258,83 @@ def test_missing_token_still_returns_401_not_403(client):
 def test_invalid_token_still_returns_401_not_403(client):
     resp = client.get("/dashboard/stats", headers={"Authorization": "Bearer not-a-real-token"})
     assert resp.status_code == 401
+
+
+def test_state_scoped_user_only_sees_projects_in_assigned_state(client, db_session):
+    email, password = "state.scope@example.gov.in", "SecurePass123"
+    register_resp = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "role": "State Nodal Officer",
+            "state": "Kerala",
+        },
+    )
+    assert register_resp.status_code == 201, register_resp.text
+
+    login_resp = client.post("/auth/login", json={"email": email, "password": password})
+    assert login_resp.status_code == 200, login_resp.text
+    headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    db_session.add_all([
+        Project(project_id="WS/STATE/ALLOWED", state="Kerala", is_synthetic=True),
+        Project(project_id="WS/STATE/BLOCKED", state="Tamil Nadu", is_synthetic=True),
+    ])
+    db_session.commit()
+
+    resp = client.get("/projects", headers=headers)
+    assert resp.status_code == 200
+    assert [p["project_id"] for p in resp.json()] == ["WS/STATE/ALLOWED"]
+
+
+def test_state_scoped_user_cannot_bypass_detail_filter_with_another_state_project_id(client, db_session):
+    email, password = "state.detail@example.gov.in", "SecurePass123"
+    register_resp = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "role": "State Nodal Officer",
+            "state": "Kerala",
+        },
+    )
+    assert register_resp.status_code == 201, register_resp.text
+
+    login_resp = client.post("/auth/login", json={"email": email, "password": password})
+    headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    db_session.add(Project(project_id="WS/STATE/OTHER", state="Tamil Nadu", is_synthetic=True))
+    db_session.commit()
+
+    resp = client.get("/projects/WS%2FSTATE%2FOTHER", headers=headers)
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "You do not have permission to access this project."
+
+
+def test_district_scoped_user_cannot_access_another_district(client, db_session):
+    email, password = "district.scope@example.gov.in", "SecurePass123"
+    register_resp = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "role": "District Authority",
+            "state": "Kerala",
+            "district": "Ernakulam",
+        },
+    )
+    assert register_resp.status_code == 201, register_resp.text
+
+    login_resp = client.post("/auth/login", json={"email": email, "password": password})
+    headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    db_session.add_all([
+        Project(project_id="WS/DISTRICT/ALLOWED", state="Kerala", district="Ernakulam", is_synthetic=True),
+        Project(project_id="WS/DISTRICT/BLOCKED", state="Kerala", district="Kottayam", is_synthetic=True),
+    ])
+    db_session.commit()
+
+    resp = client.get("/projects", headers=headers)
+    assert resp.status_code == 200
+    assert [p["project_id"] for p in resp.json()] == ["WS/DISTRICT/ALLOWED"]

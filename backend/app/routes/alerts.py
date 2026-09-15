@@ -33,8 +33,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import get_current_user
-from app.models import Project
+from app.auth import get_current_user, user_project_scope_filter
+from app.models import Project, User
 from app.schemas import AlertOut
 
 router = APIRouter(
@@ -160,6 +160,7 @@ def list_alerts(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Derive alerts live from real Phase 2 risk signals on the Project
@@ -177,7 +178,7 @@ def list_alerts(
     """
     generated_at = datetime.now(timezone.utc)
 
-    candidate_projects = db.query(Project).filter(_build_candidate_filter()).all()
+    candidate_projects = user_project_scope_filter(current_user, db.query(Project).filter(_build_candidate_filter())).all()
 
     raw_alerts: List[dict] = []
     for p in candidate_projects:

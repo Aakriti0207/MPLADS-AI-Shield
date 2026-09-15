@@ -71,14 +71,16 @@ def _canonical_risk_label(value):
     return normalized.upper()
 
 
-def compute_core_totals(db: Session) -> dict:
+def compute_core_totals(db: Session, query=None) -> dict:
     """Project counts, financial totals, and progress averages.
 
     Moved verbatim from app/routes/dashboard.py's get_dashboard_stats --
     see that module's docstring for the completed/active/delayed status
     rule (unchanged by this extraction).
     """
-    totals = db.query(
+    base_query = query if query is not None else db.query(Project)
+
+    totals = base_query.with_entities(
         func.count(Project.project_id),
         func.coalesce(func.sum(Project.sanctioned_amount), 0),
         func.coalesce(func.sum(Project.expenditure), 0),
@@ -95,14 +97,14 @@ def compute_core_totals(db: Session) -> dict:
     ) = totals
 
     completed_projects = (
-        db.query(func.count(Project.project_id))
+        base_query.with_entities(func.count(Project.project_id))
         .filter(func.lower(func.trim(Project.status)) == "completed")
         .scalar()
     )
     active_projects = total_projects - completed_projects
 
     delayed_projects = (
-        db.query(func.count(Project.project_id))
+        base_query.with_entities(func.count(Project.project_id))
         .filter(
             func.lower(func.trim(Project.status)) != "completed",
             Project.expected_completion.isnot(None),
@@ -123,13 +125,14 @@ def compute_core_totals(db: Session) -> dict:
     }
 
 
-def compute_risk_level_counts(db: Session) -> dict[str, int]:
+def compute_risk_level_counts(db: Session, query=None) -> dict[str, int]:
     """GROUP BY count of Project.risk_level. NULL/blank values are
     ignored and whitespace/case differences are normalized before
     bucketing."""
     normalized_risk_level = func.lower(func.trim(Project.risk_level))
+    base_query = query if query is not None else db.query(Project)
     rows = (
-        db.query(normalized_risk_level.label("risk_level_key"), func.count(Project.project_id))
+        base_query.with_entities(normalized_risk_level.label("risk_level_key"), func.count(Project.project_id))
         .filter(func.trim(Project.risk_level).isnot(None), func.trim(Project.risk_level) != "")
         .group_by(normalized_risk_level)
         .all()
@@ -137,14 +140,15 @@ def compute_risk_level_counts(db: Session) -> dict[str, int]:
     return {_canonical_risk_label(level): count for level, count in rows if _canonical_risk_label(level) is not None}
 
 
-def compute_by_state(db: Session) -> list[ByStateStat]:
+def compute_by_state(db: Session, query=None) -> list[ByStateStat]:
     """Sanctioned/expenditure totals grouped by state. NULL/blank values
     are folded into "Not specified" and spacing/case variants are merged
     into a single bucket."""
     state_bucket = func.coalesce(func.nullif(func.trim(Project.state), ""), "Not specified")
     state_key = func.lower(state_bucket)
+    base_query = query if query is not None else db.query(Project)
     rows = (
-        db.query(
+        base_query.with_entities(
             state_key.label("state_key"),
             func.max(state_bucket).label("state"),
             func.coalesce(func.sum(Project.sanctioned_amount), 0),
@@ -164,14 +168,15 @@ def compute_by_state(db: Session) -> list[ByStateStat]:
     ]
 
 
-def compute_by_work_type(db: Session) -> list[ByWorkTypeStat]:
+def compute_by_work_type(db: Session, query=None) -> list[ByWorkTypeStat]:
     """Project count grouped by work_type. NULL and blank/whitespace-only
     work_type are both folded into "Not specified" and equivalent values
     are merged regardless of case/spacing."""
     work_type_bucket = func.coalesce(func.nullif(func.trim(Project.work_type), ""), "Not specified")
     work_type_key = func.lower(work_type_bucket)
+    base_query = query if query is not None else db.query(Project)
     rows = (
-        db.query(
+        base_query.with_entities(
             work_type_key.label("work_type_key"),
             func.max(work_type_bucket).label("work_type"),
             func.count(Project.project_id),
@@ -186,14 +191,15 @@ def compute_by_work_type(db: Session) -> list[ByWorkTypeStat]:
     ]
 
 
-def compute_status_distribution(db: Session) -> list[StatusCount]:
+def compute_status_distribution(db: Session, query=None) -> list[StatusCount]:
     """Project count grouped by status. NULL/blank status is folded into
     "Not specified" and equivalent values are merged regardless of case or
     surrounding whitespace."""
     status_bucket = func.coalesce(func.nullif(func.trim(Project.status), ""), "Not specified")
     status_key = func.lower(status_bucket)
+    base_query = query if query is not None else db.query(Project)
     rows = (
-        db.query(
+        base_query.with_entities(
             status_key.label("status_key"),
             func.max(status_bucket).label("status"),
             func.count(Project.project_id),
@@ -208,12 +214,13 @@ def compute_status_distribution(db: Session) -> list[StatusCount]:
     ]
 
 
-def compute_risk_score_summary(db: Session) -> dict:
+def compute_risk_score_summary(db: Session, query=None) -> dict:
     """Average/min/max of Project.risk_score, plus how many projects
     actually have a (non-NULL) score. COUNT(risk_score) -- as opposed to
     COUNT(*) -- already skips NULL rows in SQL, so this is exactly the
     "how many were actually scored" count, not the full table size."""
-    average, minimum, maximum, scored_count = db.query(
+    base_query = query if query is not None else db.query(Project)
+    average, minimum, maximum, scored_count = base_query.with_entities(
         func.avg(Project.risk_score),
         func.min(Project.risk_score),
         func.max(Project.risk_score),
@@ -227,7 +234,7 @@ def compute_risk_score_summary(db: Session) -> dict:
     }
 
 
-def compute_estimated_cost_summary(db: Session) -> dict:
+def compute_estimated_cost_summary(db: Session, query=None) -> dict:
     """Sum/average/min/max of Project.estimated_cost, plus how many
     projects actually have a value for it. Real Phase 2 rows have no
     source value for estimated_cost at all (see app/models.py /
@@ -235,7 +242,8 @@ def compute_estimated_cost_summary(db: Session) -> dict:
     project_count_with_data will legitimately be 0 or close to it, and
     the other fields will be null. This is reported explicitly rather
     than silently defaulted to 0."""
-    total, average, minimum, maximum, count_with_data = db.query(
+    base_query = query if query is not None else db.query(Project)
+    total, average, minimum, maximum, count_with_data = base_query.with_entities(
         func.sum(Project.estimated_cost),
         func.avg(Project.estimated_cost),
         func.min(Project.estimated_cost),
@@ -251,12 +259,13 @@ def compute_estimated_cost_summary(db: Session) -> dict:
     }
 
 
-def compute_progress_summary(db: Session, column) -> dict:
+def compute_progress_summary(db: Session, column, query=None) -> dict:
     """Average/min/max for a progress column (financial_progress or
     physical_progress), plus how many projects have a value for it.
     Generic over `column` so the same query logic backs both fields
     instead of two near-identical copies."""
-    average, minimum, maximum, count_with_data = db.query(
+    base_query = query if query is not None else db.query(Project)
+    average, minimum, maximum, count_with_data = base_query.with_entities(
         func.avg(column),
         func.min(column),
         func.max(column),

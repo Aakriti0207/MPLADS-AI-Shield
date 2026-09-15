@@ -41,7 +41,8 @@ from app.aggregations import (
     compute_risk_level_counts,
 )
 from app.database import get_db
-from app.auth import get_current_user
+from app.auth import get_current_user, user_project_scope_filter
+from app.models import Project, User
 from app.schemas import DashboardStats
 
 router = APIRouter(
@@ -52,11 +53,12 @@ router = APIRouter(
 
 
 @router.get("/stats", response_model=DashboardStats)
-def get_dashboard_stats(db: Session = Depends(get_db)):
-    totals = compute_core_totals(db)
-    risk_level_counts = compute_risk_level_counts(db)
-    by_state = compute_by_state(db)
-    by_work_type = compute_by_work_type(db)
+def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    authorized_projects = user_project_scope_filter(current_user, db.query(Project))
+    totals = compute_core_totals(db, query=authorized_projects)
+    risk_level_counts = compute_risk_level_counts(db, query=authorized_projects)
+    by_state = compute_by_state(db, query=authorized_projects)
+    by_work_type = compute_by_work_type(db, query=authorized_projects)
 
     return DashboardStats(
         **totals,

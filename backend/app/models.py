@@ -67,6 +67,10 @@ class User(Base):
 
     role = Column(String(50), nullable=False)
 
+    state = Column(String(100), nullable=True, index=True)
+    district = Column(String(100), nullable=True, index=True)
+    constituency = Column(String(100), nullable=True, index=True)
+
     is_active = Column(Boolean, nullable=False, default=True, server_default=true())
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

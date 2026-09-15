@@ -64,6 +64,9 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         email=payload.email,
         password_hash=hash_password(payload.password),
         role=resolve_registration_role(payload.role),
+        state=payload.state,
+        district=payload.district,
+        constituency=payload.constituency,
         is_active=True,
     )
     db.add(user)

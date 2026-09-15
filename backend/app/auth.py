@@ -35,7 +35,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
+from app.models import Project, User
 
 load_dotenv()
 
@@ -165,7 +165,8 @@ def require_role(*allowed_roles: str):
     """
 
     def _check_role(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in allowed_roles:
+        normalized_allowed = {role.strip().lower() for role in allowed_roles if role is not None}
+        if current_user.role is None or current_user.role.strip().lower() not in normalized_allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to perform this action.",
@@ -173,6 +174,48 @@ def require_role(*allowed_roles: str):
         return current_user
 
     return _check_role
+
+
+def user_project_scope_filter(current_user: User, query):
+    """Apply state/district/constituency visibility constraints to project queries."""
+    if current_user.role is not None and current_user.role.strip().lower() == ADMIN_ROLE.lower():
+        return query
+
+    if not current_user.state and not current_user.district and not current_user.constituency:
+        return query
+
+    if current_user.state:
+        query = query.filter(Project.state == current_user.state)
+    if current_user.district:
+        query = query.filter(Project.district == current_user.district)
+    if current_user.constituency:
+        query = query.filter(Project.constituency == current_user.constituency)
+
+    return query
+
+
+def authorize_project_access(current_user: User, project_id: str, db):
+    """Allow project access only when the user is admin or assigned to that project's jurisdiction."""
+    if current_user.role is not None and current_user.role.strip().lower() == ADMIN_ROLE.lower():
+        return
+
+    if not current_user.state and not current_user.district and not current_user.constituency:
+        return
+
+    project = db.query(Project).filter(Project.project_id == project_id).first()
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project '{project_id}' not found")
+
+    allowed = True
+    if current_user.state is not None:
+        allowed = allowed and project.state == current_user.state
+    if current_user.district is not None:
+        allowed = allowed and project.district == current_user.district
+    if current_user.constituency is not None:
+        allowed = allowed and project.constituency == current_user.constituency
+
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to access this project.")
 
 
 # --- Phase 2: registration role policy ---------------------------------
@@ -223,6 +266,8 @@ def resolve_registration_role(requested_role: str) -> str:
     operator); Phase 2 does not add such a path since none currently
     exists and inventing one is out of scope here.
     """
+    if requested_role is None:
+        return DEFAULT_REGISTRATION_ROLE
     if requested_role.strip().lower() in _PRIVILEGED_ROLE_NAMES:
         return DEFAULT_REGISTRATION_ROLE
     return requested_role

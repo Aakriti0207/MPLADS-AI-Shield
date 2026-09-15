@@ -26,8 +26,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import get_current_user
-from app.models import Project
+from app.auth import authorize_project_access, get_current_user, user_project_scope_filter
+from app.models import Project, User
 from app.schemas import ProjectOut, ProjectRiskOut
 from app.services.ml_service import get_project_risk
 
@@ -51,6 +51,7 @@ def list_projects(
         description=f"Max projects to return in one page (1-{MAX_LIMIT}).",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Return a page of projects, ordered by `project_id` for stable paging.
@@ -66,13 +67,8 @@ def list_projects(
     overlap or skip rows. This doesn't change which rows exist or any
     Phase 2 data -- only the order results are returned in.
     """
-    return (
-        db.query(Project)
-        .order_by(Project.project_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    query = user_project_scope_filter(current_user, db.query(Project))
+    return query.order_by(Project.project_id).offset(skip).limit(limit).all()
 
 
 @router.get("/query", response_model=List[ProjectOut])
@@ -92,9 +88,10 @@ def query_projects(
         description=f"Max projects to return in one page (1-{MAX_LIMIT}).",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Return a filtered, database-backed page of projects."""
-    query = db.query(Project)
+    query = user_project_scope_filter(current_user, db.query(Project))
     filters = {
         Project.state: state,
         Project.district: district,
@@ -115,8 +112,9 @@ def query_projects(
 
 @router.get("/risk/{project_id:path}", response_model=ProjectRiskOut)
 @router.get("/{project_id:path}/risk", response_model=ProjectRiskOut)
-def get_project_risk_endpoint(project_id: str, db: Session = Depends(get_db)):
+def get_project_risk_endpoint(project_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Return the Phase 9 Risk Fusion record for a project, if one exists."""
+    authorize_project_access(current_user, project_id, db)
     project = db.query(Project).filter(Project.project_id == project_id).first()
     if project is None:
         raise HTTPException(
@@ -134,8 +132,9 @@ def get_project_risk_endpoint(project_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{project_id:path}", response_model=ProjectOut)
-def get_project(project_id: str, db: Session = Depends(get_db)):
+def get_project(project_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Return a single project by its project_id, or 404 if not found."""
+    authorize_project_access(current_user, project_id, db)
     project = db.query(Project).filter(Project.project_id == project_id).first()
     if project is None:
         raise HTTPException(
