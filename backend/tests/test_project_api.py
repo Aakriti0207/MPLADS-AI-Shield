@@ -116,6 +116,60 @@ def test_project_detail_success_matches_schema_fields(client, db_session, auth_h
     assert body["physical_progress"] is None
 
 
+def test_project_list_and_detail_preserve_project_fields(client, db_session, auth_headers):
+    db_session.add(Project(
+        project_id="WS/CORE/1",
+        state="Kerala",
+        district="Ernakulam",
+        constituency="Kochi",
+        mp_name="Example MP",
+        elected_nominated="Elected MP",
+        work_type="Road",
+        status="Ongoing",
+        sanctioned_amount=Decimal("100000.00"),
+        expenditure=Decimal("25000.00"),
+        financial_progress=Decimal("25.00"),
+        is_synthetic=True,
+    ))
+    db_session.commit()
+
+    listed = client.get("/projects?limit=10", headers=auth_headers)
+    detailed = client.get("/projects/WS%2FCORE%2F1", headers=auth_headers)
+    assert listed.status_code == detailed.status_code == 200
+    list_project = next(row for row in listed.json() if row["project_id"] == "WS/CORE/1")
+    detail_project = detailed.json()
+    for field in (
+        "state", "district", "constituency", "mp_name", "elected_nominated",
+        "work_type", "status", "sanctioned_amount", "expenditure",
+        "financial_progress",
+    ):
+        assert list_project[field] == detail_project[field]
+
+
+def test_projects_query_filters_without_changing_project_fields(client, db_session, auth_headers):
+    db_session.add_all([
+        Project(
+            project_id="WS/QUERY/1", state="Kerala", district="Ernakulam",
+            work_type="Road", status="Ongoing", risk_level="HIGH",
+            expenditure=Decimal("10.00"), is_synthetic=True,
+        ),
+        Project(
+            project_id="WS/QUERY/2", state="Kerala", district="Kottayam",
+            work_type="School", status="Completed", risk_level="LOW",
+            expenditure=Decimal("20.00"), is_synthetic=True,
+        ),
+    ])
+    db_session.commit()
+
+    response = client.get(
+        "/projects/query?state=Kerala&district=Ernakulam&category=Road&status=Ongoing&risk_level=HIGH",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()[0]["project_id"] == "WS/QUERY/1"
+    assert response.json()[0]["expenditure"] == "10.00"
+
+
 def test_project_detail_nonexistent_id_returns_404(client, auth_headers):
     resp = client.get("/projects/DOES-NOT-EXIST", headers=auth_headers)
     assert resp.status_code == 404

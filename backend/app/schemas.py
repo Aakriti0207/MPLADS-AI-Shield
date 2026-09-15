@@ -87,6 +87,7 @@ class ProjectOut(BaseModel):
     district: Optional[str] = None
     constituency: Optional[str] = None
     mp_name: Optional[str] = None
+    elected_nominated: Optional[str] = None
     work_type: Optional[str] = None
     implementing_agency: Optional[str] = None
 

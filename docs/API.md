@@ -156,6 +156,7 @@ in-memory deterrent — see [Known Limitations](#known-limitations).
 | POST | `/auth/login` | Public | Exchange credentials for a JWT |
 | GET | `/auth/me` | Bearer | Get the authenticated user's profile |
 | GET | `/projects` | Bearer | List projects (paginated) |
+| GET | `/projects/query` | Bearer | Filter projects (paginated) |
 | GET | `/projects/{project_id}` | Bearer | Get one project by ID |
 | GET | `/dashboard/stats` | Bearer | Portfolio-wide aggregate statistics |
 | GET | `/alerts` | Bearer | Risk-derived alerts (paginated) |
@@ -193,6 +194,14 @@ characters** (e.g. `WS/MP07/2025-2026/00123`) — URL-encode it:
   { "detail": "Project 'DOES-NOT-EXIST' not found" }
 ```
 
+### `GET /projects/query`
+
+Returns the same `ProjectOut` objects as the list and detail endpoints,
+filtered against the `projects` table. Supported query parameters are
+`state`, `district`, `constituency`, `category` (alias for `work_type`),
+`work_type`, `status`, `risk_level`, `skip`, and `limit`. Results are ordered
+by `project_id` and preserve nullable database values as `null`.
+
 ### `ProjectOut` fields
 
 Every field below is exactly what's on the `Project` SQLAlchemy model —
@@ -207,6 +216,7 @@ treat a `null` here as "0" or "empty string".
 | `district` | string | **Yes** | Null for essentially all real rows |
 | `constituency` | string | Yes | |
 | `mp_name` | string | Yes | |
+| `elected_nominated` | string | Yes | Elected or nominated MP designation when present in the source data |
 | `work_type` | string | Yes | |
 | `implementing_agency` | string | Yes | |
 | `sanctioned_amount` | decimal (as JSON string, e.g. `"2500000.00"`) | Yes | |

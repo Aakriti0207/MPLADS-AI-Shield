@@ -20,7 +20,7 @@ No existing filters existed on this route to preserve -- it was a plain
 `db.query(Project).all()` -- so this is purely additive.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -72,6 +72,44 @@ def list_projects(
         .limit(limit)
         .all()
     )
+
+
+@router.get("/query", response_model=List[ProjectOut])
+def query_projects(
+    state: Optional[str] = Query(None),
+    district: Optional[str] = Query(None),
+    constituency: Optional[str] = Query(None),
+    category: Optional[str] = Query(None, description="Work type/category to match."),
+    work_type: Optional[str] = Query(None),
+    project_status: Optional[str] = Query(None, alias="status"),
+    risk_level: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0, description="Number of projects to skip (for paging)."),
+    limit: int = Query(
+        DEFAULT_LIMIT,
+        ge=1,
+        le=MAX_LIMIT,
+        description=f"Max projects to return in one page (1-{MAX_LIMIT}).",
+    ),
+    db: Session = Depends(get_db),
+):
+    """Return a filtered, database-backed page of projects."""
+    query = db.query(Project)
+    filters = {
+        Project.state: state,
+        Project.district: district,
+        Project.constituency: constituency,
+        Project.status: project_status,
+        Project.risk_level: risk_level,
+    }
+    for column, value in filters.items():
+        if value is not None:
+            query = query.filter(column == value)
+
+    requested_work_type = work_type if work_type is not None else category
+    if requested_work_type is not None:
+        query = query.filter(Project.work_type == requested_work_type)
+
+    return query.order_by(Project.project_id).offset(skip).limit(limit).all()
 
 
 @router.get("/{project_id:path}", response_model=ProjectOut)
