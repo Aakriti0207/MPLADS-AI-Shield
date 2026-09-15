@@ -28,7 +28,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project
-from app.schemas import ProjectOut
+from app.schemas import ProjectOut, ProjectRiskOut
+from app.services.ml_service import get_project_risk
 
 router = APIRouter(
     prefix="/projects",
@@ -110,6 +111,26 @@ def query_projects(
         query = query.filter(Project.work_type == requested_work_type)
 
     return query.order_by(Project.project_id).offset(skip).limit(limit).all()
+
+
+@router.get("/risk/{project_id:path}", response_model=ProjectRiskOut)
+@router.get("/{project_id:path}/risk", response_model=ProjectRiskOut)
+def get_project_risk_endpoint(project_id: str, db: Session = Depends(get_db)):
+    """Return the Phase 9 Risk Fusion record for a project, if one exists."""
+    project = db.query(Project).filter(Project.project_id == project_id).first()
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+
+    risk = get_project_risk(db, project_id)
+    if risk is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Risk data for project '{project_id}' not found",
+        )
+    return ProjectRiskOut(**risk)
 
 
 @router.get("/{project_id:path}", response_model=ProjectOut)

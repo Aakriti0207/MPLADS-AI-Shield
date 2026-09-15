@@ -5,7 +5,9 @@ coverage for these routes already exists in test_protected_routes.py
 and is not duplicated here.
 """
 
+import csv
 from decimal import Decimal
+from pathlib import Path
 
 from app.models import Project
 
@@ -193,3 +195,69 @@ def test_project_detail_with_slash_in_id_is_handled(client, db_session, auth_hea
     resp = client.get("/projects/WS%2FMP235%2F2026-2027%2F999", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["project_id"] == "WS/MP235/2026-2027/999"
+
+
+def test_project_risk_route_reads_phase9_output_and_uses_project_id_match(client, db_session, auth_headers):
+    project = Project(project_id="WS/MP1/2024-2025/101", state="Test State", is_synthetic=True)
+    db_session.add(project)
+    db_session.commit()
+
+    csv_path = Path(__file__).resolve().parent.parent / "data" / "processed" / "project_risk_scores.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "work_id",
+                "risk_score",
+                "risk_level",
+                "evidence_status",
+                "compliance_contribution",
+                "financial_anomaly_contribution",
+                "timeline_anomaly_contribution",
+                "duplicate_contribution",
+                "data_quality_contribution",
+                "payment_contribution",
+                "isolation_forest_contribution",
+                "top_reason_1",
+                "top_reason_2",
+                "top_reason_3",
+                "risk_reasons",
+                "source_signal_summary",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow({
+            "work_id": "WS/MP1/2024-2025/101",
+            "risk_score": "72.5",
+            "risk_level": "HIGH",
+            "evidence_status": "SUFFICIENT",
+            "compliance_contribution": "16.0",
+            "financial_anomaly_contribution": "10.0",
+            "timeline_anomaly_contribution": "6.0",
+            "duplicate_contribution": "4.0",
+            "data_quality_contribution": "0.0",
+            "payment_contribution": "5.0",
+            "isolation_forest_contribution": "5.0",
+            "top_reason_1": "Expenditure exceeds sanction.",
+            "top_reason_2": "Large anomaly in payment timing.",
+            "top_reason_3": "Duplicate description match found.",
+            "risk_reasons": '["Expenditure exceeds sanction.", "Large anomaly in payment timing."]',
+            "source_signal_summary": '{"signals": [{"source": "compliance", "identifier": "C08", "severity_tier": 3, "points": 16.0}]}',
+        })
+
+    resp = client.get("/projects/WS%2FMP1%2F2024-2025%2F101/risk", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["project_id"] == "WS/MP1/2024-2025/101"
+    assert body["risk_score"] == 72.5
+    assert body["risk_level"] == "HIGH"
+    assert body["evidence_status"] == "SUFFICIENT"
+    assert body["reason_count"] == 2
+    assert body["reasons"][0] == "Expenditure exceeds sanction."
+
+
+def test_project_risk_route_missing_project_returns_404(client, auth_headers):
+    resp = client.get("/projects/WS%2FMP9%2F2024-2025%2F999/risk", headers=auth_headers)
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"].lower()

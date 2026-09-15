@@ -139,6 +139,34 @@ class ProjectOut(BaseModel):
     updated_at: datetime
 
 
+class ProjectRiskContributionOut(BaseModel):
+    """Contribution breakdown returned by the Phase 9 score output."""
+
+    compliance: Optional[float] = None
+    financial_anomaly: Optional[float] = None
+    timeline_anomaly: Optional[float] = None
+    duplicate: Optional[float] = None
+    data_quality: Optional[float] = None
+    payment: Optional[float] = None
+    isolation_forest: Optional[float] = None
+
+
+class ProjectRiskOut(BaseModel):
+    """Project-level risk payload sourced from the Phase 9 Risk Fusion CSV."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id: str
+    risk_score: Optional[float] = None
+    risk_level: Optional[str] = None
+    evidence_status: Optional[str] = None
+    component_contributions: ProjectRiskContributionOut
+    reasons: list[str] = []
+    top_reasons: list[str] = []
+    reason_count: int = 0
+    source_signal_summary: Optional[dict[str, Any]] = None
+
+
 class ByStateStat(BaseModel):
     """One row of the Phase 3E state-level aggregate."""
 
