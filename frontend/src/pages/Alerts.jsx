@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BellRing } from 'lucide-react'
@@ -9,18 +10,8 @@ import EmptyState from '../components/ui/EmptyState'
 import Pagination from '../components/ui/Pagination'
 import { fetchAlerts } from '../features/alerts/api'
 import PageContainer from '../components/layout/PageContainer'
-const PAGE_SIZE = 50
 
-const ALERT_TYPE_LABEL = {
-  high_risk_project: 'High risk project',
-  possible_duplicate: 'Possible duplicate',
-  financial_risk: 'Financial risk',
-  payment_risk: 'Payment risk',
-  execution_risk: 'Execution risk',
-  peer_anomaly: 'Peer anomaly',
-  anomaly_detection: 'Anomaly detection',
-  anomaly_risk: 'Anomaly risk',
-}
+const PAGE_SIZE = 50
 
 const FILTERS = ['All', 'Critical', 'High', 'Medium', 'Low']
 
@@ -33,72 +24,222 @@ export default function Alerts() {
 
   useEffect(() => {
     let cancelled = false
+
     setLoading(true)
     setError(null)
+
     fetchAlerts({ skip, limit: PAGE_SIZE })
-      .then(data => { if (!cancelled) setRows(data) })
-      .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .then(data => {
+        if (!cancelled) {
+          setRows(Array.isArray(data) ? data : [])
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setError(err.message || 'Failed to reach the API')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [skip])
 
-  const filtered = rows.filter(a => sev === 'All' || (a.severity || '').toLowerCase() === sev.toLowerCase())
+  const filtered = rows.filter(
+    alert =>
+      sev === 'All' ||
+      (alert.severity || '').toLowerCase() === sev.toLowerCase()
+  )
 
   return (
     <PageContainer maxWidth="1100px">
+
+      {/* Header */}
       <div className="mb-4">
-        <h1 className="text-[19px] font-semibold text-ink">Alerts</h1>
-        <p className="text-[13px] text-muted mt-0.5">Generated live from risk signals. AI-assisted advisory signal -- human verification required. Anomaly does not mean fraud.</p>
+        <h1 className="text-[19px] font-semibold text-ink">
+          Alerts
+        </h1>
+
+        <p className="text-[13px] text-muted mt-0.5">
+          Generated live from risk signals. AI-assisted advisory signal --
+          human verification required. Anomaly does not mean fraud.
+        </p>
       </div>
 
+      {/* Severity filters */}
       <div className="flex gap-1.5 mb-4 flex-wrap">
-        {FILTERS.map(x => (
-          <button key={x} onClick={() => setSev(x)} className={sev === x ? 'btn bg-navy text-white' : 'btn-secondary'}>{x}</button>
+        {FILTERS.map(filter => (
+          <button
+            key={filter}
+            onClick={() => {
+              setSev(filter)
+              setSkip(0)
+            }}
+            className={
+              sev === filter
+                ? 'btn bg-navy text-white'
+                : 'btn-secondary'
+            }
+          >
+            {filter}
+          </button>
         ))}
       </div>
 
-      {loading && <LoadingState text="Loading alerts…" />}
+      {/* Loading */}
+      {loading && (
+        <LoadingState text="Loading alerts…" />
+      )}
 
-      {!loading && error && <ErrorState title="Could not load alerts" message={error} onRetry={() => setSkip(skip)} />}
+      {/* Error */}
+      {!loading && error && (
+        <ErrorState
+          title="Could not load alerts"
+          message={error}
+          onRetry={() => setSkip(skip)}
+        />
+      )}
 
+      {/* Alerts */}
       {!loading && !error && (
         <>
           <div className="space-y-2.5">
-            {filtered.map(a => {
-              const tone = riskTone(a.severity)
+
+            {filtered.map(alert => {
+              const tone = riskTone(alert.severity)
+
+              // Backend uses project_id.
+              // Keep projectId fallback so this also works with
+              // an older API adapter during the transition.
+              const projectId =
+                alert.project_id ||
+                alert.projectId ||
+                ''
+
               return (
-                <div className="card p-4" key={a.alert_id}>
+                <div
+                  className="card p-4"
+                  key={alert.alert_id || projectId}
+                >
                   <div className="flex gap-3.5">
-                    <div className="h-9 w-9 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: tone.bg, color: tone.color }}><BellRing size={16} /></div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <Badge color={tone.color} bg={tone.bg}>{tone.label}</Badge>
-                        <span className="text-xs text-muted">{ALERT_TYPE_LABEL[a.alert_type] || a.alert_type}</span>
+
+                    {/* Alert icon */}
+                    <div
+                      className="h-9 w-9 rounded-md flex items-center justify-center shrink-0"
+                      style={{
+                        backgroundColor: tone.bg,
+                        color: tone.color,
+                      }}
+                    >
+                      <BellRing size={16} />
+                    </div>
+
+                    {/* Alert information */}
+                    <div className="min-w-0 flex-1">
+
+                      {/* Severity */}
+                      <div className="flex items-center">
+                        <Badge
+                          color={tone.color}
+                          bg={tone.bg}
+                        >
+                          {tone.label}
+                        </Badge>
                       </div>
-                      <p className="text-[12.5px] text-ink mt-2 leading-5">{a.message}</p>
-                      <div className="text-xs text-muted mt-2.5 font-mono">{a.projectId}</div>
+
+                      {/* Project ID */}
+                      <div className="text-[13px] text-ink mt-2 font-mono break-all">
+                        {projectId || 'Project ID unavailable'}
+                      </div>
+
+                      {/* Location */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[12px] text-muted">
+
+                        {alert.state && (
+                          <span>
+                            <span className="text-ink font-medium">
+                              State:
+                            </span>{' '}
+                            {alert.state}
+                          </span>
+                        )}
+
+                        {alert.district && (
+                          <span>
+                            <span className="text-ink font-medium">
+                              District:
+                            </span>{' '}
+                            {alert.district}
+                          </span>
+                        )}
+
+                        {alert.constituency && (
+                          <span>
+                            <span className="text-ink font-medium">
+                              Constituency:
+                            </span>{' '}
+                            {alert.constituency}
+                          </span>
+                        )}
+
+                      </div>
+
                     </div>
                   </div>
+
+                  {/* Open project */}
                   <div className="mt-3.5">
-                    <Link to={`/projects/${encodeURIComponent(a.projectId)}`} className="btn-secondary !py-1.5">Open project</Link>
+                    {projectId ? (
+                      <Link
+                        to={`/projects/${encodeURIComponent(projectId)}`}
+                        className="btn-secondary !py-1.5"
+                      >
+                        Open project
+                      </Link>
+                    ) : (
+                      <button
+                        className="btn-secondary !py-1.5 opacity-50 cursor-not-allowed"
+                        disabled
+                      >
+                        Open project
+                      </button>
+                    )}
                   </div>
                 </div>
               )
             })}
-          </div>
-          {filtered.length === 0 && <div className="card"><EmptyState text="No alerts match this filter on the current page." /></div>}
 
+          </div>
+
+          {/* Empty */}
+          {filtered.length === 0 && (
+            <div className="card">
+              <EmptyState text="No alerts match this filter on the current page." />
+            </div>
+          )}
+
+          {/* Pagination */}
           <div className="mt-4 card">
             <Pagination
               page={Math.floor(skip / PAGE_SIZE) + 1}
               canGoPrev={skip !== 0 && !loading}
               canGoNext={!loading && rows.length >= PAGE_SIZE}
-              onPrev={() => setSkip(s => Math.max(0, s - PAGE_SIZE))}
-              onNext={() => setSkip(s => s + PAGE_SIZE)}
+              onPrev={() =>
+                setSkip(s => Math.max(0, s - PAGE_SIZE))
+              }
+              onNext={() =>
+                setSkip(s => s + PAGE_SIZE)
+              }
             />
           </div>
         </>
       )}
+
     </PageContainer>
   )
 }
