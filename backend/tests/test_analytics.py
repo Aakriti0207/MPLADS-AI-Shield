@@ -193,6 +193,49 @@ def test_analytics_status_distribution_folds_null_into_not_specified(client, db_
     assert sum(rows.values()) == 4  # every project accounted for
 
 
+def test_analytics_status_distribution_normalizes_case_and_whitespace(client, db_session, auth_headers):
+    _make_project(db_session, project_id="WS/S/5", status=" completed ")
+    _make_project(db_session, project_id="WS/S/6", status="Completed")
+    _make_project(db_session, project_id="WS/S/7", status=" ongoing ")
+    _make_project(db_session, project_id="WS/S/8", status="   ")
+
+    resp = client.get("/analytics", headers=auth_headers)
+    rows = {r["status"]: r["count"] for r in resp.json()["status_distribution"]}
+
+    assert rows["Completed"] == 2
+    assert rows["Ongoing"] == 1
+    assert rows["Not specified"] == 1
+    assert sum(rows.values()) == 4
+
+
+def test_analytics_risk_level_counts_normalize_case_and_whitespace(client, db_session, auth_headers):
+    _make_project(db_session, project_id="WS/RL/1", risk_level=" high ")
+    _make_project(db_session, project_id="WS/RL/2", risk_level="HIGH")
+    _make_project(db_session, project_id="WS/RL/3", risk_level=" low ")
+    _make_project(db_session, project_id="WS/RL/4", risk_level="   ")
+
+    resp = client.get("/analytics", headers=auth_headers)
+    counts = resp.json()["risk_level_counts"]
+
+    assert counts == {"HIGH": 2, "LOW": 1}
+    assert sum(counts.values()) == 3
+
+
+def test_analytics_by_state_folds_blank_and_whitespace_into_not_specified(client, db_session, auth_headers):
+    _make_project(db_session, project_id="WS/STATE/1", state="Bihar", sanctioned_amount=Decimal("10.00"), expenditure=Decimal("5.00"))
+    _make_project(db_session, project_id="WS/STATE/2", state=" Bihar ", sanctioned_amount=Decimal("20.00"), expenditure=Decimal("10.00"))
+    _make_project(db_session, project_id="WS/STATE/3", state="   ", sanctioned_amount=Decimal("30.00"), expenditure=Decimal("15.00"))
+    _make_project(db_session, project_id="WS/STATE/4", state=None, sanctioned_amount=Decimal("40.00"), expenditure=Decimal("20.00"))
+
+    resp = client.get("/analytics", headers=auth_headers)
+    rows = {r["state"]: {"total_sanctioned_amount": r["total_sanctioned_amount"], "total_expenditure": r["total_expenditure"]} for r in resp.json()["by_state"]}
+
+    assert rows["Bihar"]["total_sanctioned_amount"] == "30.00"
+    assert rows["Bihar"]["total_expenditure"] == "15.00"
+    assert rows["Not specified"]["total_sanctioned_amount"] == "70.00"
+    assert rows["Not specified"]["total_expenditure"] == "35.00"
+
+
 # --- Existing endpoints remain unaffected ---------------------------------
 
 def test_dashboard_stats_still_works_after_analytics_refactor(client, db_session, auth_headers):

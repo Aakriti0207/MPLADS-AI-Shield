@@ -37,6 +37,40 @@ from app.models import Project
 from app.schemas import ByStateStat, ByWorkTypeStat, StatusCount
 
 
+def _canonical_state_label(value):
+    if value is None:
+        return "Not specified"
+    normalized = str(value).strip()
+    return normalized if normalized else "Not specified"
+
+
+def _canonical_work_type_label(value):
+    if value is None:
+        return "Not specified"
+    normalized = str(value).strip()
+    return normalized if normalized else "Not specified"
+
+
+def _canonical_status_label(value):
+    if value is None:
+        return "Not specified"
+    normalized = str(value).strip()
+    if not normalized:
+        return "Not specified"
+    if normalized.lower() == "not specified":
+        return "Not specified"
+    return normalized.title()
+
+
+def _canonical_risk_label(value):
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return normalized.upper()
+
+
 def compute_core_totals(db: Session) -> dict:
     """Project counts, financial totals, and progress averages.
 
@@ -62,7 +96,7 @@ def compute_core_totals(db: Session) -> dict:
 
     completed_projects = (
         db.query(func.count(Project.project_id))
-        .filter(func.lower(Project.status) == "completed")
+        .filter(func.lower(func.trim(Project.status)) == "completed")
         .scalar()
     )
     active_projects = total_projects - completed_projects
@@ -70,7 +104,7 @@ def compute_core_totals(db: Session) -> dict:
     delayed_projects = (
         db.query(func.count(Project.project_id))
         .filter(
-            func.lower(Project.status) != "completed",
+            func.lower(func.trim(Project.status)) != "completed",
             Project.expected_completion.isnot(None),
             Project.expected_completion < func.current_date(),
         )
@@ -90,63 +124,88 @@ def compute_core_totals(db: Session) -> dict:
 
 
 def compute_risk_level_counts(db: Session) -> dict[str, int]:
-    """GROUP BY count of Project.risk_level. NULL (not yet scored) is
-    excluded -- see module docstring."""
+    """GROUP BY count of Project.risk_level. NULL/blank values are
+    ignored and whitespace/case differences are normalized before
+    bucketing."""
+    normalized_risk_level = func.lower(func.trim(Project.risk_level))
     rows = (
-        db.query(Project.risk_level, func.count(Project.project_id))
-        .group_by(Project.risk_level)
+        db.query(normalized_risk_level.label("risk_level_key"), func.count(Project.project_id))
+        .filter(func.trim(Project.risk_level).isnot(None), func.trim(Project.risk_level) != "")
+        .group_by(normalized_risk_level)
         .all()
     )
-    return {level: count for level, count in rows if level is not None}
+    return {_canonical_risk_label(level): count for level, count in rows if _canonical_risk_label(level) is not None}
 
 
 def compute_by_state(db: Session) -> list[ByStateStat]:
-    """Sanctioned/expenditure totals grouped by state. NULL state (real
-    for ~41% of Phase 2 rows) is grouped under "Not specified" so the
-    totals still reconcile with total_sanctioned_amount/total_expenditure."""
-    state_label = func.coalesce(Project.state, "Not specified")
+    """Sanctioned/expenditure totals grouped by state. NULL/blank values
+    are folded into "Not specified" and spacing/case variants are merged
+    into a single bucket."""
+    state_bucket = func.coalesce(func.nullif(func.trim(Project.state), ""), "Not specified")
+    state_key = func.lower(state_bucket)
     rows = (
         db.query(
-            state_label.label("state"),
+            state_key.label("state_key"),
+            func.max(state_bucket).label("state"),
             func.coalesce(func.sum(Project.sanctioned_amount), 0),
             func.coalesce(func.sum(Project.expenditure), 0),
         )
-        .group_by(state_label)
+        .group_by(state_key)
         .order_by(desc(func.coalesce(func.sum(Project.expenditure), 0)))
         .all()
     )
     return [
-        ByStateStat(state=state, total_sanctioned_amount=sanctioned, total_expenditure=expenditure)
-        for state, sanctioned, expenditure in rows
+        ByStateStat(
+            state=_canonical_state_label(state),
+            total_sanctioned_amount=sanctioned,
+            total_expenditure=expenditure,
+        )
+        for _, state, sanctioned, expenditure in rows
     ]
 
 
 def compute_by_work_type(db: Session) -> list[ByWorkTypeStat]:
     """Project count grouped by work_type. NULL and blank/whitespace-only
-    work_type are both folded into "Not specified"."""
-    work_type_label = func.coalesce(func.nullif(func.trim(Project.work_type), ""), "Not specified")
+    work_type are both folded into "Not specified" and equivalent values
+    are merged regardless of case/spacing."""
+    work_type_bucket = func.coalesce(func.nullif(func.trim(Project.work_type), ""), "Not specified")
+    work_type_key = func.lower(work_type_bucket)
     rows = (
-        db.query(work_type_label.label("work_type"), func.count(Project.project_id))
-        .group_by(work_type_label)
+        db.query(
+            work_type_key.label("work_type_key"),
+            func.max(work_type_bucket).label("work_type"),
+            func.count(Project.project_id),
+        )
+        .group_by(work_type_key)
         .order_by(desc(func.count(Project.project_id)))
         .all()
     )
-    return [ByWorkTypeStat(work_type=work_type, count=count) for work_type, count in rows]
+    return [
+        ByWorkTypeStat(work_type=_canonical_work_type_label(work_type), count=count)
+        for _, work_type, count in rows
+    ]
 
 
 def compute_status_distribution(db: Session) -> list[StatusCount]:
     """Project count grouped by status. NULL/blank status is folded into
-    "Not specified" -- real for essentially all Phase-2-imported rows,
-    since the Phase 2 CSV's closest analogue uses a different vocabulary
-    that isn't safely crosswalked into this field (see app/models.py)."""
-    status_label = func.coalesce(func.nullif(func.trim(Project.status), ""), "Not specified")
+    "Not specified" and equivalent values are merged regardless of case or
+    surrounding whitespace."""
+    status_bucket = func.coalesce(func.nullif(func.trim(Project.status), ""), "Not specified")
+    status_key = func.lower(status_bucket)
     rows = (
-        db.query(status_label.label("status"), func.count(Project.project_id))
-        .group_by(status_label)
+        db.query(
+            status_key.label("status_key"),
+            func.max(status_bucket).label("status"),
+            func.count(Project.project_id),
+        )
+        .group_by(status_key)
         .order_by(desc(func.count(Project.project_id)))
         .all()
     )
-    return [StatusCount(status=status, count=count) for status, count in rows]
+    return [
+        StatusCount(status=_canonical_status_label(status), count=count)
+        for _, status, count in rows
+    ]
 
 
 def compute_risk_score_summary(db: Session) -> dict:
