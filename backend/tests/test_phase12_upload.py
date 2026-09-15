@@ -40,6 +40,32 @@ def test_upload_validation_is_user_facing(payload, filename, message):
         analyze_csv(payload, filename)
 
 
+def test_endpoint_rejects_invalid_alias_numeric_value(client, auth_headers):
+    payload = "project_id,sanction_amount\nWS/MP001/2024-2025/1,not-a-number\n"
+
+    response = client.post(
+        "/upload-analyze",
+        headers=auth_headers,
+        files={"file": ("invalid.csv", payload, "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert "invalid numeric" in response.json()["detail"]
+
+
+def test_endpoint_rejects_ragged_alias_csv(client, auth_headers):
+    payload = "project_id,sanction_amount\nWS/MP001/2024-2025/1,100,extra\n"
+
+    response = client.post(
+        "/upload-analyze",
+        headers=auth_headers,
+        files={"file": ("ragged.csv", payload, "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert "wrong number of columns" in response.json()["detail"]
+
+
 def test_analysis_does_not_write_production_outputs():
     processed = Path(__file__).parents[1] / "data" / "processed"
     protected = [

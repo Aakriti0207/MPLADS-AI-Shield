@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import csv
 from typing import Any
 
 import pandas as pd
@@ -21,10 +22,9 @@ from ml.features import build_ml_features
 from ml.isolation_forest.engine import fit_isolation_forest_model, score_isolation_forest_data
 from ml.payment.engine import fit_payment_model, score_payment_data
 from ml.risk import build_output, validate_inputs
+from app.upload_analysis import MAX_FILE_SIZE_BYTES, MAX_ROWS
 
 
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
-MAX_ROWS = 10_000
 WORK_ID_PATTERN = re.compile(r"^WS/MP\d+/\d{4}-\d{4}/\d+$")
 
 ALIASES = {
@@ -77,9 +77,19 @@ def _read_upload(raw_bytes: bytes, filename: str) -> pd.DataFrame:
     if not raw_bytes:
         raise AnalysisInputError("The uploaded file is empty.")
     if len(raw_bytes) > MAX_FILE_SIZE_BYTES:
-        raise AnalysisInputError(f"The uploaded file exceeds the {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB limit.")
+        raise AnalysisInputError(f"The uploaded file exceeds the {MAX_FILE_SIZE_BYTES} byte limit.")
     try:
-        frame = pd.read_csv(io.BytesIO(raw_bytes), dtype=str, keep_default_na=False)
+        text = raw_bytes.decode("utf-8-sig")
+        rows = list(csv.reader(io.StringIO(text), strict=True))
+    except (UnicodeDecodeError, csv.Error):
+        raise AnalysisInputError("Unable to parse the uploaded CSV. Check its encoding and row structure.")
+    if not rows or not rows[0] or all(value.strip() == "" for value in rows[0]):
+        raise AnalysisInputError("The uploaded CSV has no header row.")
+    expected_fields = len(rows[0])
+    if any(len(row) != expected_fields for row in rows[1:]):
+        raise AnalysisInputError("The uploaded CSV contains rows with the wrong number of columns.")
+    try:
+        frame = pd.read_csv(io.BytesIO(raw_bytes), dtype=str, keep_default_na=False, index_col=False)
     except Exception as exc:
         raise AnalysisInputError("Unable to parse the uploaded CSV. Check its encoding and header row.") from exc
     if frame.empty:
@@ -117,14 +127,28 @@ def _canonicalize(frame: pd.DataFrame) -> pd.DataFrame:
     canonical["work_id"] = canonical["work_id"].astype("string")
     if canonical["work_id"].isna().any() or canonical["work_id"].duplicated().any():
         raise AnalysisInputError("Every project must have a non-empty, unique identifier.")
+    if canonical["work_id"].str.len().gt(50).any():
+        raise AnalysisInputError("Project identifiers must be 50 characters or fewer.")
 
     for name in ("state", "constituency", "mp", "implementing_agency", "work_category", "work_status", "work_description"):
         if name not in canonical:
             canonical[name] = "Not specified"
-    for name in ("recommended_amount", "sanction_amount", "amount_disbursed", "total_expenditure", "total_amount_in_progress", "n_expenditure_transactions", "n_distinct_vendors", "n_payment_success", "n_payment_in_progress"):
-        canonical[name] = pd.to_numeric(canonical.get(name, pd.Series(pd.NA, index=frame.index)), errors="coerce")
-    for name in ("recommended_date", "sanction_date", "completion_date", "first_expenditure_date", "last_expenditure_date"):
-        canonical[name] = pd.to_datetime(canonical.get(name, pd.Series(pd.NaT, index=frame.index)), errors="coerce")
+    numeric_names = ("recommended_amount", "sanction_amount", "amount_disbursed", "total_expenditure", "total_amount_in_progress", "n_expenditure_transactions", "n_distinct_vendors", "n_payment_success", "n_payment_in_progress")
+    for name in numeric_names:
+        source = canonical.get(name, pd.Series(pd.NA, index=frame.index))
+        parsed = pd.to_numeric(source, errors="coerce")
+        invalid = source.notna() & parsed.isna()
+        if invalid.any():
+            raise AnalysisInputError(f"Column '{name}' contains invalid numeric values.")
+        canonical[name] = parsed
+    date_names = ("recommended_date", "sanction_date", "completion_date", "first_expenditure_date", "last_expenditure_date")
+    for name in date_names:
+        source = canonical.get(name, pd.Series(pd.NaT, index=frame.index))
+        parsed = pd.to_datetime(source, errors="coerce")
+        invalid = source.notna() & parsed.isna()
+        if invalid.any():
+            raise AnalysisInputError(f"Column '{name}' contains invalid date values.")
+        canonical[name] = parsed
 
     canonical["houses"] = "UPLOAD"
     canonical["elected_nominated"] = "Not specified"

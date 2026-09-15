@@ -60,8 +60,8 @@ def test_upload_malformed_csv_is_handled_cleanly(client, auth_headers):
     a clean 400, never a 500 or a raw traceback."""
     malformed = "work_id,sanctioned_amount\nWS/1,100,999,extra,columns,here\n"
     resp = _upload(client, auth_headers, malformed)
-    assert resp.status_code in (400, 200)  # pandas' C parser can recover some ragged rows
-    assert resp.status_code != 500
+    assert resp.status_code == 400
+    assert "wrong number of columns" in resp.json()["detail"]
 
 
 def test_upload_duplicate_work_id_in_file_is_rejected(client, auth_headers):

@@ -104,8 +104,8 @@ async def upload_analyze(
             return JSONResponse(status_code=400, content={"detail": str(exc)})
         try:
             analysis = analyze_csv(raw_bytes, file.filename or "upload.csv")
-        except AnalysisInputError:
-            return JSONResponse(status_code=400, content={"detail": str(exc)})
+        except AnalysisInputError as analysis_exc:
+            return JSONResponse(status_code=400, content={"detail": str(analysis_exc)})
         return {
             "filename": file.filename or "upload.csv",
             "total_rows": analysis["summary"]["total_projects"],

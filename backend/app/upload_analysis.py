@@ -29,6 +29,7 @@ prohibit.
 
 from __future__ import annotations
 
+import csv
 import io
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -102,6 +103,13 @@ def read_and_validate_csv(raw_bytes: bytes, filename: str) -> pd.DataFrame:
         )
 
     try:
+        text = raw_bytes.decode("utf-8-sig")
+        rows = list(csv.reader(io.StringIO(text), strict=True))
+        if not rows or not rows[0] or all(value.strip() == "" for value in rows[0]):
+            raise UploadFormatError("The uploaded CSV has no header row.")
+        expected_fields = len(rows[0])
+        if any(len(row) != expected_fields for row in rows[1:]):
+            raise UploadFormatError("The uploaded CSV contains rows with the wrong number of columns.")
         # dtype=str: every column is read as text first; this module does
         # its own explicit numeric/date parsing per field below rather than
         # trusting pandas' automatic type inference, so a malformed cell
@@ -110,6 +118,8 @@ def read_and_validate_csv(raw_bytes: bytes, filename: str) -> pd.DataFrame:
         df = pd.read_csv(
             io.BytesIO(raw_bytes), dtype=str, keep_default_na=False, index_col=False
         )
+    except UploadFormatError:
+        raise
     except Exception as exc:  # pandas raises several distinct error types
         raise UploadFormatError(
             "The file could not be parsed as CSV. Please check that it is a "
