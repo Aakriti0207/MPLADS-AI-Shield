@@ -49,6 +49,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project
+from app.project_sectors import classify_project_sector
 from app.schemas import (
     ProjectOut,
     ProjectPage,
@@ -294,9 +295,15 @@ def _canonical_row_to_project(
             row.get("mp")
         ),
 
-        work_type=_clean_string(
-            row.get("work_category")
+       work_type=classify_project_sector(
+       work_description=row.get("work_description"),
+       work_category=row.get("work_category"),
+       ),
+
+	work_description=_clean_string(
+   	    row.get("work_description")
         ),
+
 
         implementing_agency=_clean_string(
             row.get("implementing_agency")
@@ -379,24 +386,39 @@ def _risk_map(
 ) -> dict[str, dict[str, Any]]:
     """
     Create a work_id → Risk Fusion row mapping.
+
+    This is vectorized to avoid iterating through all Risk Fusion rows
+    with iterrows() on every API request.
     """
 
-    result = {}
+    if risk_df.empty or "work_id" not in risk_df.columns:
+        return {}
 
-    for _, row in risk_df.iterrows():
+    work_ids = (
+        risk_df["work_id"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
 
-        work_id = _clean_string(
-            row.get("work_id")
+    valid = work_ids.ne("")
+
+    if not valid.any():
+        return {}
+
+    result_df = risk_df.loc[valid].copy()
+    result_df["_normalized_work_id"] = work_ids.loc[valid]
+
+    records = result_df.drop(
+        columns=["_normalized_work_id"]
+    ).to_dict(orient="records")
+
+    return dict(
+        zip(
+            result_df["_normalized_work_id"].tolist(),
+            records,
         )
-
-        if not work_id:
-            continue
-
-        result[work_id] = (
-            row.to_dict()
-        )
-
-    return result
+    )
 
 
 # =====================================================================
@@ -469,14 +491,33 @@ def _apply_canonical_filters(
         ]
 
     # ---------------------------------------------------------------
-    # Work category
+    # Normalized project sector
+    # ---------------------------------------------------------------
+    #
+    # The raw MPLADS work_category is intentionally preserved in the
+    # canonical dataset. For the Projects filter, however, we use the
+    # human-readable sector derived from work_description.
+    #
+    # Example:
+    #     raw work_category = "Normal/Others"
+    #     work_description  = "Construction of a road..."
+    #     project sector    = "Roads & Connectivity"
+    #
+    # This keeps source data intact while making the UI filter useful.
     # ---------------------------------------------------------------
 
     if category:
 
+        sector_series = result.apply(
+            lambda row: classify_project_sector(
+                work_description=row.get("work_description"),
+                work_category=row.get("work_category"),
+            ),
+            axis=1,
+        )
+
         result = result[
-            result["work_category"]
-            .fillna("")
+            sector_series
             .astype(str)
             .str.strip()
             .str.casefold()
@@ -546,6 +587,73 @@ def _apply_canonical_filters(
         result = result[mask]
 
     return result
+
+
+# =====================================================================
+# GET /projects/filter-options
+# =====================================================================
+
+@router.get(
+    "/filter-options",
+)
+def get_project_filter_options():
+    """
+    Return lightweight filter values for the Projects page.
+
+    State, district, constituency, MP, and status values come from the
+    canonical dataset. Project sectors use the complete supported taxonomy
+    so the dropdown remains stable even when a sector currently has zero
+    matching projects.
+    """
+
+    canonical_df = load_canonical_projects()
+
+    def _unique_values(column: str) -> list[str]:
+        if column not in canonical_df.columns:
+            return []
+
+        values = (
+            canonical_df[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+        )
+
+        values = values[
+            (values != "")
+            & (values.str.casefold() != "nan")
+            & (values.str.casefold() != "none")
+        ]
+
+        return sorted(
+            values.unique().tolist(),
+            key=lambda value: value.casefold(),
+        )
+
+    # Keep this taxonomy identical to the shared project-sector classifier.
+    sectors = [
+        "Roads & Connectivity",
+        "Education",
+        "Healthcare",
+        "Water & Sanitation",
+        "Community & Public Buildings",
+        "Electricity & Energy",
+        "Sports & Recreation",
+        "Agriculture & Irrigation",
+        "Public Utilities",
+        "Social Welfare",
+        "Environment & Green Infrastructure",
+        "Other Public Infrastructure",
+    ]
+
+    return {
+        "states": _unique_values("state"),
+        "districts": _unique_values("district"),
+        "constituencies": _unique_values("constituency"),
+        "mps": _unique_values("mp"),
+        "categories": sectors,
+        "statuses": _unique_values("status"),
+    }
 
 
 # =====================================================================
@@ -655,7 +763,7 @@ def query_projects(
     ),
     category: str | None = Query(
         None,
-        description="Filter by work category.",
+        description="Filter by normalized project sector.",
     ),
     status_value: str | None = Query(
         None,
@@ -667,7 +775,7 @@ def query_projects(
         max_length=120,
         description=(
             "Search project ID, state, district, "
-            "constituency, work category, MP, or description."
+            "constituency, project sector, MP, or description."
         ),
     ),
     db: Session = Depends(get_db),
@@ -1081,16 +1189,26 @@ def get_project(
         )
     )
 
-    risk_lookup = _risk_map(
-        risk_df
+    # This endpoint needs only one Risk Fusion row, so avoid building
+    # a 43k-entry dictionary for a single project request.
+    risk_matching = risk_df[
+        risk_df["work_id"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        == normalized_id
+    ]
+
+    risk_row = (
+        risk_matching.iloc[0].to_dict()
+        if not risk_matching.empty
+        else None
     )
 
     project = (
         _apply_risk_to_project(
             project,
-            risk_lookup.get(
-                normalized_id
-            ),
+            risk_row,
         )
     )
 

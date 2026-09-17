@@ -28,9 +28,6 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # --- Authentication -----------------------------------------------------
-# Added alongside JWT authentication. Kept in this same module rather
-# than a separate file since the project doesn't otherwise split
-# schemas.py by resource.
 
 class RegisterRequest(BaseModel):
     """Request body for POST /auth/register."""
@@ -44,7 +41,6 @@ class LoginRequest(BaseModel):
     """Request body for POST /auth/login."""
 
     email: EmailStr
-    password: str
 
 
 class TokenResponse(BaseModel):
@@ -88,6 +84,7 @@ class ProjectOut(BaseModel):
     constituency: Optional[str] = None
     mp_name: Optional[str] = None
     work_type: Optional[str] = None
+    work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
 
     sanctioned_amount: Optional[Decimal] = None
@@ -135,7 +132,7 @@ class ProjectOut(BaseModel):
     risk_metadata: Optional[dict[str, Any]] = None
 
     created_at: Optional[datetime] = None
-updated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class RiskFusionOut(BaseModel):
@@ -267,6 +264,7 @@ class PublicProjectOut(BaseModel):
     constituency: Optional[str] = None
     mp_name: Optional[str] = None
     work_type: Optional[str] = None
+    work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
     sanctioned_amount: Optional[Decimal] = None
     expenditure: Optional[Decimal] = None
@@ -342,8 +340,8 @@ class EstimatedCostSummary(BaseModel):
 
     NOTE: real Phase 2 rows have no source value for estimated_cost at
     all (see app/models.py / import_phase2.py) -- so on the real
-    dataset, project_count_with_data will legitimately be 0 (or close to
-    it) and total/average/minimum/maximum will be None. That is reported
+    dataset, project_count_with_data will legitimately be 0 (or close
+    to it) and total/average/minimum/maximum will be None. That is reported
     as-is here rather than defaulted to 0, per Phase 4's NULL-handling
     requirement.
     """
@@ -465,8 +463,8 @@ class ComplianceSummaryOut(BaseModel):
 
 class UploadRowValidationError(BaseModel):
     """One field-level problem found while parsing/validating an
-    uploaded CSV row. Row-level, so one bad row never fails the rest of
-    the file."""
+    uploaded CSV row. Row-level, so one bad row never fails the rest
+    of the file."""
 
     field: str
     message: str
@@ -543,6 +541,7 @@ class ReportProjectRow(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
+    work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
     status: Optional[str] = None
     sanctioned_amount: Optional[Decimal] = None
@@ -589,7 +588,7 @@ class UploadAnalyzeResponse(BaseModel):
     total_rows: int
     valid_rows: int
     rows_with_errors: int
-    persisted_to_database: bool  # always False -- see persistence_note
+    persisted_to_database: bool
     persistence_note: str
     risk_scoring_note: str
     results: list[UploadRowResult]

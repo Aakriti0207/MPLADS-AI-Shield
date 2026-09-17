@@ -11,10 +11,6 @@ import {
   fetchPublicProjectPage,
   fetchDemoProjectPage,
 } from '../features/projects/api'
-import {
-  fetchPublicOverview,
-  fetchRoleDashboard,
-} from '../features/dashboard/api'
 import ProjectFilters from '../components/projects/ProjectFilters'
 import PageContainer from '../components/layout/PageContainer'
 import AuthenticatedShell from '../components/layout/AuthenticatedShell'
@@ -24,10 +20,26 @@ import { useAuth } from '../context/AuthContext'
 const PAGE_SIZE = 50
 const SEARCH_DEBOUNCE_MS = 350
 
+const PROJECT_SECTORS = [
+  'Agriculture & Irrigation',
+  'Community & Public Buildings',
+  'Education',
+  'Electricity & Energy',
+  'Environment & Green Infrastructure',
+  'Healthcare',
+  'Other Public Infrastructure',
+  'Public Utilities',
+  'Roads & Connectivity',
+  'Social Welfare',
+  'Sports & Recreation',
+  'Water & Sanitation',
+]
+
 const TABLE_COLUMNS = [
   'Work ID',
   'Project / Work',
   'State',
+  'District',
   'Constituency',
   'MP',
   'Status',
@@ -110,7 +122,7 @@ export default function Projects() {
   const [error, setError] = useState(null)
 
   const [stateOptions, setStateOptions] = useState([])
-  const [categoryOptions, setCategoryOptions] = useState([])
+  const [categoryOptions, setCategoryOptions] = useState(PROJECT_SECTORS)
 
   // Debounce free-text search.
   useEffect(() => {
@@ -218,46 +230,62 @@ export default function Projects() {
     filters,
   ])
 
-  // Load real filter options from dashboard aggregates.
+  // Load only the lightweight filter-options payload.
   //
-  // Demo and real authenticated sessions use the role dashboard.
-  // Anonymous visitors use the public overview.
+  // This avoids fetching the full dashboard/overview just to populate
+  // State and Project Sector filters.
+  //
+  // The same endpoint is safe for the authenticated Project Explorer
+  // because the route is already protected by the projects router.
   useEffect(() => {
-    if (!authReady) return
+    if (!authReady || (!useProtectedApi && !useDemoApi)) return
 
     let cancelled = false
 
-    const request =
-      useDemoApi || useProtectedApi
-        ? fetchRoleDashboard().then((data) => data?.stats)
-        : fetchPublicOverview()
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token')
 
-    request
-      .then((stats) => {
-        if (cancelled || !stats) return
+    fetch('/projects/filter-options', {
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Filter options request failed (${response.status})`,
+          )
+        }
 
-        const states = [
-          ...new Set(
-            (stats.by_state || [])
-              .map((row) => row.state)
-              .filter(Boolean),
-          ),
-        ].sort()
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled || !data) return
 
-        const categories = [
-          ...new Set(
-            (stats.by_work_type || [])
-              .map((row) => row.work_type)
-              .filter(Boolean),
-          ),
-        ].sort()
+        const states = Array.isArray(data.states)
+          ? data.states.filter(Boolean).sort()
+          : []
+
+        const categories = Array.isArray(data.categories)
+          ? data.categories.filter(Boolean)
+          : []
+
+        const mergedCategories = [
+          ...new Set([
+            ...PROJECT_SECTORS,
+            ...categories,
+          ]),
+        ].sort((a, b) => a.localeCompare(b))
 
         if (states.length) {
           setStateOptions(states)
         }
 
-        if (categories.length) {
-          setCategoryOptions(categories)
+        if (mergedCategories.length) {
+          setCategoryOptions(mergedCategories)
         }
       })
       .catch(() => {
@@ -275,6 +303,7 @@ export default function Projects() {
   ])
 
   // Fallback filter options from loaded rows.
+  // workType is the normalized project sector returned by the API.
   useEffect(() => {
     if (
       stateOptions.length === 0 &&
@@ -291,20 +320,8 @@ export default function Projects() {
       )
     }
 
-    if (
-      categoryOptions.length === 0 &&
-      items.length > 0
-    ) {
-      setCategoryOptions(
-        [
-          ...new Set(
-            items
-              .map((project) => project.workType)
-              .filter(Boolean),
-          ),
-        ].sort(),
-      )
-    }
+    // Keep the complete supported sector taxonomy visible.
+    // Do not replace it with only the sectors present on the current page.
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
@@ -428,13 +445,25 @@ export default function Projects() {
                         )}
                       </td>
 
-                      <td className="max-w-[220px] truncate">
-                        {project.workType ||
+                      <td
+                        className="max-w-[220px] truncate"
+                        title={
+                          project.workDescription ||
+                          project.workType ||
+                          'Untitled work'
+                        }
+                      >
+                        {project.workDescription ||
+                          project.workType ||
                           'Untitled work'}
                       </td>
 
                       <td className="whitespace-nowrap">
                         {project.state || '—'}
+                      </td>
+
+                      <td className="whitespace-nowrap">
+                      {project.district || '—'}
                       </td>
 
                       <td className="whitespace-nowrap">

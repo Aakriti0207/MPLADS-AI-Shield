@@ -653,8 +653,15 @@ export default function ProjectDetails() {
       raw.mp_name ??
       null,
 
+    // workType is the normalized project sector returned by the API.
     workType:
       raw.work_type ??
+      null,
+
+    // Keep the actual MPLADS work description as the project title.
+    // The backend may return null when the source description is unavailable.
+    workDescription:
+      raw.work_description ??
       null,
 
     agency:
@@ -775,9 +782,17 @@ export default function ProjectDetails() {
               : ''}
           </div>
 
-          <h1 className="text-[19px] font-semibold text-ink">
-            {p.workType ||
-              'Untitled work'}
+          <h1
+            className="text-[19px] font-semibold text-ink"
+            title={
+              p.workDescription ||
+              p.workType ||
+              'Untitled work'
+            }
+          >
+            {p.workDescription ||
+              p.workType ||
+              'Work description unavailable'}
           </h1>
 
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-[12.5px] text-muted">

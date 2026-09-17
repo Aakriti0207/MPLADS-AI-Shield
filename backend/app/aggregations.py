@@ -29,6 +29,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.models import Project
+from app.project_sectors import classify_project_sector
 from app.schemas import (
     ByStateStat,
     ByWorkTypeStat,
@@ -406,38 +407,64 @@ def compute_by_work_type_from_canonical(
     df: pd.DataFrame,
 ) -> list[ByWorkTypeStat]:
     """
-    Compute project count by work category.
+    Compute project count by normalized project sector.
 
-    canonical_projects.csv uses work_category rather than the legacy
-    database work_type field.
+    The canonical dataset stores the raw ``work_category`` plus the
+    project ``work_description``. The application uses the shared
+    ``classify_project_sector`` helper so Dashboard/Analytics and the
+    Projects API expose the same human-readable sector categories.
+
+    The raw canonical fields are not modified.
     """
 
-    if "work_category" in df.columns:
+    if df.empty:
+        return []
 
-        work_type = (
-            df["work_category"]
-            .fillna("Not specified")
-            .astype(str)
-            .str.strip()
-        )
+    required_columns = {
+        "work_description",
+        "work_category",
+    }
 
-        work_type = work_type.replace(
-            "",
-            "Not specified",
-        )
+    # Keep this helper robust if a reduced dataframe is passed by another
+    # route. Missing source columns are treated as unavailable.
+    available_columns = required_columns.intersection(df.columns)
 
-    else:
-
+    if not available_columns:
         work_type = pd.Series(
             "Not specified",
             index=df.index,
+            dtype="object",
         )
+    else:
+        work_type = df.apply(
+            lambda row: (
+                classify_project_sector(
+                    work_description=(
+                        row.get("work_description")
+                    ),
+                    work_category=(
+                        row.get("work_category")
+                    ),
+                )
+                or "Not specified"
+            ),
+            axis=1,
+        )
+
+    work_type = (
+        work_type
+        .fillna("Not specified")
+        .astype(str)
+        .str.strip()
+        .replace("", "Not specified")
+    )
 
     grouped = (
         pd.DataFrame(
             {
                 "work_type": work_type,
-            }
+            },
+            index=df.index,
         )
         .groupby("work_type")
         .size()
@@ -505,6 +532,9 @@ def compute_recent_projects_from_canonical(
     limit: int = 8,
 ) -> list[dict[str, Any]]:
     """Return recently active projects using real canonical dates.
+
+    ``work_type`` is returned as the same normalized project sector used
+    by the Projects API and Dashboard aggregation.
 
     ``last_expenditure_date`` is preferred because it represents actual
     project activity. Projects without that date are ordered after projects
@@ -576,7 +606,13 @@ def compute_recent_projects_from_canonical(
                 "district": _none_if_blank_value(row.get("district")),
                 "constituency": _none_if_blank_value(row.get("constituency")),
                 "mp_name": _none_if_blank_value(row.get("mp")),
-                "work_type": _none_if_blank_value(row.get("work_category")),
+                "work_type": (
+                    classify_project_sector(
+                        work_description=row.get("work_description"),
+                        work_category=row.get("work_category"),
+                    )
+                    or "Not specified"
+                ),
                 "implementing_agency": _none_if_blank_value(
                     row.get("implementing_agency")
                 ),
