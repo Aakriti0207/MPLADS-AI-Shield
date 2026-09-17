@@ -32,6 +32,8 @@ and comes from the current Risk Fusion output.
 
 from datetime import date
 from decimal import Decimal
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, List
 
 import pandas as pd
@@ -93,20 +95,13 @@ def _load_project_datasets():
     """
 
     try:
-
-        canonical_df = (
-            load_canonical_projects()
-        )
-
-        risk_df = (
-            load_risk_fusion()
-        )
+        canonical_df = load_canonical_projects()
+        risk_df = load_risk_fusion()
 
     except (
         FileNotFoundError,
         ValueError,
     ) as exc:
-
         raise HTTPException(
             status_code=503,
             detail=str(exc),
@@ -121,7 +116,6 @@ def _load_project_datasets():
     )
 
     if canonical_ids != risk_ids:
-
         missing_risk = canonical_ids - risk_ids
         extra_risk = risk_ids - canonical_ids
 
@@ -200,7 +194,6 @@ def _date(
         return None
 
     try:
-
         parsed = pd.to_datetime(
             value,
             errors="coerce",
@@ -212,8 +205,152 @@ def _date(
         return parsed.date()
 
     except Exception:
-
         return None
+
+
+# =====================================================================
+# Constituency resolution
+# =====================================================================
+
+@lru_cache(maxsize=1)
+def _constituency_resolution_map() -> dict[str, dict[str, Any]]:
+    """Load the derived constituency-resolution audit once per process."""
+
+    resolution_path = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "processed"
+        / "constituency_resolution.csv"
+    )
+
+    if not resolution_path.exists():
+        return {}
+
+    try:
+        df = pd.read_csv(
+            resolution_path,
+            encoding="utf-8-sig",
+            low_memory=False,
+        )
+    except (OSError, ValueError):
+        return {}
+
+    if not {
+        "work_id",
+        "resolved_constituency",
+    }.issubset(df.columns):
+        return {}
+
+    work_ids = (
+        df["work_id"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    valid = work_ids.ne("")
+
+    if not valid.any():
+        return {}
+
+    result = df.loc[valid].copy()
+
+    result["_work_id"] = work_ids.loc[valid]
+
+    result = result.drop_duplicates(
+        subset=["_work_id"],
+        keep="first",
+    )
+
+    return {
+        record["_work_id"]: record
+        for record in result.to_dict(
+            orient="records"
+        )
+    }
+
+
+def _project_constituency(
+    row: pd.Series,
+    resolution_lookup: dict[str, dict[str, Any]] | None = None,
+) -> str | None:
+    """
+    Return the geographic project constituency,
+    never an RS house marker.
+    """
+
+    lookup = (
+        resolution_lookup
+        if resolution_lookup is not None
+        else _constituency_resolution_map()
+    )
+
+    work_id = _clean_string(
+        row.get("work_id")
+    )
+
+    if work_id:
+        resolution = lookup.get(work_id)
+
+        if resolution:
+            resolved = _clean_string(
+                resolution.get(
+                    "resolved_constituency"
+                )
+            )
+
+            if resolved:
+                return resolved
+
+    raw = _clean_string(
+        row.get("constituency")
+    )
+
+    if raw and raw.casefold() not in {
+        "sitting rajya sabha",
+        "nominated rajya sabha",
+    }:
+        return raw
+
+    return None
+
+
+def _project_mp_type(
+    row: pd.Series,
+    resolution_lookup: dict[str, dict[str, Any]] | None = None,
+) -> str | None:
+    """
+    Return the explicit MP type from constituency-resolution metadata.
+
+    The frontend should use this field directly instead of trying to
+    infer Lok Sabha / Rajya Sabha from the constituency string.
+    """
+
+    lookup = (
+        resolution_lookup
+        if resolution_lookup is not None
+        else _constituency_resolution_map()
+    )
+
+    work_id = _clean_string(
+        row.get("work_id")
+    )
+
+    if work_id:
+        resolution = lookup.get(work_id)
+
+        if resolution:
+            mp_type = _clean_string(
+                resolution.get("mp_type")
+            )
+
+            if mp_type:
+                return mp_type
+
+    # Fallback if canonical_projects.csv itself contains mp_type.
+    return _clean_string(
+        row.get("mp_type")
+    )
 
 
 # =====================================================================
@@ -222,6 +359,7 @@ def _date(
 
 def _canonical_row_to_project(
     row: pd.Series,
+    resolution_lookup: dict[str, dict[str, Any]] | None = None,
 ) -> ProjectOut:
     """
     Convert one canonical CSV row into the existing ProjectOut API
@@ -265,7 +403,6 @@ def _canonical_row_to_project(
         and sanctioned_amount > 0
         and expenditure is not None
     ):
-
         financial_progress = (
             expenditure
             / sanctioned_amount
@@ -287,23 +424,37 @@ def _canonical_row_to_project(
             row.get("district")
         ),
 
-        constituency=_clean_string(
-            row.get("constituency")
+        # Geographic constituency resolved from the dedicated
+        # constituency-resolution layer.
+        constituency=_project_constituency(
+            row,
+            resolution_lookup,
+        ),
+
+        # Explicit MP type. The frontend must not infer this
+        # from the constituency value.
+        mp_type=_project_mp_type(
+            row,
+            resolution_lookup,
         ),
 
         mp_name=_clean_string(
             row.get("mp")
         ),
 
-       work_type=classify_project_sector(
-       work_description=row.get("work_description"),
-       work_category=row.get("work_category"),
-       ),
-
-	work_description=_clean_string(
-   	    row.get("work_description")
+        # Normalized 12-sector project classification.
+        work_type=classify_project_sector(
+            work_description=row.get(
+                "work_description"
+            ),
+            work_category=row.get(
+                "work_category"
+            ),
         ),
 
+        work_description=_clean_string(
+            row.get("work_description")
+        ),
 
         implementing_agency=_clean_string(
             row.get("implementing_agency")
@@ -407,15 +558,22 @@ def _risk_map(
         return {}
 
     result_df = risk_df.loc[valid].copy()
-    result_df["_normalized_work_id"] = work_ids.loc[valid]
+
+    result_df["_normalized_work_id"] = (
+        work_ids.loc[valid]
+    )
 
     records = result_df.drop(
         columns=["_normalized_work_id"]
-    ).to_dict(orient="records")
+    ).to_dict(
+        orient="records"
+    )
 
     return dict(
         zip(
-            result_df["_normalized_work_id"].tolist(),
+            result_df[
+                "_normalized_work_id"
+            ].tolist(),
             records,
         )
     )
@@ -475,12 +633,26 @@ def _apply_canonical_filters(
 
     result = df.copy()
 
+    resolution_lookup = (
+        _constituency_resolution_map()
+    )
+
+    if "work_id" in result.columns:
+        result["_resolved_constituency"] = (
+            result.apply(
+                lambda row: _project_constituency(
+                    row,
+                    resolution_lookup,
+                ),
+                axis=1,
+            )
+        )
+
     # ---------------------------------------------------------------
     # State
     # ---------------------------------------------------------------
 
     if state:
-
         result = result[
             result["state"]
             .fillna("")
@@ -493,25 +665,20 @@ def _apply_canonical_filters(
     # ---------------------------------------------------------------
     # Normalized project sector
     # ---------------------------------------------------------------
-    #
+
     # The raw MPLADS work_category is intentionally preserved in the
     # canonical dataset. For the Projects filter, however, we use the
     # human-readable sector derived from work_description.
-    #
-    # Example:
-    #     raw work_category = "Normal/Others"
-    #     work_description  = "Construction of a road..."
-    #     project sector    = "Roads & Connectivity"
-    #
-    # This keeps source data intact while making the UI filter useful.
-    # ---------------------------------------------------------------
 
     if category:
-
         sector_series = result.apply(
             lambda row: classify_project_sector(
-                work_description=row.get("work_description"),
-                work_category=row.get("work_category"),
+                work_description=row.get(
+                    "work_description"
+                ),
+                work_category=row.get(
+                    "work_category"
+                ),
             ),
             axis=1,
         )
@@ -529,7 +696,6 @@ def _apply_canonical_filters(
     # ---------------------------------------------------------------
 
     if status_value:
-
         result = result[
             result["status"]
             .fillna("")
@@ -544,7 +710,6 @@ def _apply_canonical_filters(
     # ---------------------------------------------------------------
 
     if search:
-
         pattern = (
             search
             .strip()
@@ -555,6 +720,7 @@ def _apply_canonical_filters(
             "work_id",
             "state",
             "district",
+            "_resolved_constituency",
             "constituency",
             "work_category",
             "mp",
@@ -568,7 +734,6 @@ def _apply_canonical_filters(
         )
 
         for column in searchable_columns:
-
             if column not in result.columns:
                 continue
 
@@ -608,7 +773,9 @@ def get_project_filter_options():
 
     canonical_df = load_canonical_projects()
 
-    def _unique_values(column: str) -> list[str]:
+    def _unique_values(
+        column: str,
+    ) -> list[str]:
         if column not in canonical_df.columns:
             return []
 
@@ -621,8 +788,14 @@ def get_project_filter_options():
 
         values = values[
             (values != "")
-            & (values.str.casefold() != "nan")
-            & (values.str.casefold() != "none")
+            & (
+                values.str.casefold()
+                != "nan"
+            )
+            & (
+                values.str.casefold()
+                != "none"
+            )
         ]
 
         return sorted(
@@ -647,12 +820,35 @@ def get_project_filter_options():
     ]
 
     return {
-        "states": _unique_values("state"),
-        "districts": _unique_values("district"),
-        "constituencies": _unique_values("constituency"),
-        "mps": _unique_values("mp"),
+        "states": _unique_values(
+            "state"
+        ),
+
+        "districts": _unique_values(
+            "district"
+        ),
+
+        "constituencies": sorted(
+            {
+                value
+                for _, row in canonical_df.iterrows()
+                for value in [
+                    _project_constituency(row)
+                ]
+                if value
+            },
+            key=lambda value: value.casefold(),
+        ),
+
+        "mps": _unique_values(
+            "mp"
+        ),
+
         "categories": sectors,
-        "statuses": _unique_values("status"),
+
+        "statuses": _unique_values(
+            "status"
+        ),
     }
 
 
@@ -698,9 +894,7 @@ def list_projects(
     # Stable deterministic ordering.
     canonical_df = (
         canonical_df
-        .sort_values(
-            "work_id"
-        )
+        .sort_values("work_id")
     )
 
     page_df = (
@@ -712,11 +906,15 @@ def list_projects(
 
     results = []
 
-    for _, row in page_df.iterrows():
+    resolution_lookup = (
+        _constituency_resolution_map()
+    )
 
+    for _, row in page_df.iterrows():
         project = (
             _canonical_row_to_project(
-                row
+                row,
+                resolution_lookup,
             )
         )
 
@@ -802,11 +1000,16 @@ def query_projects(
         )
     )
 
+    if "_resolved_constituency" in filtered_df.columns:
+        filtered_df = filtered_df.drop(
+            columns=[
+                "_resolved_constituency"
+            ]
+        )
+
     filtered_df = (
         filtered_df
-        .sort_values(
-            "work_id"
-        )
+        .sort_values("work_id")
     )
 
     total = int(
@@ -822,11 +1025,15 @@ def query_projects(
 
     items = []
 
-    for _, row in page_df.iterrows():
+    resolution_lookup = (
+        _constituency_resolution_map()
+    )
 
+    for _, row in page_df.iterrows():
         project = (
             _canonical_row_to_project(
-                row
+                row,
+                resolution_lookup,
             )
         )
 
@@ -884,7 +1091,6 @@ def get_project_risk(
     ]
 
     if matching.empty:
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
@@ -998,7 +1204,6 @@ def get_project_risk(
             return {}
 
         try:
-
             import ast
 
             parsed = ast.literal_eval(
@@ -1173,7 +1378,6 @@ def get_project(
     ]
 
     if matching.empty:
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
@@ -1183,9 +1387,14 @@ def get_project(
 
     row = matching.iloc[0]
 
+    resolution_lookup = (
+        _constituency_resolution_map()
+    )
+
     project = (
         _canonical_row_to_project(
-            row
+            row,
+            resolution_lookup,
         )
     )
 

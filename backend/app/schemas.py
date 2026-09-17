@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 # --- Authentication -----------------------------------------------------
 
+
 class RegisterRequest(BaseModel):
     """Request body for POST /auth/register."""
 
@@ -82,7 +83,16 @@ class ProjectOut(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
+
+    # MP metadata.
+    #
+    # `mp_type` is supplied by the canonical constituency-resolution layer
+    # and is intentionally separate from `constituency`. For example,
+    # a Rajya Sabha project should not require the frontend to infer its
+    # MP type from a constituency marker.
+    mp_type: Optional[str] = None
     mp_name: Optional[str] = None
+
     work_type: Optional[str] = None
     work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
@@ -105,6 +115,7 @@ class ProjectOut(BaseModel):
     status: Optional[str] = None
 
     # --- Phase 2: ML risk-scoring output (advisory, not a fraud label) --
+
     # Mirrors app/models.py's Project columns of the same names, in the
     # same order, so the two stay easy to diff against each other.
     risk_score: Optional[float] = None
@@ -262,7 +273,12 @@ class PublicProjectOut(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
+
+    # MP type is exposed explicitly so the public project list does not
+    # infer Lok Sabha / Rajya Sabha from the constituency string.
+    mp_type: Optional[str] = None
     mp_name: Optional[str] = None
+
     work_type: Optional[str] = None
     work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
@@ -341,9 +357,9 @@ class EstimatedCostSummary(BaseModel):
     NOTE: real Phase 2 rows have no source value for estimated_cost at
     all (see app/models.py / import_phase2.py) -- so on the real
     dataset, project_count_with_data will legitimately be 0 (or close
-    to it) and total/average/minimum/maximum will be None. That is reported
-    as-is here rather than defaulted to 0, per Phase 4's NULL-handling
-    requirement.
+    to it) and total/average/minimum/maximum will be None. That is
+    reported as-is here rather than defaulted to 0, per Phase 4's
+    NULL-handling requirement.
     """
 
     total: Optional[Decimal] = None
@@ -356,7 +372,8 @@ class EstimatedCostSummary(BaseModel):
 class ProgressSummary(BaseModel):
     """Phase 4: summary statistics for a progress field (financial_progress
     or physical_progress). Same None-means-no-data semantics as
-    RiskScoreSummary/EstimatedCostSummary above."""
+    RiskScoreSummary/EstimatedCostSummary above.
+    """
 
     average: Optional[Decimal] = None
     minimum: Optional[Decimal] = None
@@ -379,6 +396,7 @@ class AnalyticsResponse(BaseModel):
     """
 
     # --- Shared with DashboardStats (same aggregation functions) ---
+
     total_projects: int
     total_sanctioned_amount: Decimal
     total_expenditure: Decimal
@@ -392,6 +410,7 @@ class AnalyticsResponse(BaseModel):
     by_work_type: list[ByWorkTypeStat]
 
     # --- New Phase 4 aggregates ---
+
     risk_score_summary: RiskScoreSummary
     estimated_cost_summary: EstimatedCostSummary
     financial_progress_summary: ProgressSummary
@@ -418,6 +437,7 @@ class AlertOut(BaseModel):
 
 
 # --- Phase 5: POST /upload-analyze --------------------------------------
+
 #
 # IMPORTANT SCOPE NOTE: the real Project.risk_score / risk_level (Phase 2)
 # are produced by an OFFLINE pipeline that combines compliance, anomaly,
@@ -433,6 +453,7 @@ class AlertOut(BaseModel):
 # a newly uploaded project with no offline/corpus-wide step required.
 # See app/upload_analysis.py for the glue that adapts uploaded fields
 # into what those rules expect.
+
 
 class ComplianceFindingOut(BaseModel):
     """One rule's real, unmodified output from ml/compliance/rules.py's
@@ -541,6 +562,11 @@ class ReportProjectRow(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
+
+    # Explicit MP type, consistent with ProjectOut/PublicProjectOut.
+    mp_type: Optional[str] = None
+    mp_name: Optional[str] = None
+
     work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
     status: Optional[str] = None

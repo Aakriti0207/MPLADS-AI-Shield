@@ -41,12 +41,27 @@ const TABLE_COLUMNS = [
   'State',
   'District',
   'Constituency',
+  'MP Type',
   'MP',
   'Status',
   'Sanctioned',
   'Expenditure',
   'Progress',
 ]
+
+// Clean MP display names without modifying backend/source data.
+function cleanMpName(value) {
+  const text = String(value ?? '').trim()
+
+  if (!text) return null
+
+  // Hide missing year metadata without changing the underlying source data.
+  const cleaned = text
+    .replace(/\s*\(NaN-NaN\)\s*$/i, '')
+    .trim()
+
+  return cleaned || null
+}
 
 // Real financial_progress from the backend wins when present.
 // Otherwise safely derive it from sanctioned/expenditure.
@@ -122,7 +137,8 @@ export default function Projects() {
   const [error, setError] = useState(null)
 
   const [stateOptions, setStateOptions] = useState([])
-  const [categoryOptions, setCategoryOptions] = useState(PROJECT_SECTORS)
+  const [categoryOptions, setCategoryOptions] =
+    useState(PROJECT_SECTORS)
 
   // Debounce free-text search.
   useEffect(() => {
@@ -200,6 +216,7 @@ export default function Projects() {
         if (cancelled) return
 
         setItems(data.items || [])
+
         setTotal(
           data.total ??
             data.total_count ??
@@ -463,15 +480,33 @@ export default function Projects() {
                       </td>
 
                       <td className="whitespace-nowrap">
-                      {project.district || '—'}
+                        {project.district || '—'}
+                      </td>
+
+                      {/* 
+                        IMPORTANT:
+                        The backend now supplies the project-location
+                        constituency. Do NOT replace it with the state
+                        for Rajya Sabha projects.
+                      */}
+                      <td
+                        className="whitespace-nowrap"
+                        title={
+                          project.constituency ||
+                          'Project-location constituency could not be determined from the available source data.'
+                        }
+                      >
+                        {project.constituency ||
+                          'Not determinable'}
                       </td>
 
                       <td className="whitespace-nowrap">
-                        {project.constituency || '—'}
+                        {String(project?.mpType ?? '').trim() ||
+                          '—'}
                       </td>
 
                       <td className="whitespace-nowrap">
-                        {project.mpName || '—'}
+                        {cleanMpName(project.mpName) || '—'}
                       </td>
 
                       <td>
@@ -573,6 +608,7 @@ export default function Projects() {
           size={20}
           aria-hidden="true"
         />
+
         <span className="text-sm">
           Checking your session…
         </span>
