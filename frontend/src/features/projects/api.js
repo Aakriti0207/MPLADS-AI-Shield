@@ -23,6 +23,8 @@ function buildQuery({
   skip = 0,
   limit = 50,
   state = '',
+  district = '',
+  constituency = '',
   category = '',
   status = '',
   search = '',
@@ -34,6 +36,18 @@ function buildQuery({
 
   if (state && state !== 'All') {
     params.set('state', state)
+  }
+
+  // District/constituency are narrowing filters only. The backend
+  // rejects either with 403 if it names a jurisdiction outside the
+  // caller's scope, so sending them is always safe -- it can never
+  // widen what comes back.
+  if (district && district !== 'All') {
+    params.set('district', district)
+  }
+
+  if (constituency && constituency !== 'All') {
+    params.set('constituency', constituency)
   }
 
   if (category && category !== 'All') {
@@ -229,4 +243,33 @@ export async function fetchDemoProjectRisk(projectId) {
   return normalizeRisk(
     await response.json()
   )
+}
+
+// ================================================================
+// SCOPE-AWARE FILTER OPTIONS
+// ================================================================
+
+/**
+ * GET /projects/filter-options
+ *
+ * Returns only the values present in the caller's own authorized
+ * records, plus `locked_filters` naming the dimensions their
+ * jurisdiction fixes. This is what lets the filter bar avoid offering a
+ * choice the backend would refuse.
+ *
+ * Goes through apiFetch so the Authorization header is attached and the
+ * configured API base is used -- the previous inline `fetch()` call in
+ * Projects.jsx did neither, which is why it silently never returned
+ * anything.
+ */
+export async function fetchProjectFilterOptions() {
+  const response = await apiFetch('/projects/filter-options')
+
+  if (!response.ok) {
+    throw new Error(
+      `Backend returned ${response.status} ${response.statusText}`
+    )
+  }
+
+  return response.json()
 }

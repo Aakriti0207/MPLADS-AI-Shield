@@ -16,6 +16,21 @@ The Phase 7 Risk Fusion output is the authoritative source for AI risk.
 
 The database is used only where the API contract requires existing
 Project/User objects.
+
+RBAC
+----
+GET /dashboard/role-overview returns a genuinely different dashboard
+per role, computed over a genuinely different set of records:
+
+    Ministry / Admin      -> nationwide (unchanged from before)
+    State Nodal Authority -> one assigned state, with district comparison
+    District Authority    -> one assigned district, with a review queue
+    MP                    -> one assigned constituency
+
+The scope is derived from the authenticated user (app/rbac.py), so the
+figures are aggregated from the scoped frame directly. A scoped role
+never fetches the national aggregate and hides part of it -- which is
+both the security property and the reason these dashboards are fast.
 """
 
 from pathlib import Path
@@ -51,6 +66,27 @@ from app.schemas import (
     DashboardStats,
     RoleDashboardResponse,
     ProjectOut,
+    ScopeInfo,
+)
+
+from app.rbac import (
+    ROLE_MINISTRY,
+    UserScope,
+    get_scope,
+    role_config,
+    scope_frames,
+)
+
+from app.role_dashboards import (
+    compute_attention_projects,
+    compute_category_distribution,
+    compute_district_performance,
+    compute_kpis,
+    compute_project_rows,
+    compute_risk_level_counts,
+    compute_status_distribution,
+    data_notes,
+    merge_scoped,
 )
 
 
@@ -203,9 +239,10 @@ def _get_priority_projects(
 )
 def get_dashboard_stats(
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return national Dashboard statistics.
+    Return Dashboard statistics for the caller's authorized scope.
 
     Project universe:
         canonical_projects.csv
@@ -213,8 +250,15 @@ def get_dashboard_stats(
     AI risk:
         project_risk_scores.csv
 
-    This ensures the project total and Risk Fusion risk distribution
-    refer to the same 43,863-project universe.
+    Ministry/Admin receives the full 43,863-project universe, exactly as
+    this endpoint always has. Every other role receives the same
+    statistics computed over its own jurisdiction only, and an account
+    with no jurisdiction assigned receives zeroes rather than national
+    figures.
+
+    Both frames are scoped to the same work_id set, so the project total
+    and the Risk Fusion distribution below still describe one identical
+    universe -- the universe-equality guard is unaffected.
     """
 
     try:
@@ -235,6 +279,17 @@ def get_dashboard_stats(
             status_code=503,
             detail=str(exc),
         )
+
+    # ---------------------------------------------------------------
+    # RBAC: reduce BOTH frames to the caller's authorized universe
+    # before any aggregate is computed.
+    # ---------------------------------------------------------------
+
+    canonical_df, risk_df = scope_frames(
+        canonical_df,
+        risk_df,
+        scope,
+    )
 
     # ---------------------------------------------------------------
     # Safety check: canonical and Risk Fusion universes
@@ -347,39 +402,33 @@ def get_dashboard_stats(
 def get_role_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return dashboard data authorized by the authenticated user's role.
+    Return the dashboard authorized for the authenticated user's role.
 
-    Ministry/Admin users receive the national dashboard.
+    Ministry/Admin users receive the national dashboard, unchanged.
+    State Nodal, District Authority and MP accounts receive a dashboard
+    built from their own jurisdiction's records -- different figures,
+    different tables, different priorities, one shared risk engine.
 
-    All national project statistics come from canonical_projects.csv.
-
+    All project statistics come from canonical_projects.csv.
     All AI risk values come from project_risk_scores.csv.
     """
 
     role = current_user.role or ""
+    config = role_config(scope.role)
 
     # ---------------------------------------------------------------
-    # Role authorization
+    # Scoped roles (State Nodal / District Authority / MP) and
+    # accounts with no jurisdiction assigned.
+    #
+    # Handled before the Ministry path below so the national branch
+    # stays byte-for-byte what it already was.
     # ---------------------------------------------------------------
 
-    is_ministry = (
-        "admin" in role.lower()
-        or "ministry" in role.lower()
-    )
-
-    if not is_ministry:
-
-        return RoleDashboardResponse(
-            role=role,
-            scope_available=False,
-            unavailable_reason=(
-                "Scoped dashboard data is not available because the "
-                "authenticated user has no state, district, constituency, "
-                "or MP scope configured."
-            ),
-        )
+    if scope.role != ROLE_MINISTRY:
+        return _scoped_role_dashboard(role, scope, config)
 
     # ---------------------------------------------------------------
     # Load both current production datasets.
@@ -526,4 +575,96 @@ def get_role_dashboard(
         stats=stats,
         by_state_risk=by_state_risk,
         priority_projects=priority_projects,
+        # Additive RBAC payload. The seven fields above are the original
+        # Ministry contract and are unchanged; everything below simply
+        # tells the frontend which persona it is rendering.
+        role_key=scope.role,
+        role_label=scope.role_label,
+        dashboard=role_config(scope.role)["dashboard"],
+        permissions=sorted(scope.permissions),
+        scope=ScopeInfo(**scope.as_metadata()),
+        scope_indicator=scope.scope_indicator,
+    )
+
+# =====================================================================
+# Scoped dashboards: State Nodal / District Authority / MP
+# =====================================================================
+
+def _scoped_role_dashboard(
+    role: str,
+    scope: UserScope,
+    config: dict,
+) -> RoleDashboardResponse:
+    """
+    Build the dashboard for a jurisdictional role.
+
+    The shape of the response is the same for all three personas -- KPIs,
+    distributions, an attention queue and a project table -- because they
+    share one design system and one set of components. What differs is
+    the records it is computed from, and which blocks the role's cockpit
+    puts first (district comparison for State Nodal, the review queue for
+    District Authority, project progress for an MP).
+
+    An account with no assigned jurisdiction returns scope_available=False
+    with an explanatory message. It does NOT fall through to national
+    data.
+    """
+
+    base = dict(
+        role=role,
+        role_key=scope.role,
+        role_label=scope.role_label,
+        dashboard=config["dashboard"],
+        permissions=sorted(scope.permissions),
+        scope=ScopeInfo(**scope.as_metadata()),
+        scope_indicator=scope.scope_indicator,
+        scope_label=scope.scope_label,
+        empty_state_message=scope.empty_state_message,
+    )
+
+    if scope.is_empty:
+        return RoleDashboardResponse(
+            scope_available=False,
+            unavailable_reason=scope.unavailable_reason,
+            **base,
+        )
+
+    # -----------------------------------------------------------------
+    # Load, then immediately reduce to the authorized universe. Every
+    # aggregate below is computed from the scoped frame -- nothing
+    # national is ever computed and then withheld.
+    # -----------------------------------------------------------------
+
+    try:
+        canonical_df = load_canonical_projects()
+        risk_df = load_risk_fusion()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    canonical_df, risk_df = scope_frames(canonical_df, risk_df, scope)
+
+    merged = merge_scoped(canonical_df, risk_df)
+
+    kpis = compute_kpis(merged, scope)
+
+    # District comparison is meaningful only for a scope that spans
+    # more than one district, i.e. State Nodal. A District Authority
+    # gets its review queue instead.
+    district_performance = (
+        compute_district_performance(merged)
+        if scope.can("VIEW_DISTRICT_COMPARISON") and scope.scope_type == "state"
+        else []
+    )
+
+    return RoleDashboardResponse(
+        scope_available=True,
+        kpis=kpis,
+        status_distribution=compute_status_distribution(merged),
+        by_work_category=compute_category_distribution(merged),
+        risk_level_counts=compute_risk_level_counts(merged),
+        district_performance=district_performance,
+        attention_projects=compute_attention_projects(merged, limit=20),
+        scoped_projects=compute_project_rows(merged, limit=50),
+        data_notes=data_notes(merged, scope),
+        **base,
     )

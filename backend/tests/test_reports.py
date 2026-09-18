@@ -22,6 +22,8 @@ from decimal import Decimal
 
 import pytest
 
+from tests.conftest import make_scoped_headers
+
 from app.aggregations import load_risk_fusion
 from app.models import Project
 
@@ -92,17 +94,50 @@ def test_reports_generate_without_jwt_returns_401(client):
 
 # --- Role scoping (mirrors GET /dashboard/role-overview) ------------------
 
-def test_reports_meta_unavailable_for_non_ministry_role(client, auth_headers):
-    """`registered_user`/`auth_headers` is a "District Authority" account
-    -- no state/district/constituency scope exists on User, so scoped
-    reporting must be reported as unavailable, never silently given the
-    national report under a false label."""
-    resp = client.get("/reports/meta", headers=auth_headers)
+def test_reports_meta_unavailable_for_an_account_with_no_jurisdiction(client, db_session):
+    """An account whose jurisdiction has not been assigned must be told
+    reporting is unavailable -- never silently handed the national report
+    under a false label.
+
+    This test used to assert the same thing about ANY non-Ministry role,
+    because scoped reporting did not exist and reports were
+    Ministry-only. Now they do exist: a State Nodal, District Authority
+    or MP account generates reports for its OWN jurisdiction (see
+    test_reports_meta_available_for_a_scoped_role below). What remains
+    genuinely unavailable is an account with no jurisdiction at all --
+    which is the real condition this test was always reaching for.
+    """
+    headers = make_scoped_headers(
+        client, db_session,
+        email="reports.unassigned@example.gov.in",
+        role="District Authority",
+    )
+    resp = client.get("/reports/meta", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
     assert body["scope_available"] is False
     assert body["report_types"] == []
-    assert "not available" in body["unavailable_reason"].lower()
+    assert body["unavailable_reason"]
+
+
+def test_reports_meta_available_for_a_scoped_role(client, db_session):
+    """A District Authority with an assigned district CAN report -- on
+    its own district. The scope label states which, and the filters it
+    advertises exclude the ones its jurisdiction fixes."""
+    headers = make_scoped_headers(
+        client, db_session,
+        email="reports.district@example.gov.in",
+        role="District Authority",
+        scope_state="Maharashtra",
+        scope_district="SATARA",
+    )
+    resp = client.get("/reports/meta", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["scope_available"] is True
+    assert body["scope_label"] != "National"
+    assert "SATARA" in body["scope_label"]
+    assert "district" not in body["filters_supported"]
 
 
 def test_reports_meta_available_for_ministry_admin(client, admin_auth_headers):
@@ -116,15 +151,47 @@ def test_reports_meta_available_for_ministry_admin(client, admin_auth_headers):
     assert set(body["export_formats"]) == {"json", "csv", "pdf"}
 
 
-def test_reports_generate_forbidden_for_non_ministry_role(client, auth_headers):
+def test_reports_generate_refuses_another_jurisdiction(client, db_session):
     """Backend-side enforcement, independent of the frontend ever
-    checking /reports/meta first."""
+    checking /reports/meta first.
+
+    The enforcement moved rather than disappeared. It used to be "only
+    Ministry may generate a report"; it is now "you may generate a
+    report, but only over your own jurisdiction". A scoped account
+    naming someone else's state is refused outright rather than having
+    the filter quietly dropped -- silently ignoring it would return the
+    caller's own data under a label claiming it was another state's.
+    """
+    headers = make_scoped_headers(
+        client, db_session,
+        email="reports.state@example.gov.in",
+        role="State Nodal Officer",
+        scope_state="Maharashtra",
+    )
     resp = client.get(
         "/reports/generate",
-        params={"report_type": "project_monitoring"},
-        headers=auth_headers,
+        params={"report_type": "project_monitoring", "state": "Bihar"},
+        headers=headers,
     )
     assert resp.status_code == 403
+
+
+def test_scoped_report_is_labelled_with_its_own_jurisdiction(client, db_session):
+    """An exported report must never be titled "National" for a scoped
+    account, even when the caller sent no filters at all."""
+    headers = make_scoped_headers(
+        client, db_session,
+        email="reports.label@example.gov.in",
+        role="State Nodal Officer",
+        scope_state="Maharashtra",
+    )
+    resp = client.get(
+        "/reports/generate",
+        params={"report_type": "project_monitoring", "format": "json"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["scope"] != "National"
 
 
 # --- Unsupported inputs -----------------------------------------------

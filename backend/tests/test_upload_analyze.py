@@ -9,6 +9,8 @@ real client would call this endpoint.
 
 from decimal import Decimal
 
+from tests.conftest import make_scoped_headers
+
 from app.models import Project
 from app.upload_analysis import MAX_ROWS
 
@@ -31,14 +33,26 @@ def test_upload_without_jwt_returns_401(client):
     assert resp.status_code == 401
 
 
-def test_upload_non_ministry_admin_role_returns_403(client, auth_headers):
-    """`auth_headers` (see conftest.py) is a real, active, authenticated
-    user -- but with the ordinary self-registration default role
-    ("District Authority"), not Ministry/Admin. The endpoint must 403
-    (not silently 200, and not 401 -- the caller IS authenticated) since
+def test_upload_non_ministry_admin_role_returns_403(client, db_session):
+    """A real, active, authenticated District Authority account must 403
+    (not silently 200, and not 401 -- the caller IS authenticated), since
     running the analysis pipeline against an arbitrary CSV is a
-    Ministry/Admin-only capability."""
-    resp = _upload(client, auth_headers, VALID_CSV)
+    Ministry/Admin-only capability.
+
+    This previously used `auth_headers`, which was a District Authority
+    session. That fixture is now Ministry-scoped (see conftest.py for
+    why), so the account is built explicitly here instead -- the
+    behaviour under test is unchanged, only the way the non-Ministry
+    caller is obtained.
+    """
+    headers = make_scoped_headers(
+        client, db_session,
+        email="upload.district@example.gov.in",
+        role="District Authority",
+        scope_state="Maharashtra",
+        scope_district="SATARA",
+    )
+    resp = _upload(client, headers, VALID_CSV)
     assert resp.status_code == 403
 
 

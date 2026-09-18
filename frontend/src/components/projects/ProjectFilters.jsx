@@ -3,31 +3,87 @@ import { Search } from 'lucide-react'
 
 const FIELD_LABEL_CLASS = 'text-[11px] font-medium text-muted mb-1 block'
 const SELECT_CLASS = 'w-full border border-line rounded-md px-3 py-2 text-[13px] bg-white text-ink'
+const LOCKED_CLASS = 'w-full border border-line rounded-md px-3 py-2 text-[13px] bg-panel text-ink font-medium'
 
 /**
- * Compact artifact-style filter bar for the Project Explorer.
+ * Compact filter bar for the Project Explorer.
  *
- * `states` and `categories` are option lists the caller derives from
- * real backend data (dashboard state/work-type distributions) -- this
- * component never invents option values itself.
+ * `states`, `districts` and `categories` are option lists the caller
+ * derives from real backend data (GET /projects/filter-options, which is
+ * itself scope-restricted). This component never invents option values.
+ *
+ * Role-aware filtering
+ * --------------------
+ * `lockedFilters` names the dimensions fixed by the caller's
+ * jurisdiction. A locked dimension renders as a STATIC LABEL, not a
+ * disabled dropdown and not an "All" option — because offering a choice
+ * the backend will refuse is worse than offering none. A District
+ * Authority sees "State: Maharashtra / District: Satara" as plain text;
+ * an MP never sees an "All States" selector at all.
+ *
+ * This is presentation only. The backend re-checks every filter it
+ * receives and returns 403 for anything outside the caller's scope, so
+ * nothing here is load-bearing for security.
  */
 export default function ProjectFilters({
   query, onQueryChange,
   state, onStateChange, states = [],
+  district, onDistrictChange, districts = [],
   category, onCategoryChange, categories = [],
   status, onStatusChange,
   onReset,
+  lockedFilters = [],
+  scope = null,
 }) {
+  const stateLocked = lockedFilters.includes('state')
+  const districtLocked = lockedFilters.includes('district')
+  const constituencyLocked = lockedFilters.includes('constituency')
+
   return (
     <div className="card p-3.5 mb-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-full sm:w-auto sm:min-w-[160px]">
           <label className={FIELD_LABEL_CLASS}>State</label>
-          <select value={state} onChange={event => onStateChange(event.target.value)} className={SELECT_CLASS}>
-            <option>All</option>
-            {states.map(value => <option key={value}>{value}</option>)}
-          </select>
+          {stateLocked ? (
+            <div className={LOCKED_CLASS} title="Fixed by your assigned jurisdiction">
+              {scope?.state || states[0] || '—'}
+            </div>
+          ) : (
+            <select value={state} onChange={event => onStateChange(event.target.value)} className={SELECT_CLASS}>
+              <option>All</option>
+              {states.map(value => <option key={value}>{value}</option>)}
+            </select>
+          )}
         </div>
+
+        {/* District selector appears when the caller's scope spans more
+            than one district (Ministry, State Nodal). For a District
+            Authority it is a fixed label; for an MP it is offered only
+            when their constituency genuinely covers several districts. */}
+        {(districtLocked || districts.length > 1) && (
+          <div className="w-full sm:w-auto sm:min-w-[170px]">
+            <label className={FIELD_LABEL_CLASS}>District</label>
+            {districtLocked ? (
+              <div className={LOCKED_CLASS} title="Fixed by your assigned jurisdiction">
+                {scope?.district || districts[0] || '—'}
+              </div>
+            ) : (
+              <select value={district} onChange={event => onDistrictChange(event.target.value)} className={SELECT_CLASS}>
+                <option>All</option>
+                {districts.map(value => <option key={value}>{value}</option>)}
+              </select>
+            )}
+          </div>
+        )}
+
+        {constituencyLocked && (
+          <div className="w-full sm:w-auto sm:min-w-[170px]">
+            <label className={FIELD_LABEL_CLASS}>Constituency</label>
+            <div className={LOCKED_CLASS} title="Fixed by your assigned jurisdiction">
+              {scope?.constituency || scope?.mp_name || '—'}
+            </div>
+          </div>
+        )}
 
         <div className="w-full sm:w-auto sm:min-w-[180px]">
           <label className={FIELD_LABEL_CLASS}>Category</label>

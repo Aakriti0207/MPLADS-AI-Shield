@@ -49,6 +49,13 @@ from app.schemas import (
     EstimatedCostSummary,
     ProgressSummary,
     RiskScoreSummary,
+    ScopeInfo,
+)
+
+from app.rbac import (
+    UserScope,
+    get_scope,
+    scope_frames,
 )
 
 
@@ -368,9 +375,19 @@ def _status_distribution(
 )
 def get_analytics(
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return the complete national Analytics contract.
+    Return the complete Analytics contract for the caller's scope.
+
+    Ministry/Admin gets national analytics, unchanged. Every other role
+    gets the SAME analytics computed over its own jurisdiction: an MP
+    sees constituency analytics, a District Authority district
+    analytics, a State Nodal officer state analytics.
+
+    The scoping happens at the frame level, before a single aggregate is
+    computed -- the backend does not calculate national analytics and
+    then withhold values from the response.
 
     Source of truth:
 
@@ -412,6 +429,17 @@ def get_analytics(
     # ---------------------------------------------------------------
     # Make sure both datasets represent exactly the same projects.
     # ---------------------------------------------------------------
+
+    # ---------------------------------------------------------------
+    # RBAC: reduce both frames to the authorized universe. They stay on
+    # the same work_id set, so the universe guard below is unaffected.
+    # ---------------------------------------------------------------
+
+    canonical_df, risk_df = scope_frames(
+        canonical_df,
+        risk_df,
+        scope,
+    )
 
     _validate_universe(
         canonical_df,
@@ -549,5 +577,15 @@ def get_analytics(
 
         status_distribution=(
             status_distribution
+        ),
+
+        scope=ScopeInfo(**scope.as_metadata()),
+
+        role_key=scope.role,
+
+        empty_state_message=(
+            scope.empty_state_message
+            if int(totals.get("total_projects") or 0) == 0
+            else None
         ),
     )

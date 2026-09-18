@@ -34,6 +34,21 @@ export async function fetchRoleDashboard() {
 
   const payload = await response.json()
 
+  /*
+   * The RBAC payload -- scope, kpis, district_performance,
+   * attention_projects, scoped_projects, permissions -- is passed
+   * through UNCHANGED via the spread below.
+   *
+   * That is deliberate. Those blocks are already shaped for the role
+   * dashboards, and every figure in them was computed by the backend
+   * over the authorized record set. Re-deriving or "normalising" them
+   * here would be the frontend recomputing values it has no authority
+   * over -- and would risk the displayed number quietly disagreeing
+   * with what the API actually returned.
+   *
+   * Only the two legacy Ministry blocks are normalised, because the
+   * national dashboard components have always expected that shape.
+   */
   return {
     ...payload,
     stats: payload.stats

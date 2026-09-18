@@ -11,6 +11,7 @@ import Analytics from '../pages/Analytics'
 import AiShield from '../pages/AiShield'
 import MapPage from '../pages/MapPage'
 import Reports from '../pages/Reports'
+import { PERMISSION } from '../lib/roles'
 
 // Centralized route configuration.
 //
@@ -25,6 +26,13 @@ import Reports from '../pages/Reports'
 // `nav` (when present) is the label shown in the sidebar; routes without
 // it (e.g. the project detail page) are reachable but not top-level nav items.
 // `parent` links a detail route back to its listing route for breadcrumbs.
+// `permission` names the capability the route requires. ProtectedRoute
+// reads the same mapping from lib/roles.js's ROUTE_PERMISSIONS, so a
+// route cannot ship without a gate by accident. Sidebar builds its
+// entries from NAV_BY_ROLE (also in lib/roles.js) rather than from `nav`
+// below, because the LABEL is role-dependent -- an MP's "My Projects"
+// and a State officer's "State Projects" are this same /projects route.
+// `nav` is kept as the role-neutral name for anything still reading it.
 
 export const publicRoutes = [
   { path: '/', element: Home, title: 'MPLADS Insight' },
@@ -37,15 +45,15 @@ export const publicRoutes = [
 ]
 
 export const appRoutes = [
-  { path: '/dashboard', element: Dashboard, title: 'Overview', nav: 'Dashboard' },
-  { path: '/projects', element: Projects, title: 'Projects', nav: 'Projects' },
-  { path: '/projects/:id', element: ProjectDetails, title: 'Project Intelligence', parent: '/projects' },
-  { path: '/ai-shield', element: AiShield, title: 'AI Shield', nav: 'AI Shield' },
-  { path: '/upload', element: UploadAnalysis, title: 'Upload & Analyze', nav: 'Upload & Analyze' },
-  { path: '/alerts', element: Alerts, title: 'Alerts', nav: 'Alerts' },
-  { path: '/analytics', element: Analytics, title: 'Analytics', nav: 'Analytics' },
-  { path: '/map', element: MapPage, title: 'Map View', nav: 'Map View' },
-  { path: '/reports', element: Reports, title: 'Reports', nav: 'Reports' },
+  { path: '/dashboard', element: Dashboard, title: 'Overview', nav: 'Dashboard', permission: PERMISSION.VIEW_DASHBOARD },
+  { path: '/projects', element: Projects, title: 'Projects', nav: 'Projects', permission: PERMISSION.VIEW_PROJECTS },
+  { path: '/projects/:id', element: ProjectDetails, title: 'Project Intelligence', parent: '/projects', permission: PERMISSION.VIEW_PROJECT_DETAILS },
+  { path: '/ai-shield', element: AiShield, title: 'AI Shield', nav: 'AI Shield', permission: PERMISSION.VIEW_AI_INSIGHTS },
+  { path: '/upload', element: UploadAnalysis, title: 'Upload & Analyze', nav: 'Upload & Analyze', permission: PERMISSION.UPLOAD_DATA },
+  { path: '/alerts', element: Alerts, title: 'Alerts', nav: 'Alerts', permission: PERMISSION.VIEW_ALERTS },
+  { path: '/analytics', element: Analytics, title: 'Analytics', nav: 'Analytics', permission: PERMISSION.VIEW_ANALYTICS },
+  { path: '/map', element: MapPage, title: 'Map View', nav: 'Map View', permission: PERMISSION.VIEW_MAP },
+  { path: '/reports', element: Reports, title: 'Reports', nav: 'Reports', permission: PERMISSION.VIEW_REPORTS },
 ]
 
 // Matches a pathname against appRoutes, supporting one ":param" segment

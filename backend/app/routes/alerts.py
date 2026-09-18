@@ -13,6 +13,20 @@ Design
   large CSV from disk.
 
 Alerts are advisory review-priority signals, not confirmations of fraud.
+
+RBAC
+----
+Alerts are scope-filtered SERVER-SIDE, before the page is cut:
+
+    MP       -> constituency alerts only
+    District -> district alerts only
+    State    -> state alerts only
+    Ministry -> all alerts
+
+Pagination therefore operates on the authorized set, so an out-of-scope
+alert can never appear even transiently, and `skip`/`limit` cannot be
+walked to reach one. The detail route re-checks scope in its own right:
+it is not reachable by guessing a project ID.
 """
 
 import ast
@@ -29,9 +43,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from app.aggregations import load_canonical_projects
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import Project
+from app.rbac import (
+    UserScope,
+    authorized_work_ids,
+    get_scope,
+    is_row_in_scope,
+    narrow_within_scope,
+    project_not_found,
+)
 
 
 router = APIRouter(
@@ -449,6 +472,48 @@ def _project_metadata(db: Session, project_id: str) -> Optional[Project]:
     )
 
 
+@lru_cache(maxsize=1)
+def _canonical_location_frame() -> pd.DataFrame:
+    """work_id -> state/district/constituency/mp, from the canonical
+    dataset.
+
+    The `projects` DB table is incomplete (it has no district value for
+    Phase-2-imported rows at all), so using it as the jurisdiction source
+    for scoping would silently drop records an officer is entitled to.
+    The canonical dataset is the same universe the project and risk APIs
+    already treat as authoritative, so alerts scope against that.
+    """
+
+    df = load_canonical_projects()
+    columns = [c for c in ("work_id", "state", "district", "constituency", "mp") if c in df.columns]
+    slim = df[columns].copy()
+    slim["work_id"] = slim["work_id"].astype(str).str.strip()
+    return slim.set_index("work_id", drop=False)
+
+
+def _canonical_location_map(project_ids: list[str]) -> dict[str, dict[str, Optional[str]]]:
+    """Location lookup for the current page, from the canonical frame."""
+
+    if not project_ids:
+        return {}
+
+    frame = _canonical_location_frame()
+    present = [pid for pid in project_ids if pid in frame.index]
+    if not present:
+        return {}
+
+    subset = frame.loc[present]
+    return {
+        str(row["work_id"]): {
+            "state": _optional_text(row.get("state")),
+            "district": _optional_text(row.get("district")),
+            "constituency": _optional_text(row.get("constituency")),
+            "mp": _optional_text(row.get("mp")),
+        }
+        for _, row in subset.iterrows()
+    }
+
+
 # ---------------------------------------------------------------------
 # GET /alerts
 # ---------------------------------------------------------------------
@@ -459,17 +524,71 @@ def list_alerts(
         default=None,
         description="Optional filter: critical, high, medium, or low.",
     ),
+    district: Optional[str] = Query(
+        default=None,
+        description="Optional district filter (must be inside your authorized scope).",
+    ),
+    constituency: Optional[str] = Query(
+        default=None,
+        description="Optional constituency filter (must be inside your authorized scope).",
+    ),
+    state: Optional[str] = Query(
+        default=None,
+        description="Optional state filter (must be inside your authorized scope).",
+    ),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
-    """Return compact, one-per-project alert cards.
+    """Return compact, one-per-project alert cards for the caller's scope.
 
     The list intentionally contains no explanation text. Open a project and
     call GET /alerts/{project_id} for its reasons and contributing signals.
+
+    Scoping happens before sorting and pagination, so every page is a page
+    OF THE AUTHORIZED SET. The optional state/district/constituency filters
+    can only narrow inside that set; naming another jurisdiction is a 403.
     """
 
     risk_df = _load_risk_fusion()
+
+    # -----------------------------------------------------------------
+    # RBAC: restrict the alert universe to the caller's authorized
+    # projects before anything else happens.
+    # -----------------------------------------------------------------
+
+    canonical_df = load_canonical_projects()
+
+    state, district, constituency = narrow_within_scope(
+        scope,
+        requested_state=state,
+        requested_district=district,
+        requested_constituency=constituency,
+    )
+
+    if not scope.is_national:
+        allowed_ids = authorized_work_ids(canonical_df, scope)
+        risk_df = risk_df[risk_df["work_id"].isin(allowed_ids)]
+
+    # Optional narrowing filters, applied against the canonical
+    # jurisdiction values rather than anything the client asserted.
+    location_filters = [
+        ("state", state),
+        ("district", district),
+        ("constituency", constituency),
+    ]
+    if any(value for _, value in location_filters):
+        frame = canonical_df
+        for column, value in location_filters:
+            if not value or column not in frame.columns:
+                continue
+            frame = frame[
+                frame[column].fillna("").astype(str).str.strip().str.casefold()
+                == value.strip().casefold()
+            ]
+        narrowed_ids = set(frame["work_id"].astype(str).str.strip())
+        risk_df = risk_df[risk_df["work_id"].isin(narrowed_ids)]
 
     requested = None
     if severity is not None:
@@ -496,7 +615,14 @@ def list_alerts(
 
     page = work.iloc[skip : skip + limit]
     project_ids = page["work_id"].tolist()
+    # Canonical first (complete jurisdiction data), DB row as a fallback
+    # for anything the canonical dataset does not carry.
     locations = _project_location_map(db, project_ids)
+    canonical_locations = _canonical_location_map(project_ids)
+    for pid, values in canonical_locations.items():
+        merged_location = dict(locations.get(pid) or {})
+        merged_location.update({k: v for k, v in values.items() if v})
+        locations[pid] = merged_location
 
     generated_at = datetime.now(timezone.utc)
     result: list[AlertListItem] = []
@@ -530,27 +656,57 @@ def list_alerts(
 def get_alert_detail(
     project_id: str,
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """Return the reason and contributing signals for one project.
 
     ``:path`` is intentional because real MPLADS IDs contain '/'.
+
+    RBAC: authorization is enforced here independently of the list route.
+    An alert for a project outside the caller's jurisdiction returns the
+    same 404 as an alert that does not exist, so this route cannot be
+    used to confirm which work IDs are real.
     """
 
     project_id = unquote(project_id).strip()
     if not project_id:
-        raise HTTPException(status_code=404, detail="Alert not found")
+        raise project_not_found()
 
     risk_df = _load_risk_fusion()
     matches = risk_df[risk_df["work_id"] == project_id]
 
     if matches.empty:
-        raise HTTPException(status_code=404, detail="Alert not found")
+        raise project_not_found()
 
     row = matches.iloc[0]
+
+    # -----------------------------------------------------------------
+    # Scope check against the canonical jurisdiction record.
+    # -----------------------------------------------------------------
+
+    canonical_frame = _canonical_location_frame()
+    canonical_row = (
+        canonical_frame.loc[project_id]
+        if project_id in canonical_frame.index
+        else None
+    )
+
+    if canonical_row is None or not is_row_in_scope(canonical_row, scope):
+        raise project_not_found()
+
     project = _project_metadata(db, project_id)
 
+    # The canonical dataset -- not the incomplete `projects` table -- is
+    # the project universe, so a missing DB row is not a 404 here. It
+    # only means the location fields fall back to the canonical values.
+    class _CanonicalProject:
+        state = _optional_text(canonical_row.get("state"))
+        district = _optional_text(canonical_row.get("district"))
+        constituency = _optional_text(canonical_row.get("constituency"))
+        mp_name = _optional_text(canonical_row.get("mp"))
+
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        project = _CanonicalProject()
 
     triggered_component, component_evidence = _triggered_component(row)
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import { RiskBadge, StatusBadge, Progress } from '../components/UI'
@@ -8,9 +8,12 @@ import ErrorState from '../components/ui/ErrorState'
 import Pagination from '../components/ui/Pagination'
 import {
   fetchProjectPage,
+  fetchProjectFilterOptions,
   fetchPublicProjectPage,
   fetchDemoProjectPage,
 } from '../features/projects/api'
+import ScopeBanner from '../components/layout/ScopeBanner'
+import { pageTitleFor } from '../lib/roles'
 import ProjectFilters from '../components/projects/ProjectFilters'
 import PageContainer from '../components/layout/PageContainer'
 import AuthenticatedShell from '../components/layout/AuthenticatedShell'
@@ -113,7 +116,7 @@ function financialProgressPct(project) {
  * project universe together with Risk Fusion results.
  */
 export default function Projects() {
-  const { status, isAuthenticated, isDemo } = useAuth()
+  const { status, isAuthenticated, isDemo, role } = useAuth()
   const navigate = useNavigate()
 
   const authReady = status !== 'checking'
@@ -124,9 +127,22 @@ export default function Projects() {
   const [rawQuery, setRawQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
 
+  // A district may arrive as a query param -- the State Nodal
+  // dashboard's district drill-down links here with ?district=NAME.
+  // It is still only a NARROWING filter: the backend refuses any
+  // district outside the caller's authorized state.
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [stateFilter, setStateFilter] = useState('All')
+  const [districtFilter, setDistrictFilter] = useState(searchParams.get('district') || 'All')
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
+
+  // Scope + option lists, both supplied by the backend.
+  const [scope, setScope] = useState(null)
+  const [lockedFilters, setLockedFilters] = useState([])
+  const [districtOptions, setDistrictOptions] = useState([])
+  const [scopeMessage, setScopeMessage] = useState(null)
 
   const [skip, setSkip] = useState(0)
 
@@ -155,6 +171,15 @@ export default function Projects() {
     setSkip(0)
   }
 
+  function handleDistrictChange(value) {
+    setDistrictFilter(value)
+    setSkip(0)
+    const next = new URLSearchParams(searchParams)
+    if (value && value !== 'All') next.set('district', value)
+    else next.delete('district')
+    setSearchParams(next, { replace: true })
+  }
+
   function handleCategoryChange(value) {
     setCategoryFilter(value)
     setSkip(0)
@@ -167,6 +192,8 @@ export default function Projects() {
 
   function handleReset() {
     setStateFilter('All')
+    setDistrictFilter('All')
+    setSearchParams(new URLSearchParams(), { replace: true })
     setCategoryFilter('All')
     setStatusFilter('All')
     setRawQuery('')
@@ -179,6 +206,7 @@ export default function Projects() {
       skip,
       limit: PAGE_SIZE,
       state: stateFilter,
+      district: districtFilter,
       category: categoryFilter,
       status: statusFilter,
       search: debouncedQuery,
@@ -186,6 +214,7 @@ export default function Projects() {
     [
       skip,
       stateFilter,
+      districtFilter,
       categoryFilter,
       statusFilter,
       debouncedQuery,
@@ -217,6 +246,12 @@ export default function Projects() {
 
         setItems(data.items || [])
 
+        // The scope the BACKEND actually applied, echoed on the
+        // response. Rendered verbatim so the page states what it really
+        // filtered on rather than what the filter bar happens to show.
+        if (data.scope) setScope(data.scope)
+        setScopeMessage(data.empty_state_message || null)
+
         setTotal(
           data.total ??
             data.total_count ??
@@ -247,67 +282,53 @@ export default function Projects() {
     filters,
   ])
 
-  // Load only the lightweight filter-options payload.
+  // Load the scope-aware filter-options payload.
   //
-  // This avoids fetching the full dashboard/overview just to populate
-  // State and Project Sector filters.
-  //
-  // The same endpoint is safe for the authenticated Project Explorer
-  // because the route is already protected by the projects router.
+  // This replaces an inline fetch('/projects/filter-options') that used
+  // neither the configured API base nor the Authorization header, and so
+  // never actually returned anything. It now goes through the shared
+  // api layer, and the endpoint itself returns only values present in
+  // the caller's authorized records -- which is what makes the filter
+  // bar role-aware rather than merely visually trimmed.
   useEffect(() => {
     if (!authReady || (!useProtectedApi && !useDemoApi)) return
 
     let cancelled = false
 
-    const token =
-      localStorage.getItem('token') ||
-      localStorage.getItem('access_token')
-
-    fetch('/projects/filter-options', {
-      headers: token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : undefined,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(
-            `Filter options request failed (${response.status})`,
-          )
-        }
-
-        return response.json()
-      })
+    fetchProjectFilterOptions()
       .then((data) => {
         if (cancelled || !data) return
 
-        const states = Array.isArray(data.states)
-          ? data.states.filter(Boolean).sort()
-          : []
+        if (Array.isArray(data.states) && data.states.length) {
+          setStateOptions(data.states)
+        }
+
+        if (Array.isArray(data.districts)) {
+          setDistrictOptions(data.districts)
+        }
+
+        if (Array.isArray(data.locked_filters)) {
+          setLockedFilters(data.locked_filters)
+        }
+
+        if (data.scope) setScope(data.scope)
 
         const categories = Array.isArray(data.categories)
           ? data.categories.filter(Boolean)
           : []
 
         const mergedCategories = [
-          ...new Set([
-            ...PROJECT_SECTORS,
-            ...categories,
-          ]),
+          ...new Set([...PROJECT_SECTORS, ...categories]),
         ].sort((a, b) => a.localeCompare(b))
-
-        if (states.length) {
-          setStateOptions(states)
-        }
 
         if (mergedCategories.length) {
           setCategoryOptions(mergedCategories)
         }
       })
       .catch(() => {
-        // Progressive enhancement only.
-        // The currently loaded rows are used as fallback below.
+        // Progressive enhancement only. If this fails the explorer still
+        // works -- the backend scopes the results regardless of what the
+        // filter bar was able to offer.
       })
 
     return () => {
@@ -364,7 +385,7 @@ export default function Projects() {
     <PageContainer>
       <div className="mb-4">
         <h1 className="text-[19px] font-semibold text-ink">
-          Project Explorer
+          {pageTitleFor('/projects', role, 'Project Explorer')}
         </h1>
 
         <p className="text-[13px] text-muted mt-0.5">
@@ -373,18 +394,27 @@ export default function Projects() {
         </p>
       </div>
 
+      {/* States the jurisdiction these results were filtered to, using
+          the backend's own answer rather than the filter selections. */}
+      {isAuthenticated && scope && <ScopeBanner scope={scope} />}
+
       <ProjectFilters
         query={rawQuery}
         onQueryChange={setRawQuery}
         state={stateFilter}
         onStateChange={handleStateChange}
         states={stateOptions}
+        district={districtFilter}
+        onDistrictChange={handleDistrictChange}
+        districts={districtOptions}
         category={categoryFilter}
         onCategoryChange={handleCategoryChange}
         categories={categoryOptions}
         status={statusFilter}
         onStatusChange={handleStatusChange}
         onReset={handleReset}
+        lockedFilters={lockedFilters}
+        scope={scope}
       />
 
       {!loading && !error && (
@@ -571,8 +601,11 @@ export default function Projects() {
                       colSpan={TABLE_COLUMNS.length + 1}
                       className="px-4 py-8 text-center text-sm text-muted"
                     >
-                      No projects match the selected
-                      filters.
+                      {/* Role-aware: "0 projects" alone would read as
+                          "there is nothing", when the truthful statement
+                          is "there is nothing in YOUR jurisdiction". */}
+                      {scopeMessage
+                        || 'No projects match the selected filters.'}
                     </td>
                   </tr>
                 )}
@@ -618,7 +651,7 @@ export default function Projects() {
 
   if (isAuthenticated) {
     return (
-      <AuthenticatedShell title="Projects">
+      <AuthenticatedShell title={pageTitleFor('/projects', role, 'Projects')}>
         {content}
       </AuthenticatedShell>
     )

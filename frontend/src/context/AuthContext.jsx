@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { clearAuthToken, getAuthToken, setAuthToken } from '../lib/authToken'
 import { API_BASE, setUnauthorizedHandler } from '../lib/api'
 import { clearDemoRole, getDemoRole, isDemoModeEnabled, setDemoRole } from '../lib/demoSession'
+import { ROLE, ROLE_VIEW_LABEL, fallbackPermissions, normalizeRole } from '../lib/roles'
 
 /**
  * Global authentication state.
@@ -14,9 +15,34 @@ import { clearDemoRole, getDemoRole, isDemoModeEnabled, setDemoRole } from '../l
  * `user` always comes from the backend (GET /auth/me), never fabricated
  * on the frontend -- the JWT itself is never decoded/trusted client-side
  * for this purpose.
+ *
+ * RBAC
+ * ----
+ * /auth/me now also returns the RESOLVED role identity: `role_key`, the
+ * jurisdiction (`scope`) the backend will enforce, and the `permissions`
+ * that role holds. Those are exposed here as `role`, `scope` and `can()`,
+ * and every role-aware decision in the UI reads them rather than
+ * re-deriving anything from the role string.
+ *
+ * The consequence worth stating plainly: the UI cannot grant itself a
+ * capability. If the backend did not list a permission, `can()` is
+ * false, the nav entry is absent and the route redirects -- and if all
+ * of that were bypassed anyway, the API would still refuse.
  */
 
 const AuthContext = createContext(null)
+
+// Demo mode stores a short persona key in sessionStorage; map it onto
+// the canonical role keys so a demo preview renders the same dashboard a
+// real account of that role would. Demo sessions get no real data
+// scoping -- they have no backend account and fall back to the public
+// endpoints, which is why the demo badge stays visible throughout.
+const DEMO_ROLE_KEYS = {
+  ministry: 'MINISTRY',
+  state: 'STATE_NODAL',
+  district: 'DISTRICT_AUTHORITY',
+  mp: 'MP',
+}
 
 /** Thrown by login() so callers (Login.jsx) can branch on the HTTP
  * status the same way they did with the raw fetch in Phase 3.
@@ -72,7 +98,12 @@ export function AuthProvider({ children }) {
       if (storedDemoRole) {
         if (!cancelled) {
           setDemoRoleState(storedDemoRole)
-          setUser({ email: 'demo@mplads-ai-shield.local', role: storedDemoRole, is_demo: true })
+          setUser({
+            email: 'demo@mplads-ai-shield.local',
+            role: storedDemoRole,
+            role_key: DEMO_ROLE_KEYS[storedDemoRole] || null,
+            is_demo: true,
+          })
           setStatus('authenticated')
         }
         return
@@ -155,7 +186,12 @@ export function AuthProvider({ children }) {
     if (!isDemoModeEnabled() || !setDemoRole(role)) return false
     clearAuthToken()
     setDemoRoleState(role)
-    setUser({ email: 'demo@mplads-ai-shield.local', role, is_demo: true })
+    setUser({
+      email: 'demo@mplads-ai-shield.local',
+      role,
+      role_key: DEMO_ROLE_KEYS[role] || null,
+      is_demo: true,
+    })
     setStatus('authenticated')
     return true
   }
@@ -173,6 +209,43 @@ export function AuthProvider({ children }) {
     return () => setUnauthorizedHandler(null)
   }, [])
 
+  // ---------------------------------------------------------------
+  // Resolved RBAC identity
+  // ---------------------------------------------------------------
+
+  const role = normalizeRole(user)
+
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : []
+
+  const scope = user?.scope || null
+
+  // A demo session has no backend account, and an older backend may not
+  // send `permissions` at all. In both cases fall back to the role's
+  // known permission set (lib/roles.js mirrors app/rbac.py) rather than
+  // denying everything.
+  //
+  // Failing open here is deliberate and costs nothing: the backend is
+  // the authorization boundary and re-checks every request regardless,
+  // so a missing field cannot grant real access -- but failing CLOSED
+  // would lock a legitimate officer out of the whole application during
+  // a rollout where the frontend ships ahead of the backend.
+  //
+  // Demo sessions additionally never get the write/upload/manage
+  // permissions, because those genuinely require a real account.
+  const DEMO_EXCLUDED = ['UPLOAD_DATA', 'MANAGE_USERS']
+
+  const effectivePermissions =
+    permissions.length > 0
+      ? permissions
+      : demoRole
+        ? fallbackPermissions(role).filter(p => !DEMO_EXCLUDED.includes(p))
+        : fallbackPermissions(role)
+
+  function can(permission) {
+    if (!permission) return true
+    return effectivePermissions.includes(permission)
+  }
+
   const value = {
     user,
     demoRole,
@@ -184,6 +257,18 @@ export function AuthProvider({ children }) {
     login,
     enterDemo,
     logout,
+
+    // --- RBAC ----------------------------------------------------
+    role,
+    roleLabel: user?.role_label || ROLE_VIEW_LABEL[role] || user?.role || '',
+    rawRole: user?.role || '',
+    displayName: user?.full_name || user?.name || user?.email || 'Authorized user',
+    dashboard: user?.dashboard || null,
+    permissions: effectivePermissions,
+    can,
+    scope,
+    scopeAvailable: user?.scope_available !== false && role !== ROLE.UNSCOPED,
+    emptyStateMessage: user?.empty_state_message || null,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

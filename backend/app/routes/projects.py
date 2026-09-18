@@ -28,6 +28,22 @@ frontend compatibility. Current AI risk is available through:
     GET /projects/{project_id}/risk
 
 and comes from the current Risk Fusion output.
+
+RBAC
+----
+Every read in this module is scoped SERVER-SIDE before anything is
+returned. The authorized project universe is derived from the
+authenticated user (app/rbac.py's `get_scope`), never from a
+state/district/constituency value the client sent -- a client filter
+can only narrow what the user is already entitled to, and a filter
+naming someone else's jurisdiction is refused outright.
+
+Single-project reads (GET /projects/{id} and GET /projects/{id}/risk)
+apply the same check, so a caller cannot reach an out-of-scope project
+by typing its ID into the URL or by skipping the list endpoint and
+calling the risk endpoint directly. An out-of-scope ID returns the
+same 404 as a non-existent one, so 403-vs-404 can't be used to probe
+which work IDs are real.
 """
 
 from datetime import date
@@ -50,9 +66,20 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project
 from app.schemas import (
+    ProjectFilterOptions,
     ProjectOut,
     ProjectPage,
     RiskFusionOut,
+    ScopeInfo,
+)
+
+from app.rbac import (
+    UserScope,
+    get_scope,
+    narrow_within_scope,
+    project_not_found,
+    scope_canonical,
+    scope_frames,
 )
 
 from app.aggregations import (
@@ -674,12 +701,39 @@ def _apply_canonical_filters(
     category: str | None,
     status_value: str | None,
     search: str | None,
+    district: str | None = None,
+    constituency: str | None = None,
 ) -> pd.DataFrame:
     """
     Apply project filters directly to the canonical dataset.
+
+    IMPORTANT: this runs on a frame that has ALREADY been reduced to the
+    caller's authorized scope. These filters therefore only ever narrow
+    further -- they cannot be used to reach a record the scope excluded.
     """
 
     result = df.copy()
+
+    # ---------------------------------------------------------------
+    # District / constituency
+    # ---------------------------------------------------------------
+
+    for column, value in (("district", district), ("constituency", constituency)):
+
+        if not value:
+            continue
+
+        if column not in result.columns:
+            continue
+
+        result = result[
+            result[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.casefold()
+            == value.strip().casefold()
+        ]
 
     # ---------------------------------------------------------------
     # State
@@ -800,15 +854,30 @@ def list_projects(
         ),
     ),
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return a page from the CURRENT 43,863-project canonical universe.
+    Return a page from the canonical project universe, reduced to the
+    records the authenticated caller is authorized for.
 
-    Risk score and risk level are overlaid from current Risk Fusion.
+    Ministry/Admin sees the full 43,863-project universe exactly as
+    before. A State Nodal / District Authority / MP account sees only
+    its own jurisdiction, and an account with no jurisdiction assigned
+    sees an empty page -- the scope is applied to the QUERY, not to the
+    rendering.
+
+    Risk score and risk level are overlaid from current Risk Fusion --
+    the same values every role receives for the same project.
     """
 
     canonical_df, risk_df = (
         _load_project_datasets()
+    )
+
+    canonical_df, risk_df = scope_frames(
+        canonical_df,
+        risk_df,
+        scope,
     )
 
     risk_lookup = _risk_map(
@@ -890,6 +959,14 @@ def query_projects(
         alias="status",
         description="Filter by project status.",
     ),
+    district: str | None = Query(
+        None,
+        description="Filter by district (must be inside your authorized scope).",
+    ),
+    constituency: str | None = Query(
+        None,
+        description="Filter by constituency (must be inside your authorized scope).",
+    ),
     search: str | None = Query(
         None,
         max_length=120,
@@ -899,13 +976,40 @@ def query_projects(
         ),
     ),
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return a filtered page from the canonical 43,863-project universe.
+    Return a filtered page of the caller's AUTHORIZED project universe.
+
+    Order of operations matters and is deliberate:
+
+        1. reduce the canonical frame to the caller's scope
+        2. reconcile the client's location filters against that scope
+           (narrow only; a filter naming another jurisdiction is a 403)
+        3. apply the remaining filters
+        4. paginate
+
+    `total` is therefore the total WITHIN scope. It is never the
+    national count with rows withheld at render time.
     """
 
     canonical_df, risk_df = (
         _load_project_datasets()
+    )
+
+    canonical_df, risk_df = scope_frames(
+        canonical_df,
+        risk_df,
+        scope,
+    )
+
+    # Raises 403 if the caller asked for a jurisdiction that is not
+    # theirs; otherwise returns the filters that are safe to apply.
+    state, district, constituency = narrow_within_scope(
+        scope,
+        requested_state=state,
+        requested_district=district,
+        requested_constituency=constituency,
     )
 
     risk_lookup = _risk_map(
@@ -919,6 +1023,8 @@ def query_projects(
             category,
             status_value,
             search,
+            district=district,
+            constituency=constituency,
         )
     )
 
@@ -966,6 +1072,81 @@ def query_projects(
         total=total,
         skip=skip,
         limit=limit,
+        scope=ScopeInfo(**scope.as_metadata()),
+        role_key=scope.role,
+        empty_state_message=(
+            scope.empty_state_message
+            if total == 0
+            else None
+        ),
+    )
+
+
+# =====================================================================
+# GET /projects/filter-options
+# =====================================================================
+#
+# Declared BEFORE the "/{project_id:path}" routes below so it is matched
+# as a literal path rather than swallowed as a project ID.
+
+@router.get(
+    "/filter-options",
+    response_model=ProjectFilterOptions,
+)
+def get_project_filter_options(
+    db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
+):
+    """
+    Filter option lists for the Project Explorer, restricted to the
+    caller's authorized jurisdiction.
+
+    This is the server-side half of role-aware filters. The values
+    returned are exactly the distinct values present in the caller's own
+    authorized records -- so a District Authority is never offered an
+    "All States" dropdown, because their option list contains one state
+    and one district. `locked_filters` tells the UI which controls are
+    fixed by jurisdiction and should be rendered as a static label
+    rather than a selector.
+
+    This endpoint is convenience only, never enforcement: /projects/query
+    re-checks every filter it receives regardless of what was offered
+    here.
+    """
+
+    canonical_df, _risk_df = _load_project_datasets()
+
+    scoped_df = scope_canonical(canonical_df, scope)
+
+    def _distinct(column: str) -> list[str]:
+        if column not in scoped_df.columns:
+            return []
+        values = (
+            scoped_df[column]
+            .dropna()
+            .astype(str)
+            .str.strip()
+        )
+        values = values[(values != "") & (values.str.lower() != "nan")]
+        return sorted(set(values))
+
+    locked = []
+    if scope.scope_type in ("state", "district", "constituency"):
+        locked.append("state")
+    if scope.scope_type == "district":
+        locked.append("district")
+    if scope.scope_type == "constituency":
+        locked.append("constituency")
+
+    return ProjectFilterOptions(
+        states=_distinct("state"),
+        districts=_distinct("district"),
+        constituencies=_distinct("constituency"),
+        categories=_distinct("work_category"),
+        statuses=_distinct("status"),
+        scope=ScopeInfo(**scope.as_metadata()),
+        role_key=scope.role,
+        locked_filters=locked,
     )
 
 
@@ -980,16 +1161,33 @@ def query_projects(
 def get_project_risk(
     project_id: str,
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return the CURRENT Phase 7 Risk Fusion result.
+    Return the CURRENT Risk Fusion result for one project.
 
     The canonical dataset, not the incomplete Project DB, determines
     whether the project exists.
+
+    RBAC: the risk endpoint enforces project-level authorization in its
+    own right. It is NOT a side door around GET /projects/{id} -- a
+    caller who cannot see the project cannot see its risk, even by
+    calling this route directly. The score itself is untouched: Risk
+    Fusion stays the single source of truth and returns identical
+    values for every role that IS authorized to see the project.
     """
 
     canonical_df, risk_df = (
         _load_project_datasets()
+    )
+
+    # Scope first: this reduces the risk frame to the authorized work
+    # IDs, so an out-of-scope ID simply is not present below and falls
+    # through to the same 404 a non-existent ID gets.
+    canonical_df, risk_df = scope_frames(
+        canonical_df,
+        risk_df,
+        scope,
     )
 
     normalized_id = (
@@ -1005,13 +1203,10 @@ def get_project_risk(
 
     if matching.empty:
 
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                f"Current Risk Fusion result for "
-                f"project '{project_id}' is not available."
-            ),
-        )
+        # Deliberately identical whether the project is out of scope or
+        # genuinely has no Risk Fusion row: distinguishing the two would
+        # let an unauthorized caller confirm that a work ID exists.
+        raise project_not_found()
 
     row = matching.iloc[0]
 
@@ -1327,19 +1522,30 @@ def get_project_risk(
 def get_project(
     project_id: str,
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """
-    Return one project from the canonical 43,863-project universe.
+    Return one project from the caller's AUTHORIZED canonical universe.
 
     Current Risk Fusion risk_score/risk_level are overlaid on the
-    response.
+    response -- the same values for every authorized role.
 
     No database row is required for the project to exist in the
     canonical project universe.
+
+    RBAC: a project outside the caller's jurisdiction returns exactly
+    the same 404 body as an ID that does not exist at all. Nothing --
+    not existence, not financials, not risk -- leaks through this route.
     """
 
     canonical_df, risk_df = (
         _load_project_datasets()
+    )
+
+    canonical_df, risk_df = scope_frames(
+        canonical_df,
+        risk_df,
+        scope,
     )
 
     normalized_id = (
@@ -1355,12 +1561,7 @@ def get_project(
 
     if matching.empty:
 
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                f"Project '{project_id}' not found"
-            ),
-        )
+        raise project_not_found()
 
     row = matching.iloc[0]
 

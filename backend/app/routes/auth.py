@@ -20,7 +20,14 @@ from app.auth import (
 from app.database import get_db
 from app.models import User
 from app.rate_limit import rate_limit
-from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.rbac import resolve_user_scope, role_config
+from app.schemas import (
+    LoginRequest,
+    RegisterRequest,
+    ScopeInfo,
+    TokenResponse,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -52,6 +59,12 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     payload.role -- this prevents a caller from granting themselves
     administrative privilege simply by naming it in the request body.
     See app/auth.py's resolve_registration_role() docstring.
+
+    RBAC note: self-registration deliberately assigns NO jurisdiction.
+    A new account therefore resolves to the empty scope and is authorized
+    for zero project records until an operator assigns it a state,
+    district or constituency. Letting a registrant choose their own
+    jurisdiction here would make the whole scoping model self-service.
     """
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing is not None:
@@ -98,5 +111,29 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
-    """Return the authenticated user's safe profile."""
-    return current_user
+    """Return the authenticated user's safe profile, including the RBAC
+    identity the frontend renders from.
+
+    The role string is returned exactly as before. What is added is the
+    RESOLVED view of it: the canonical role key, the jurisdiction the
+    backend will actually enforce, and the permission list. The frontend
+    builds navigation and gates actions from these, so the UI can never
+    claim a capability the API would refuse -- and, just as importantly,
+    an unrecognised role title resolves to no permissions here rather
+    than falling back to the widest one.
+
+    Never includes password_hash, and never exposes another account's
+    details.
+    """
+    scope = resolve_user_scope(current_user)
+    config = role_config(scope.role)
+
+    profile = UserResponse.model_validate(current_user)
+    profile.role_key = scope.role
+    profile.role_label = scope.role_label
+    profile.dashboard = config["dashboard"]
+    profile.permissions = sorted(scope.permissions)
+    profile.scope = ScopeInfo(**scope.as_metadata())
+    profile.scope_available = not scope.is_empty
+    profile.empty_state_message = scope.empty_state_message
+    return profile

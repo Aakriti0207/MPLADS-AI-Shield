@@ -67,6 +67,46 @@ class User(Base):
 
     role = Column(String(50), nullable=False)
 
+    # Display name shown in the role header ("Dr. XYZ / Member of
+    # Parliament / Constituency: ABC"). Nullable: existing accounts have
+    # no name on file and must keep working, so the UI falls back to the
+    # email address exactly as it did before this column existed.
+    full_name = Column(String(150), nullable=True)
+
+    # --- RBAC: assigned jurisdiction --------------------------------
+    #
+    # These four columns are what turns a role TITLE into an authorized
+    # data SCOPE (see app/rbac.py's resolve_user_scope). They are all
+    # nullable and all default to NULL, so:
+    #
+    #   - every pre-existing account keeps loading unchanged, and
+    #   - an account whose jurisdiction has not been assigned yet
+    #     resolves to the EMPTY scope (authorized for zero records)
+    #     rather than silently inheriting a wider one.
+    #
+    # The values stored here are matched literally against the real
+    # `state` / `district` / `constituency` / `mp` values already present
+    # in canonical_projects.csv and on the `projects` table. Nothing is
+    # normalized into an invented code system, and no geography table is
+    # introduced -- the dataset's own values are the vocabulary.
+    #
+    # Which columns matter depends on the role:
+    #   State Nodal Authority -> scope_state
+    #   District Authority    -> scope_district (+ scope_state to
+    #                            disambiguate a district name that
+    #                            occurs in more than one state)
+    #   MP                    -> scope_constituency and/or
+    #                            scope_mp_name (the latter is the honest
+    #                            key for a Rajya Sabha member, whose
+    #                            canonical `constituency` value is the
+    #                            sentinel "Sitting Rajya Sabha" rather
+    #                            than a parliamentary constituency)
+    #   Ministry / Admin      -> none; nationwide by role
+    scope_state = Column(String(100), nullable=True, index=True)
+    scope_district = Column(String(100), nullable=True, index=True)
+    scope_constituency = Column(String(100), nullable=True, index=True)
+    scope_mp_name = Column(String(150), nullable=True)
+
     is_active = Column(Boolean, nullable=False, default=True, server_default=true())
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

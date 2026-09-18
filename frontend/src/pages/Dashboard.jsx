@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 
 import { toNumber } from '../lib/formatters'
-import { normalizeRole } from '../lib/roles'
+import { ROLE } from '../lib/roles'
 import { useAuth } from '../context/AuthContext'
 
 import LoadingState from '../components/ui/LoadingState'
@@ -36,16 +36,22 @@ import {
    ============================================================ */
 
 export default function Dashboard() {
-  const { user } = useAuth()
-
-  const role = normalizeRole(user?.role)
+  /*
+   * `role` is the canonical role key resolved by the BACKEND and passed
+   * through AuthContext -- not a local guess from the role string. An
+   * unrecognised role resolves to UNSCOPED, which lands on the scoped
+   * dashboard's "no jurisdiction assigned" state rather than falling
+   * through to the national view.
+   */
+  const { role } = useAuth()
 
 
   /*
    * Ministry/Admin gets the national command-center dashboard.
-   * Other roles use their scoped dashboard.
+   * State Nodal, District Authority and MP each get their own scoped
+   * cockpit, chosen by the backend's `dashboard` key.
    */
-  if (role !== 'ministry') {
+  if (role !== ROLE.MINISTRY) {
     return (
       <PageContainer>
         <ScopedDashboard role={role} />

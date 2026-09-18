@@ -1,33 +1,52 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { BarChart3, BellRing, FileText, FolderKanban, LayoutDashboard, LogOut, Map, ShieldAlert, ShieldCheck, UploadCloud, X } from 'lucide-react'
-import { appRoutes } from '../../app/routes'
+import { BarChart3, BellRing, ClipboardCheck, FileText, FolderKanban, LayoutDashboard, LogOut, Map, Building2, ShieldAlert, ShieldCheck, UploadCloud, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { NAV_BY_ROLE, ROLE_VIEW_LABEL, normalizeRole } from '../../lib/roles'
+import { NAV_BY_ROLE, ROLE, ROLE_VIEW_LABEL, scopeDescriptor } from '../../lib/roles'
 
 const NAV_ICONS = {
   Dashboard: LayoutDashboard,
+  Overview: LayoutDashboard,
   Projects: FolderKanban,
+  'My Projects': FolderKanban,
+  'State Projects': FolderKanban,
+  'District Projects': FolderKanban,
+  'District Monitoring': Building2,
   'AI Shield': ShieldAlert,
   'Upload & Analyze': UploadCloud,
   Alerts: BellRing,
+  'Priority Alerts': BellRing,
+  'Review Queue': ClipboardCheck,
   Analytics: BarChart3,
   'Map View': Map,
   Reports: FileText,
 }
 
 /**
- * Institutional sidebar: brand mark, role-scoped navigation (which items
- * appear is driven by the REAL user.role returned from GET /auth/me --
- * see lib/roles.js), and the signed-in user + real role label + sign-out.
+ * Institutional sidebar: brand mark, role-scoped navigation, and the
+ * signed-in officer's identity, role and jurisdiction.
+ *
+ * Navigation is built from two backend-supplied facts: the resolved
+ * role (which decides the menu and its labels -- an MP's "My Projects"
+ * and a State officer's "State Projects" are the same scoped route) and
+ * the permission list (which decides whether each entry appears at
+ * all). Nothing here is inferred from the role string locally.
+ *
+ * Hiding a nav entry is convenience, not authorization. ProtectedRoute
+ * blocks direct URL entry, and the API refuses regardless.
  */
 export default function Sidebar({ open, onClose }) {
-  const { logout, user, isDemo, demoRole, enterDemo } = useAuth()
+  const {
+    logout, user, isDemo, demoRole, enterDemo,
+    role, roleLabel, displayName, scope, can,
+  } = useAuth()
   const navigate = useNavigate()
 
-  const role = normalizeRole(user?.role)
-  const allowedNav = NAV_BY_ROLE[role] || NAV_BY_ROLE.ministry
-  const navEntries = appRoutes.filter(r => r.nav && allowedNav.includes(r.nav)).map(r => ({ label: r.nav, path: r.path }))
+  const entries = (NAV_BY_ROLE[role] || NAV_BY_ROLE[ROLE.UNSCOPED]).filter(
+    entry => can(entry.permission),
+  )
+
+  const descriptor = scopeDescriptor(scope)
 
   function handleSignOut() {
     onClose?.()
@@ -39,8 +58,6 @@ export default function Sidebar({ open, onClose }) {
     const nextRole = event.target.value
     if (enterDemo(nextRole)) navigate('/dashboard')
   }
-
-  const identity = user?.full_name || user?.name || user?.email || 'Authorized user'
 
   return (
     <>
@@ -59,14 +76,29 @@ export default function Sidebar({ open, onClose }) {
           <button onClick={onClose} className="md:hidden shrink-0" aria-label="Close navigation menu"><X size={18} aria-hidden="true" /></button>
         </div>
 
+        {/* Role header -- who is signed in, acting as what, over where.
+            Placed above the nav so the jurisdiction is read before any
+            figure on the page is. */}
+        <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+          <div className="text-[12.5px] font-semibold truncate" title={displayName}>{displayName}</div>
+          <div className="text-[11px] text-white/70 leading-4">{roleLabel || ROLE_VIEW_LABEL[role]}</div>
+          {descriptor && (
+            <div className="text-[11px] text-white/55 leading-4 truncate" title={descriptor}>{descriptor}</div>
+          )}
+          {role !== ROLE.UNSCOPED && !descriptor && scope?.type === 'none' && (
+            <div className="text-[11px] text-white/55 leading-4">No jurisdiction assigned</div>
+          )}
+        </div>
+
         <nav aria-label="Primary" className="flex-1 overflow-y-auto py-3">
-          {navEntries.map(({ label, path }) => {
+          {entries.map(({ label, path }) => {
             const Icon = NAV_ICONS[label]
             return (
               <NavLink
-                key={path}
+                key={`${path}-${label}`}
                 to={path}
                 onClick={onClose}
+                end={!path.includes('#')}
                 className={({ isActive }) =>
                   `flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium border-l-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white ${
                     isActive
@@ -94,13 +126,12 @@ export default function Sidebar({ open, onClose }) {
 
         <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
           <div className="text-[10px] uppercase tracking-wide text-white/45">Signed in as</div>
-          <div className="text-[12.5px] font-semibold truncate" title={identity}>{identity}</div>
-          <div className="text-[11px] text-white/55 mb-2">{user?.role || ROLE_VIEW_LABEL[role]}</div>
+          <div className="text-[11px] text-white/55 mb-2 truncate" title={user?.email}>{user?.email}</div>
           {isDemo && (
             <label className="block mb-2">
               <span className="sr-only">Switch demo role</span>
               <select
-                value={demoRole || role}
+                value={demoRole || ''}
                 onChange={handleDemoRoleChange}
                 className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] text-white outline-none"
               >

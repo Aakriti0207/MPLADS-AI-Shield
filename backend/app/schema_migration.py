@@ -54,11 +54,15 @@ from sqlalchemy.engine import Engine
 from app.database import Base, engine as default_engine
 
 # Import models so Project is registered on Base.metadata.
-from app.models import Project  # noqa: F401
+from app.models import Project, User  # noqa: F401
 
 logger = logging.getLogger("mplads.schema_migration")
 
 TABLE_NAME = "projects"
+
+# The `users` table is synced additively too, so the RBAC jurisdiction
+# columns land on an existing database without a migration framework.
+USERS_TABLE_NAME = "users"
 
 # Columns that changed from NOT NULL -> NULL-able in the Phase 2 update.
 # (See app/models.py for why: real Phase 2 projects can lack a state
@@ -87,18 +91,54 @@ def _column_add_ddl(engine: Engine, column) -> str:
     return fragment
 
 
-def _add_missing_columns(engine: Engine, existing_col_names: set) -> list:
+def _add_missing_columns(
+    engine: Engine,
+    existing_col_names: set,
+    model=None,
+    table_name: str = None,
+) -> list:
+    """Add every column defined on `model` that the real table lacks.
+
+    `model`/`table_name` default to Project/"projects" so every existing
+    caller behaves exactly as before; they are parameters only so the
+    same routine can also bring the `users` table up to date with the
+    RBAC jurisdiction columns (see _sync_users_table below).
+    """
+    model = model or Project
+    table_name = table_name or TABLE_NAME
     added = []
-    model_columns = Project.__table__.columns
+    model_columns = model.__table__.columns
     with engine.begin() as conn:
         for column in model_columns:
             if column.name in existing_col_names:
                 continue
             ddl = _column_add_ddl(engine, column)
-            conn.execute(text(f"ALTER TABLE {TABLE_NAME} ADD COLUMN {ddl}"))
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {ddl}"))
             added.append(column.name)
-            logger.info("Added column %s.%s", TABLE_NAME, column.name)
+            logger.info("Added column %s.%s", table_name, column.name)
     return added
+
+
+def _sync_users_table(engine: Engine) -> list:
+    """Additively bring the `users` table up to date with app/models.py.
+
+    The RBAC work adds `full_name`, `scope_state`, `scope_district`,
+    `scope_constituency` and `scope_mp_name` to the User model. Every
+    one of them is NULL-able with no default, so adding them to a table
+    that already holds accounts cannot fail and cannot change any
+    existing row: those accounts simply resolve to the empty scope
+    until an operator assigns them a jurisdiction.
+
+    Never drops or rewrites anything, and is a no-op on the second and
+    every subsequent call -- same contract as the projects sync above.
+    """
+    inspector = inspect(engine)
+    if not inspector.has_table(USERS_TABLE_NAME):
+        # A database with no users table at all is handled by
+        # create_all() in sync_schema()/init_db(); nothing to alter.
+        return []
+    existing = {c["name"] for c in inspector.get_columns(USERS_TABLE_NAME)}
+    return _add_missing_columns(engine, existing, model=User, table_name=USERS_TABLE_NAME)
 
 
 def _relax_not_null_columns(engine: Engine, existing_columns_info: dict) -> list:
@@ -153,7 +193,12 @@ def sync_schema(engine: Engine = None) -> dict:
     if not inspector.has_table(TABLE_NAME):
         logger.info("%s table does not exist yet; creating it fresh.", TABLE_NAME)
         Base.metadata.create_all(bind=engine)
-        return {"created_fresh": True, "columns_added": [], "constraints_relaxed": []}
+        return {
+            "created_fresh": True,
+            "columns_added": [],
+            "constraints_relaxed": [],
+            "user_columns_added": _sync_users_table(engine),
+        }
 
     existing_columns_info = {c["name"]: c for c in inspector.get_columns(TABLE_NAME)}
     columns_added = _add_missing_columns(engine, set(existing_columns_info.keys()))
@@ -166,10 +211,16 @@ def sync_schema(engine: Engine = None) -> dict:
 
     constraints_relaxed = _relax_not_null_columns(engine, existing_columns_info)
 
+    # RBAC: the `users` table gains the jurisdiction columns the same
+    # additive way. Reported under its own key so an existing caller
+    # reading `columns_added` still sees only the projects columns.
+    user_columns_added = _sync_users_table(engine)
+
     return {
         "created_fresh": False,
         "columns_added": columns_added,
         "constraints_relaxed": constraints_relaxed,
+        "user_columns_added": user_columns_added,
     }
 
 

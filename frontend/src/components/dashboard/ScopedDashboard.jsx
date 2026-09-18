@@ -1,222 +1,105 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, Banknote, CheckCircle2, FolderKanban, ShieldAlert, TrendingUp } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import { fetchRoleDashboard } from '../../features/dashboard/api'
-import { formatCurrency } from '../../lib/formatters'
-import { ROLE_VIEW_LABEL } from '../../lib/roles'
+import { ROLE } from '../../lib/roles'
 import { useAuth } from '../../context/AuthContext'
-import { RiskBadge, Progress, Disclaimer } from '../UI'
-import KpiCard from '../ui/KpiCard'
 import LoadingState from '../ui/LoadingState'
 import ErrorState from '../ui/ErrorState'
-import EmptyState from '../ui/EmptyState'
+import ScopeBanner from '../layout/ScopeBanner'
+import MpDashboard from './MpDashboard'
+import StateDashboard from './StateDashboard'
+import DistrictDashboard from './DistrictDashboard'
 
-// Fetches one large page of REAL projects (the backend has no scoped
-// aggregate endpoint per state/district/MP yet) and filters/aggregates
-// them client-side by whichever real field the role scopes by. Every
-// number below is computed from real project rows -- only the "which
-// page of the dataset is currently loaded" limitation is a stand-in for
-// a proper server-side scoped query.
-const SCAN_LIMIT = 300
-const SCOPE_FIELD = { state: 'state', district: 'district', mp: 'constituency' }
-const SCOPE_LABEL = { state: 'State', district: 'District', mp: 'Constituency' }
+/**
+ * Router for the three jurisdictional dashboards.
+ *
+ * What changed, and why it matters
+ * --------------------------------
+ * The previous version of this component fetched a page of projects and
+ * filtered them in React against a jurisdiction the USER picked from a
+ * dropdown. That was a preview, not access control: the data had already
+ * crossed the wire, and the "scope" was whatever the officer selected.
+ *
+ * Now the backend decides. GET /dashboard/role-overview returns figures
+ * already aggregated over the authenticated account's authorized
+ * records, plus the scope it used. There is no jurisdiction selector
+ * here, because there is no jurisdiction to select -- an officer has
+ * exactly one, and it is assigned, not chosen.
+ *
+ * The `dashboard` key in the response (not the local role guess) picks
+ * the component, so the backend and the UI cannot disagree about which
+ * cockpit an account gets.
+ */
+export default function ScopedDashboard({ role: roleProp }) {
+  const { isDemo, role: sessionRole } = useAuth()
+  const role = roleProp || sessionRole
 
-export default function ScopedDashboard({ role }) {
-  const { isDemo } = useAuth()
-  const [rows, setRows] = useState([])
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [scope, setScope] = useState('')
-  const [scopeAvailable, setScopeAvailable] = useState(false)
 
   useEffect(() => {
-    if (isDemo) {
-      setScopeAvailable(false)
-      setLoading(false)
-      return undefined
-    }
     let cancelled = false
     setLoading(true)
     setError(null)
+
     fetchRoleDashboard()
-      .then(data => {
-        if (cancelled) return
-        setScopeAvailable(Boolean(data.scope_available))
-        setRows(data.scope_available ? (data.scoped_projects || []) : [])
-      })
+      .then(payload => { if (!cancelled) setData(payload) })
       .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
       .finally(() => { if (!cancelled) setLoading(false) })
+
     return () => { cancelled = true }
-  }, [isDemo])
+  }, [role])
 
-  const field = SCOPE_FIELD[role] || 'state'
-  const options = useMemo(() => [...new Set(rows.map(r => r[field]).filter(Boolean))].sort(), [rows, field])
+  if (loading) return <LoadingState text="Loading your scoped dashboard…" />
+  if (error) return <ErrorState title="Could not load your dashboard" message={error} />
+  if (!data) return null
 
-  useEffect(() => {
-    if (!scope && options.length > 0) setScope(options[0])
-  }, [options, scope])
+  // No jurisdiction assigned: say so plainly rather than rendering a
+  // grid of zeroes, which would read as "your district has no projects".
+  if (data.scope_available === false) {
+    return <UnassignedScope data={data} />
+  }
 
-  const scoped = scope ? rows.filter(r => r[field] === scope) : []
+  const key = data.dashboard || DASHBOARD_BY_ROLE[role] || 'unscoped'
 
-  const districtRows = useMemo(() => {
-    if (role !== 'state' || !scope) return []
-    const map = {}
-    rows.filter(r => r.state === scope).forEach(r => {
-      const key = r.district || 'Unspecified'
-      if (!map[key]) map[key] = { district: key, projects: 0, sanctioned: 0, expenditure: 0, review: 0 }
-      map[key].projects += 1
-      map[key].sanctioned += r.sanctioned || 0
-      map[key].expenditure += r.expenditure || 0
-      if (r.risk === 'High' || r.risk === 'Critical') map[key].review += 1
-    })
-    return Object.values(map)
-  }, [rows, role, scope])
+  if (key === 'mp') return <MpDashboard data={data} />
+  if (key === 'state') return <StateDashboard data={data} />
+  if (key === 'district') return <DistrictDashboard data={data} />
 
-  if (loading) return <LoadingState text="Loading scoped project data…" />
-  if (error) return <ErrorState title="Could not load projects" message={error} />
-  if (!scopeAvailable) return <UnavailableScopedDashboard role={role} />
-
-  const totalSanctioned = scoped.reduce((a, r) => a + (r.sanctioned || 0), 0)
-  const totalExpenditure = scoped.reduce((a, r) => a + (r.expenditure || 0), 0)
-  const completed = scoped.filter(r => r.status === 'Completed').length
-  const review = scoped.filter(r => r.risk === 'High' || r.risk === 'Critical').length
-  const utilizationPct = totalSanctioned ? Math.round((totalExpenditure / totalSanctioned) * 100) : null
-
-  return (
-    <div>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
-        <div>
-          <h1 className="text-[19px] font-semibold text-ink">{ROLE_VIEW_LABEL[role]} Overview</h1>
-          <p className="text-[13px] text-muted mt-0.5">Filtered to a single {SCOPE_LABEL[role]?.toLowerCase()} from the currently loaded project page ({rows.length} of the portfolio).</p>
-        </div>
-        {options.length > 0 && (
-          <select value={scope} onChange={e => setScope(e.target.value)} className="border border-line rounded-md px-3 py-2 text-[13px] bg-white">
-            {options.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-        )}
-      </div>
-
-      {options.length === 0 ? (
-        <div className="card p-10 text-center text-sm text-muted">No {SCOPE_LABEL[role]?.toLowerCase()} data found in the currently loaded projects.</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <KpiCard label="Projects in scope" value={scoped.length.toLocaleString()} icon={FolderKanban} tone="navy" />
-            <KpiCard label="Sanctioned Amount" value={formatCurrency(totalSanctioned)} icon={Banknote} tone="navy" />
-            <KpiCard label="Expenditure" value={formatCurrency(totalExpenditure)} hint={utilizationPct !== null ? `${utilizationPct}% utilized` : undefined} icon={TrendingUp} tone="blue" />
-            <KpiCard label="Requiring Review" value={review.toLocaleString()} icon={ShieldAlert} tone="red" />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <KpiCard label="Completed" value={completed.toLocaleString()} icon={CheckCircle2} tone="green" />
-            <KpiCard label="Active" value={scoped.filter(r => r.status !== 'Completed').length.toLocaleString()} icon={AlertTriangle} tone="amber" />
-          </div>
-
-          {role === 'state' && districtRows.length > 0 && (
-            <div className="card mb-4">
-              <div className="px-4 pt-4 pb-1"><h3 className="text-[13.5px] font-semibold text-ink">District Comparison</h3><p className="text-xs text-muted mt-0.5">{scope}</p></div>
-              <div className="overflow-x-auto">
-                <table className="data-table">
-                  <thead><tr>{['District', 'Projects', 'Sanctioned', 'Expenditure', 'Requiring Review'].map(h => <th key={h}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {districtRows.map(d => (
-                      <tr key={d.district}>
-                        <td className="font-medium">{d.district}</td>
-                        <td>{d.projects}</td>
-                        <td>{formatCurrency(d.sanctioned)}</td>
-                        <td>{formatCurrency(d.expenditure)}</td>
-                        <td>{d.review}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          <div className="card overflow-hidden">
-            <div className="px-4 pt-4 pb-1"><h3 className="text-[13.5px] font-semibold text-ink">Projects</h3><p className="text-xs text-muted mt-0.5">{scope}</p></div>
-            <div className="overflow-x-auto">
-              <table className="data-table">
-                <thead><tr>{['Work ID', 'Category', 'Status', 'Sanctioned', 'Expenditure', 'Risk', ''].map(h => <th key={h}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {scoped.slice(0, 12).map(p => (
-                    <tr key={p.id} className="hover:bg-panel">
-                      <td className="font-mono font-semibold text-navy whitespace-nowrap">{p.id}</td>
-                      <td>{p.workType || '—'}</td>
-                      <td>{p.status || '—'}</td>
-                      <td>{formatCurrency(p.sanctioned)}</td>
-                      <td>{formatCurrency(p.expenditure)}</td>
-                      <td><RiskBadge risk={p.risk} /></td>
-                      <td><Link to={`/projects/${encodeURIComponent(p.id)}`} className="text-xs font-semibold text-navy">View →</Link></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-4"><Disclaimer compact /></div>
-        </>
-      )}
-    </div>
-  )
+  return <UnassignedScope data={data} />
 }
 
-function UnavailableScopedDashboard({ role }) {
-  const title = {
-    state: 'State Monitoring Overview',
-    district: 'District Operations Overview',
-    mp: 'Constituency Overview',
-  }[role] || `${ROLE_VIEW_LABEL[role]} Overview`
-  const scopeLabel = role === 'state' ? 'State' : role === 'district' ? 'District' : 'Constituency'
-  const projectTitle = role === 'mp' ? 'My Projects' : role === 'district' ? 'Project Monitoring' : 'Projects in Scope'
-  const trendTitle = role === 'mp' ? 'Recommended vs Sanctioned vs Completed' : 'Sanction vs Expenditure Trend'
+const DASHBOARD_BY_ROLE = {
+  [ROLE.MP]: 'mp',
+  [ROLE.STATE_NODAL]: 'state',
+  [ROLE.DISTRICT_AUTHORITY]: 'district',
+}
 
+function UnassignedScope({ data }) {
   return (
     <div>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-5">
-        <div>
-          <h1 className="text-[19px] font-semibold text-ink">{title}</h1>
-          <p className="text-[13px] text-muted mt-0.5 max-w-2xl">This view uses only records authorized by the backend scope for the authenticated account.</p>
-        </div>
-        <select disabled value="unavailable" aria-label={`${scopeLabel} selector`} className="border border-line rounded-md px-3 py-2 text-[13px] bg-white text-muted">
-          <option value="unavailable">{scopeLabel} scope unavailable</option>
-        </select>
-      </div>
+      <header className="mb-4">
+        <h1 className="text-[19px] font-semibold text-ink">
+          {data.role_label || 'Overview'}
+        </h1>
+        <p className="text-[13px] text-muted mt-0.5">
+          This view shows only records the backend authorizes for your account.
+        </p>
+      </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <KpiCard label={role === 'mp' ? 'Recommended Works' : 'Projects in Scope'} value="—" icon={FolderKanban} tone="navy" />
-        <KpiCard label="Sanctioned Amount" value="—" icon={Banknote} tone="navy" />
-        <KpiCard label="Expenditure" value="—" icon={TrendingUp} tone="blue" />
-        <KpiCard label={role === 'mp' ? 'Completed Works' : 'Requiring Review'} value="—" icon={role === 'mp' ? CheckCircle2 : AlertTriangle} tone="amber" />
-      </div>
+      <ScopeBanner scope={data.scope} />
 
-      <div className="grid lg:grid-cols-2 gap-4 mb-4">
-        <div className="card p-4">
-          <h3 className="text-[13.5px] font-semibold text-ink">{trendTitle}</h3>
-          <p className="text-xs text-muted mt-0.5">Monthly, backend-scoped</p>
-          <EmptyState text="Trend data not available from the current source." />
-        </div>
-        <div className="card p-4">
-          <h3 className="text-[13.5px] font-semibold text-ink">Work-Category Distribution</h3>
-          <p className="text-xs text-muted mt-0.5">Backend-scoped category data</p>
-          <EmptyState text="Work-category data not available from the current source." />
-        </div>
-      </div>
-
-      {role === 'state' && (
-        <div className="card p-4 mb-4">
-          <h3 className="text-[13.5px] font-semibold text-ink">District Comparison</h3>
-          <p className="text-xs text-muted mt-0.5">Backend-scoped district data</p>
-          <EmptyState text="District data not available from the current source." />
-        </div>
-      )}
-
-      <div className="card p-4">
-        <h3 className="text-[13.5px] font-semibold text-ink">{projectTitle}</h3>
-        <p className="text-xs text-muted mt-0.5">Only backend-authorized records can appear here.</p>
-        <EmptyState text={`${scopeLabel} data not available from the current source.`} />
+      <div className="card p-8 text-center">
+        <p className="text-[13px] text-ink font-medium">No jurisdiction assigned</p>
+        <p className="text-[12.5px] text-muted mt-1.5 max-w-lg mx-auto">
+          {data.unavailable_reason
+            || data.empty_state_message
+            || 'No state, district or constituency has been assigned to this account, so no project records are authorized for it yet.'}
+        </p>
+        <p className="text-[12px] text-muted mt-3">
+          A Ministry administrator can assign one; jurisdictions are never
+          self-selected.
+        </p>
       </div>
     </div>
   )

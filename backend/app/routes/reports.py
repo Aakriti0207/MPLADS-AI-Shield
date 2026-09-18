@@ -93,6 +93,15 @@ from app.aggregations import (
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import Project, User
+from app.rbac import (
+    EXPORT_REPORTS,
+    VIEW_REPORTS,
+    UserScope,
+    forbidden,
+    get_scope,
+    narrow_within_scope,
+    scope_project_query,
+)
 from app.routes.projects import get_project, get_project_risk
 from app.schemas import ReportOut, ReportProjectRow, ReportsMeta, ReportTypeInfo, RiskFusionOut
 
@@ -126,44 +135,75 @@ RISK_REVIEW_LEVELS = ("HIGH", "CRITICAL")
 
 
 def _is_ministry(role: Optional[str]) -> bool:
-    """Same substring rule as GET /dashboard/role-overview (see
-    app/routes/dashboard.py) -- kept identical so a role that dashboard
-    treats as national-scope is treated the same way here."""
+    """Retained for backward compatibility with anything that imported
+    it. Authorization itself no longer goes through this function --
+    see _require_reporting below."""
     role = (role or "").lower()
     return "admin" in role or "ministry" in role
 
 
-def _require_ministry(current_user: User) -> None:
-    if not _is_ministry(current_user.role):
-        raise HTTPException(
-            status_code=403,
-            detail="Scoped reporting is not available for this account.",
-        )
+def _require_reporting(scope: UserScope, *, exporting: bool = False) -> None:
+    """Authorize report generation for the caller.
+
+    Reporting is no longer Ministry-only: a State Nodal officer, District
+    Authority and MP each generate reports for THEIR OWN jurisdiction.
+    What changed is not who may press the button but what comes out of
+    it -- the query underneath is scope-filtered, so an exported file can
+    only ever contain authorized records.
+
+    An account with no jurisdiction assigned holds the permission but
+    resolves to zero authorized rows, so it receives an empty report
+    rather than someone else's data.
+    """
+    if not scope.can(VIEW_REPORTS):
+        raise forbidden("You don't have permission to generate reports.")
+    if exporting and not scope.can(EXPORT_REPORTS):
+        raise forbidden("You don't have permission to export reports.")
 
 
 @router.get("/meta", response_model=ReportsMeta)
-def get_reports_meta(current_user: User = Depends(get_current_user)):
-    """What report generation is available for the authenticated caller."""
+def get_reports_meta(
+    current_user: User = Depends(get_current_user),
+    scope: UserScope = Depends(get_scope),
+):
+    """What report generation is available for the authenticated caller.
+
+    Reports the caller's OWN scope label, and advertises only the filters
+    that are still theirs to choose. A District Authority is not offered
+    a state filter, because their state is fixed by jurisdiction -- the
+    filter list here mirrors what /reports/generate will actually accept.
+    """
 
     role = current_user.role or ""
 
-    if not _is_ministry(role):
+    if not scope.can(VIEW_REPORTS) or scope.is_empty:
         return ReportsMeta(
             role=role,
             scope_available=False,
             unavailable_reason=(
-                "Scoped reporting is not available for this account. "
-                "Report generation currently requires national (Ministry/Admin) scope."
+                scope.empty_state_message
+                if scope.is_empty
+                else "Report generation is not available for this account."
             ),
         )
+
+    # Filters fixed by the caller's jurisdiction are removed from the
+    # advertised list rather than offered and then rejected.
+    locked = set()
+    if scope.scope_type in ("state", "district", "constituency"):
+        locked.add("state")
+    if scope.scope_type == "district":
+        locked.add("district")
+    if scope.scope_type == "constituency":
+        locked.add("constituency")
 
     return ReportsMeta(
         role=role,
         scope_available=True,
-        scope_label="National",
+        scope_label=scope.scope_label,
         report_types=list(REPORT_TYPES.values()),
-        filters_supported=FILTERS_SUPPORTED,
-        export_formats=EXPORT_FORMATS,
+        filters_supported=[f for f in FILTERS_SUPPORTED if f not in locked],
+        export_formats=EXPORT_FORMATS if scope.can(EXPORT_REPORTS) else ["json"],
     )
 
 
@@ -219,6 +259,7 @@ def _scope_query(
     risk_level: Optional[str],
     date_from: Optional[date],
     date_to: Optional[date],
+    user_scope: Optional[UserScope] = None,
 ):
     """The full filtered Project query, including risk_level -- resolved
     against the CURRENT Risk Fusion output rather than the unpopulated
@@ -231,7 +272,16 @@ def _scope_query(
     query the canonical/risk CSVs as the base project universe as
     app/routes/dashboard.py already does for the Dashboard.
     """
-    query = _apply_filters(db.query(Project), state, district, constituency, category, date_from, date_to)
+    # RBAC FIRST. The authenticated user's jurisdiction is applied to the
+    # base query before any client-supplied filter, so every downstream
+    # aggregate, preview, CSV row and PDF page is built from authorized
+    # records only. This is the single place the export path is made
+    # safe -- there is no second, unscoped query anywhere in this module.
+    base = db.query(Project)
+    if user_scope is not None:
+        base = scope_project_query(base, user_scope)
+
+    query = _apply_filters(base, state, district, constituency, category, date_from, date_to)
 
     if not risk_level:
         return query
@@ -254,6 +304,21 @@ def _scope_query(
         .tolist()
     )
     return query.filter(Project.project_id.in_(matching_ids))
+
+
+def _report_scope_label(user_scope: Optional[UserScope], filter_label: str) -> str:
+    """Combine the caller's jurisdiction with whatever they filtered to.
+
+    A scoped role's report is never titled "National", even if they sent
+    no filters at all -- the authenticated jurisdiction always leads.
+    """
+    if user_scope is None or user_scope.is_national:
+        return filter_label
+    if user_scope.is_empty:
+        return "No authorized jurisdiction"
+    if filter_label == "National":
+        return user_scope.scope_label
+    return f"{user_scope.scope_label} -- {filter_label}"
 
 
 def _scope_label(state, district, constituency, category, risk_level, date_from, date_to) -> str:
@@ -331,11 +396,12 @@ def _build_report(
     risk_df: Optional[pd.DataFrame],
     report_type: str,
     state, district, constituency, category, risk_level, date_from, date_to,
+    user_scope: Optional[UserScope] = None,
 ) -> ReportOut:
     if report_type not in REPORT_TYPES:
         raise HTTPException(status_code=400, detail=f"Unsupported report type '{report_type}'.")
 
-    base_query = _scope_query(db, risk_df, state, district, constituency, category, risk_level, date_from, date_to)
+    base_query = _scope_query(db, risk_df, state, district, constituency, category, risk_level, date_from, date_to, user_scope)
 
     total_projects, total_sanctioned, total_expenditure, avg_financial_progress = base_query.with_entities(
         func.count(Project.project_id),
@@ -437,7 +503,13 @@ def _build_report(
         report_type=report_type,
         title=REPORT_TYPES[report_type].label,
         generated_at=datetime.now(timezone.utc),
-        scope=_scope_label(state, district, constituency, category, risk_level, date_from, date_to),
+        # The jurisdiction is stated from the AUTHENTICATED scope, never
+        # from the filters the client happened to send, so an exported
+        # file can never be labelled as covering something it does not.
+        scope=_report_scope_label(
+            user_scope,
+            _scope_label(state, district, constituency, category, risk_level, date_from, date_to),
+        ),
         filters_applied={
             "state": state,
             "district": district,
@@ -505,6 +577,7 @@ def _csv_response(
     risk_df: Optional[pd.DataFrame],
     report: ReportOut,
     state, district, constituency, category, risk_level, date_from, date_to,
+    user_scope: Optional[UserScope] = None,
 ) -> StreamingResponse:
     # The MAX_EXPORT_ROWS slice is still taken by Work ID at the SQL level
     # (as before -- this file never fabricates a full-dataset sort by risk
@@ -512,7 +585,7 @@ def _csv_response(
     # in that slice, and its ordering WITHIN the slice, now reflect the
     # actual Risk Fusion output instead of the always-empty legacy column.
     rows = (
-        _scope_query(db, risk_df, state, district, constituency, category, risk_level, date_from, date_to)
+        _scope_query(db, risk_df, state, district, constituency, category, risk_level, date_from, date_to, user_scope)
         .order_by(Project.project_id)
         .limit(MAX_EXPORT_ROWS)
         .all()
@@ -949,26 +1022,40 @@ def generate_report(
     date_to: Optional[date] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
     """Generate a report for the authenticated caller's authorized scope.
 
     format=json returns the ReportOut payload used to render the
     on-screen preview; format=csv/pdf return an actual downloadable
     file built from the same filtered query.
+
+    The exported file cannot contain a record outside the caller's
+    jurisdiction: the scope is applied to the base query, so the preview,
+    the CSV and the PDF are all cut from the same authorized result set.
+    A location filter naming another jurisdiction is refused with 403
+    rather than quietly ignored.
     """
-    _require_ministry(current_user)
+    _require_reporting(scope, exporting=format in ("csv", "pdf"))
 
     if format not in EXPORT_FORMATS:
         raise HTTPException(status_code=400, detail=f"Unsupported export format '{format}'.")
+
+    state, district, constituency = narrow_within_scope(
+        scope,
+        requested_state=state,
+        requested_district=district,
+        requested_constituency=constituency,
+    )
 
     # Loaded once per request and threaded through, rather than re-read by
     # both _build_report and _csv_response.
     risk_df = _load_risk_df()
 
-    report = _build_report(db, risk_df, report_type, state, district, constituency, category, risk_level, date_from, date_to)
+    report = _build_report(db, risk_df, report_type, state, district, constituency, category, risk_level, date_from, date_to, scope)
 
     if format == "csv":
-        return _csv_response(db, risk_df, report, state, district, constituency, category, risk_level, date_from, date_to)
+        return _csv_response(db, risk_df, report, state, district, constituency, category, risk_level, date_from, date_to, scope)
     if format == "pdf":
         return _pdf_response(report)
     return report
@@ -980,9 +1067,14 @@ def generate_project_report(
     format: str = Query("pdf", description="One of: json, pdf"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    scope: UserScope = Depends(get_scope),
 ):
-    """Single-project report -- available to any authenticated user,
-    exactly like GET /projects/{id} itself is not role-gated.
+    """Single-project report, scoped exactly like GET /projects/{id}.
+
+    It calls that route's own function with the caller's scope, so a
+    project outside the jurisdiction raises the same 404 here as it does
+    there -- the PDF export is not a way around project-level
+    authorization.
 
     Sources project details from the canonical project universe and the
     full Risk Fusion + Explainable AI breakdown from the current Risk
@@ -997,7 +1089,7 @@ def generate_project_report(
     # Raises 404 if the work ID isn't in the canonical universe, 503 if the
     # canonical/risk datasets themselves are unavailable -- both correct to
     # propagate as-is.
-    project = get_project(project_id, db)
+    project = get_project(project_id, db, scope)
 
     # A project can legitimately have no Risk Fusion row; that's reported
     # honestly in the PDF rather than treated as an error for the whole
@@ -1005,7 +1097,7 @@ def generate_project_report(
     # a real error and is allowed to propagate.
     risk: Optional[RiskFusionOut] = None
     try:
-        risk = get_project_risk(project_id, db)
+        risk = get_project_risk(project_id, db, scope)
     except HTTPException as exc:
         if exc.status_code != status.HTTP_404_NOT_FOUND:
             raise

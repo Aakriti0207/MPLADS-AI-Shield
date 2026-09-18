@@ -54,6 +54,28 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class ScopeInfo(BaseModel):
+    """The jurisdiction an authenticated account is authorized for.
+
+    Echoed on scope-aware responses so the UI can state the scope it is
+    rendering ("Showing data for Satara") from the BACKEND's own answer
+    rather than from whatever the client thinks it selected.
+
+    Deliberately carries jurisdiction identity only -- never the
+    permission evaluation, the user id, or any other authorization
+    internal.
+    """
+
+    type: str
+    name: Optional[str] = None
+    label: Optional[str] = None
+    indicator: Optional[str] = None
+    state: Optional[str] = None
+    district: Optional[str] = None
+    constituency: Optional[str] = None
+    mp_name: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     """Safe, public-facing user profile. Never includes password_hash."""
 
@@ -64,6 +86,24 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+
+    # --- RBAC identity (additive; every field Optional/defaulted, so
+    # any existing consumer of this schema is unaffected) ------------
+    full_name: Optional[str] = None
+
+    # The canonical role the free-text `role` above resolves to
+    # (MINISTRY / STATE_NODAL / DISTRICT_AUTHORITY / MP / UNSCOPED),
+    # the jurisdiction it is authorized for, and the permissions that
+    # role holds. The frontend renders navigation and actions from
+    # these rather than re-deriving them from the role string, so the
+    # two layers cannot disagree about what a role may do.
+    role_key: Optional[str] = None
+    role_label: Optional[str] = None
+    dashboard: Optional[str] = None
+    permissions: list[str] = []
+    scope: Optional[ScopeInfo] = None
+    scope_available: Optional[bool] = None
+    empty_state_message: Optional[str] = None
 
 
 class ProjectOut(BaseModel):
@@ -301,8 +341,89 @@ class StateRiskStat(BaseModel):
     critical: int
 
 
+class DistrictPerformanceRow(BaseModel):
+    """One district's real aggregate, used by the State Nodal dashboard's
+    district comparison.
+
+    Every figure is computed from actual canonical/Risk Fusion records
+    for that district. There is deliberately no composite "district
+    ranking score": no such metric exists in the source data, and
+    fabricating one would present an invented number as a finding.
+    `average_risk` is None -- rendered as "Data unavailable" -- when no
+    project in the district carries a Risk Fusion score.
+    """
+
+    district: str
+    projects: int
+    sanctioned: Decimal
+    expenditure: Decimal
+    utilization_percent: Optional[Decimal] = None
+    completed: int
+    ongoing: int
+    high_risk: int
+    average_risk: Optional[Decimal] = None
+
+
+class ScopedProjectRow(BaseModel):
+    """Compact project row for the role dashboards' tables and queues.
+
+    Uses the CANONICAL project id in `project_id` -- the same value the
+    Project Details page, Risk Fusion, Alerts and Reports all key on --
+    so a project is the same project everywhere, for every role.
+    """
+
+    project_id: str
+    work_description: Optional[str] = None
+    state: Optional[str] = None
+    district: Optional[str] = None
+    constituency: Optional[str] = None
+    mp_name: Optional[str] = None
+    work_category: Optional[str] = None
+    status: Optional[str] = None
+    sanctioned_amount: Optional[Decimal] = None
+    expenditure: Optional[Decimal] = None
+    utilization_percent: Optional[Decimal] = None
+    risk_score: Optional[float] = None
+    risk_level: Optional[str] = None
+    top_risk_signal: Optional[str] = None
+    triggered_component: Optional[str] = None
+    last_updated: Optional[date] = None
+
+
+class ScopedKpis(BaseModel):
+    """Headline figures for a role dashboard, computed over the caller's
+    authorized records only -- never over the national set with values
+    hidden afterwards."""
+
+    total_projects: int
+    active_projects: int
+    completed_projects: int
+    total_sanctioned: Decimal
+    total_expenditure: Decimal
+    utilization_percent: Optional[Decimal] = None
+    projects_requiring_attention: int
+    high_risk_projects: int
+    districts_requiring_attention: Optional[int] = None
+    districts_in_scope: Optional[int] = None
+    constituencies_in_scope: Optional[int] = None
+
+
+class CategoryStat(BaseModel):
+    label: str
+    count: int
+    sanctioned: Optional[Decimal] = None
+    expenditure: Optional[Decimal] = None
+
+
 class RoleDashboardResponse(BaseModel):
-    """Role-aware dashboard data without trusting frontend role selection."""
+    """Role-aware dashboard data without trusting frontend role selection.
+
+    The Ministry/Admin contract (role, scope_available, scope_label,
+    stats, by_state_risk, priority_projects, unavailable_reason) is
+    unchanged -- existing consumers keep working byte-for-byte. Every
+    field below it is additive and defaulted, and carries the scoped
+    MP / State Nodal / District Authority dashboards.
+    """
 
     role: str
     scope_available: bool
@@ -311,6 +432,24 @@ class RoleDashboardResponse(BaseModel):
     by_state_risk: list[StateRiskStat] = []
     priority_projects: list[ProjectOut] = []
     unavailable_reason: Optional[str] = None
+
+    # --- Additive RBAC payload --------------------------------------
+    role_key: Optional[str] = None
+    role_label: Optional[str] = None
+    dashboard: Optional[str] = None
+    permissions: list[str] = []
+    scope: Optional[ScopeInfo] = None
+    scope_indicator: Optional[str] = None
+    empty_state_message: Optional[str] = None
+
+    kpis: Optional[ScopedKpis] = None
+    status_distribution: list["StatusCount"] = []
+    by_work_category: list[CategoryStat] = []
+    risk_level_counts: dict[str, int] = {}
+    district_performance: list[DistrictPerformanceRow] = []
+    attention_projects: list[ScopedProjectRow] = []
+    scoped_projects: list[ScopedProjectRow] = []
+    data_notes: list[str] = []
 
 
 class PublicProjectOut(BaseModel):
@@ -353,6 +492,14 @@ class ProjectPage(BaseModel):
     total: int
     skip: int
     limit: int
+
+    # Which jurisdiction this page was computed over, and which role
+    # asked. Additive/Optional, so any existing consumer is unaffected.
+    # `total` above is the total WITHIN this scope, not the national
+    # total with rows hidden client-side.
+    scope: Optional[ScopeInfo] = None
+    role_key: Optional[str] = None
+    empty_state_message: Optional[str] = None
 
 
 class PublicProjectPage(BaseModel):
@@ -616,6 +763,12 @@ class AnalyticsResponse(BaseModel):
     physical_progress_summary: ProgressSummary
     status_distribution: list[StatusCount]
 
+    # Scope metadata: every aggregate above is computed from the
+    # caller's authorized records only. Additive/Optional.
+    scope: Optional[ScopeInfo] = None
+    role_key: Optional[str] = None
+    empty_state_message: Optional[str] = None
+
 
 class AlertOut(BaseModel):
     """
@@ -816,3 +969,22 @@ class UploadAnalyzeResponse(BaseModel):
     persistence_note: str
     risk_scoring_note: str
     results: list[UploadRowResult]
+
+class ProjectFilterOptions(BaseModel):
+    """Filter option lists for the Project Explorer, restricted to the
+    caller's authorized jurisdiction.
+
+    This is what stops a role-aware filter bar from offering a choice
+    the backend would refuse: an MP is never handed an "All States"
+    dropdown, because the only values in these lists are the ones
+    actually present in their own authorized records.
+    """
+
+    states: list[str] = []
+    districts: list[str] = []
+    constituencies: list[str] = []
+    categories: list[str] = []
+    statuses: list[str] = []
+    scope: Optional[ScopeInfo] = None
+    role_key: Optional[str] = None
+    locked_filters: list[str] = []
