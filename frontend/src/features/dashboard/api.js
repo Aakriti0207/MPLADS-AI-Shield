@@ -1,5 +1,6 @@
 import { apiFetch } from '../../lib/api'
 import { normalizeDashboardStats, normalizeProject } from '../../lib/normalizers'
+import { normalizePublicOverview } from '../../lib/publicNormalizers'
 import { isDemoModeEnabled, getDemoRole } from '../../lib/demoSession'
 
 export async function fetchDashboardStats() {
@@ -45,6 +46,15 @@ export async function fetchRoleDashboard() {
   }
 }
 
+/**
+ * Anonymous overview.
+ *
+ * Phase 5: normalized through `normalizePublicOverview` (the dedicated
+ * public contract) instead of the risk-aware `normalizeDashboardStats`,
+ * so `risk_level_counts` is not carried into the public UI even if a
+ * future backend change reintroduced it. `GET /public/overview` no longer
+ * returns that field either.
+ */
 export async function fetchPublicOverview() {
   const response = await apiFetch('/public/overview?limit=8')
 
@@ -54,7 +64,7 @@ export async function fetchPublicOverview() {
     )
   }
 
-  return normalizeDashboardStats(
+  return normalizePublicOverview(
     await response.json()
   )
 }

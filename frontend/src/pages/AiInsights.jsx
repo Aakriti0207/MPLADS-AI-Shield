@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Eye } from 'lucide-react'
-import { fetchPublicOverview } from '../features/dashboard/api'
-import { formatNumber, toNumber } from '../lib/formatters'
-import { CHART_COLORS, RISK_TONE } from '../lib/theme'
+import { fetchPublicInsights } from '../features/public/api'
+import { formatCurrency, formatNumber } from '../lib/formatters'
+import { CHART_COLORS } from '../lib/theme'
 import { Disclaimer } from '../components/UI'
 import EmptyState from '../components/ui/EmptyState'
 import ChartCard from '../components/ui/ChartCard'
@@ -11,60 +11,65 @@ import Methodology from '../components/ai/Methodology'
 import PublicNavbar from '../components/layout/PublicNavbar'
 
 /**
- * Public AI Insights (Phase 6).
+ * Public AI Insights (Phase 6, revised in Phase 5's public overhaul).
  *
  * Reachable anonymously at /ai-insights -- see app/routes.jsx
- * (publicRoutes) -- and must never redirect to /login. Backed entirely
- * by GET /public/overview (the same anonymous-safe aggregate endpoint
- * Home.jsx already uses), never the authenticated /projects/:id/risk or
- * /dashboard/role-overview endpoints. It therefore never has access to,
- * and never renders, per-project risk reasons, stakeholder/private
- * information, review notes, or anything else scoped to an authenticated
- * account -- only national aggregates.
+ * (publicRoutes) -- and must never redirect to /login.
  *
- * Every number below comes straight from that response; nothing is
- * hardcoded. Sections the current backend response doesn't support
- * (category-level anomaly breakdown, historical trend) render an
- * explicit "not available" state instead of inventing numbers.
+ * Phase 5 change
+ * --------------
+ * This page previously read `risk_level_counts` off GET /public/overview
+ * and rendered "Projects Requiring Review", "High / Critical Risk
+ * Indicators" and a national Risk Distribution chart to ANONYMOUS
+ * visitors. Risk levels are internal review signals, so that field was
+ * removed from the public contract and those three elements were removed
+ * with it.
+ *
+ * The page is now backed by GET /public/insights (the dedicated public
+ * contract) and shows only public portfolio composition -- works by
+ * category and lifecycle status. The Methodology section is kept: it
+ * explains in prose how monitoring works, without publishing any score,
+ * flag, reason or per-project indicator. Per-project risk intelligence
+ * remains behind authentication at /ai-shield and /projects/:id.
  */
 export default function AiInsights() {
-  const [stats, setStats] = useState(null)
+  const [insights, setInsights] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let cancelled = false
-    fetchPublicOverview()
-      .then(data => { if (!cancelled) setStats(data) })
+    fetchPublicInsights()
+      .then(data => { if (!cancelled) setInsights(data) })
       .catch(err => { if (!cancelled) setError(err.message || 'Failed to reach the API') })
     return () => { cancelled = true }
   }, [])
 
-  const live = !!stats
-  const loading = !stats && !error
+  const loading = !insights && !error
 
-  const totalProjects = live ? toNumber(stats.total_projects) : null
-  const riskCounts = live ? (stats.risk_level_counts || {}) : {}
-  const hasRiskCounts = live && Object.keys(riskCounts).length > 0
-  const low = toNumber(riskCounts.LOW)
-  const medium = toNumber(riskCounts.MEDIUM)
-  const high = toNumber(riskCounts.HIGH)
-  const critical = toNumber(riskCounts.CRITICAL)
-  const requiringReview = hasRiskCounts ? (medium || 0) + (high || 0) + (critical || 0) : null
-  const highPlusCritical = hasRiskCounts ? (high || 0) + (critical || 0) : null
-  const avgFinancialProgress = live ? toNumber(stats.average_financial_progress) : null
-
-  const kpis = [
-    ['Projects Monitored', formatNumber(totalProjects)],
-    ['Projects Requiring Review', hasRiskCounts ? formatNumber(requiringReview) : 'Not available'],
-    ['High / Critical Risk Indicators', hasRiskCounts ? formatNumber(highPlusCritical) : 'Not available'],
-    ['Average Financial Progress', avgFinancialProgress !== null ? `${Math.round(avgFinancialProgress)}%` : 'Not available'],
+  const kpis = insights ? [
+    ['Projects Monitored', formatNumber(insights.kpis.totalProjects)],
+    ['Completed Works', formatNumber(insights.kpis.completedProjects)],
+    ['Active Works', formatNumber(insights.kpis.activeWorks)],
+    [
+      'Expenditure Utilised',
+      insights.kpis.utilisationPercent === null
+        ? 'Not available'
+        : `${Math.round(insights.kpis.utilisationPercent)}%`,
+    ],
+  ] : [
+    ['Projects Monitored', 'Not available'],
+    ['Completed Works', 'Not available'],
+    ['Active Works', 'Not available'],
+    ['Expenditure Utilised', 'Not available'],
   ]
 
-  const distributionData = hasRiskCounts
-    ? [
-      ['LOW', low], ['MEDIUM', medium], ['HIGH', high], ['CRITICAL', critical],
-    ].map(([key, value]) => ({ name: RISK_TONE[key].label, key, value: value || 0 }))
-    : []
+  // Public portfolio composition, not an AI signal breakdown.
+  const categoryData = (insights?.byWorkType || [])
+    .slice(0, 8)
+    .map(row => ({ name: row.workType, value: row.count, expenditure: row.expenditure }))
+
+  const statusData = (insights?.statusDistribution || [])
+    .map(row => ({ name: row.status, value: row.count }))
 
   return (
     <div className="min-h-screen bg-panel">
@@ -73,7 +78,7 @@ export default function AiInsights() {
       <div className="max-w-[1200px] mx-auto px-5 py-6">
         <h1 className="text-[19px] font-semibold text-ink">AI Insights</h1>
         <p className="text-[13px] text-muted mt-1.5 max-w-[680px]">
-          AI-assisted indicators for monitoring MPLADS implementation at scale. AI Shield identifies patterns that may warrant review -- it does not identify individuals or establish wrongdoing.
+          How MPLADS implementation is monitored at scale, and what the public portfolio looks like. AI-assisted review indicators are internal signals and are not published here.
         </p>
         {loading && <p className="text-xs text-muted mt-2">Loading national indicators…</p>}
         {error && <p className="text-xs mt-2" style={{ color: CHART_COLORS.red }}>Could not load public AI indicators: {error}</p>}
@@ -88,33 +93,47 @@ export default function AiInsights() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-4 mt-4">
-          <ChartCard title="Risk Distribution" subtitle="National, from currently stored risk levels" height={230}>
-            {distributionData.length ? (
+          <ChartCard title="Works by Category" subtitle="National, public portfolio composition" height={230}>
+            {categoryData.length ? (
               <ResponsiveContainer>
-                <BarChart data={distributionData} margin={{ left: -14, right: 12, top: 8 }}>
+                <BarChart data={categoryData} margin={{ left: -14, right: 12, top: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.line} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} interval={0} height={44} angle={-18} textAnchor="end" />
                   <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={v => Number(v).toLocaleString()} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${CHART_COLORS.line}` }} />
+                  <Tooltip formatter={(v, _name, item) => [`${Number(v).toLocaleString()} works (${formatCurrency(item.payload.expenditure)} spent)`, 'Works']} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${CHART_COLORS.line}` }} />
                   <Bar dataKey="value" radius={[3, 3, 0, 0]} fill={CHART_COLORS.blue} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center"><EmptyState text="Risk distribution is not available from the current dataset." /></div>
+              <div className="h-full flex items-center"><EmptyState text="Category breakdown is not available from the current dataset." /></div>
             )}
           </ChartCard>
 
-          <ChartCard title="Historical Trend" subtitle="Review indicators over time" height={230}>
-            <div className="h-full flex items-center">
-              <EmptyState text="Historical trend unavailable for the current dataset." />
-            </div>
+          <ChartCard title="Works by Lifecycle Status" subtitle="National, from recorded project status" height={230}>
+            {statusData.length ? (
+              <ResponsiveContainer>
+                <BarChart data={statusData} margin={{ left: -14, right: 12, top: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.line} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={{ stroke: CHART_COLORS.line }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: CHART_COLORS.muted }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={v => Number(v).toLocaleString()} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${CHART_COLORS.line}` }} />
+                  <Bar dataKey="value" radius={[3, 3, 0, 0]} fill={CHART_COLORS.green} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center"><EmptyState text="Status breakdown is not available from the current dataset." /></div>
+            )}
           </ChartCard>
         </div>
 
         <div className="card p-4 mt-4">
-          <h3 className="text-[13.5px] font-semibold text-ink">AI Signal Categories</h3>
-          <p className="text-xs text-muted mt-0.5 mb-2">National breakdown by anomaly category</p>
-          <EmptyState text="Category-level anomaly data is not available for the current dataset." />
+          <h3 className="text-[13.5px] font-semibold text-ink">Per-project indicators</h3>
+          <p className="text-xs text-muted mt-1 leading-relaxed max-w-[720px]">
+            AI-assisted review indicators are internal monitoring signals used by authorised officials.
+            They are not published on this public page, and they do not establish wrongdoing.
+            Public project information — location, category, sanctioned amount, expenditure, progress,
+            status and lifecycle dates — is available on the Overview and Projects pages.
+          </p>
         </div>
 
         <div className="mt-4"><Methodology /></div>

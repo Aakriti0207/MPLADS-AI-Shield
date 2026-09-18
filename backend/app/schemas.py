@@ -374,7 +374,16 @@ class StatusCount(BaseModel):
 
 
 class PublicOverview(BaseModel):
-    """Aggregate MPLADS information safe for anonymous visitors."""
+    """Aggregate MPLADS information safe for anonymous visitors.
+
+    Phase 5: `risk_level_counts` was REMOVED from this contract. It was
+    the last risk-derived field on the anonymous surface and it powered
+    the Overview page's "Requiring Review" KPI, which exposed how many
+    projects the AI Shield pipeline had flagged. Risk levels, risk
+    scores, anomaly/duplicate/isolation-forest sub-scores, AI reasoning,
+    alerts and investigation state are all authenticated-only and are no
+    longer reachable from any `/public/*` response.
+    """
 
     total_projects: int
     total_sanctioned_amount: Decimal
@@ -383,11 +392,150 @@ class PublicOverview(BaseModel):
     completed_projects: Optional[int] = None
     active_projects: Optional[int] = None
     delayed_projects: Optional[int] = None
-    risk_level_counts: dict[str, int]
     by_state: list[ByStateStat]
     by_work_type: list[ByWorkTypeStat]
     status_distribution: list[StatusCount]
     recent_projects: list[PublicProjectOut]
+
+
+# --- Phase 5: dedicated public dashboard contract -----------------------
+#
+# These models are intentionally NOT reused from the authenticated,
+# risk-aware DashboardStats contract. They are built only from
+# app/public_aggregations.py (canonical dataset, public-safe column
+# allowlist), so no risk/AI/investigation field can reach an anonymous
+# response even by accident.
+
+
+class PublicKpis(BaseModel):
+    """Portfolio KPIs for the anonymous Overview page.
+
+    Every value is either a count of projects or a sum/ratio of publicly
+    published MPLADS financial figures. Nothing here derives from Risk
+    Fusion or any model output.
+    """
+
+    total_projects: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    completed_projects: int
+    active_works: int
+
+    # Projects whose lifecycle status is genuinely absent from the source
+    # data. Kept as its own number so it is never silently folded into
+    # either "completed" or "active".
+    status_not_specified: int
+
+    expenditure_utilisation_percent: Optional[Decimal] = None
+    completion_rate_percent: Optional[Decimal] = None
+    states_covered: int
+    districts_covered: int
+
+
+class PublicTrendPoint(BaseModel):
+    """One month of a real, date-grouped public trend.
+
+    `has_records` is False for a month that falls inside the observed
+    range but has no source rows. Such a month reports 0 so the axis
+    stays continuous -- it is a statement that nothing was recorded, not
+    an interpolated or invented figure.
+    """
+
+    period: str
+    label: str
+    project_count: int
+    amount: Optional[Decimal] = None
+    has_records: bool
+
+
+class PublicTrend(BaseModel):
+    """A public trend series plus its honest coverage metadata."""
+
+    points: list[PublicTrendPoint]
+    basis: str
+    projects_with_data: int
+    total_projects: int
+    coverage_percent: Optional[Decimal] = None
+
+
+class PublicTrends(BaseModel):
+    expenditure: PublicTrend
+    completion: PublicTrend
+    sanction: PublicTrend
+
+
+class PublicAreaStat(BaseModel):
+    """Shared public aggregate shape for a state or a district."""
+
+    project_count: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+    completed_projects: int
+    active_works: int
+    expenditure_utilisation_percent: Optional[Decimal] = None
+    completion_rate_percent: Optional[Decimal] = None
+
+
+class PublicStateInsight(PublicAreaStat):
+    state: str
+    district_count: int
+
+
+class PublicDistrictInsight(PublicAreaStat):
+    state: str
+    district: str
+
+
+class PublicDistrictResponse(BaseModel):
+    """State -> district drilldown payload."""
+
+    state: Optional[str] = None
+    districts: list[PublicDistrictInsight]
+
+
+class PublicCategoryStat(BaseModel):
+    work_type: str
+    count: int
+    total_sanctioned_amount: Decimal
+    total_expenditure: Decimal
+
+
+class PublicFieldCoverage(BaseModel):
+    """How much of the portfolio actually carries a given source field."""
+
+    field: str
+    projects_with_data: int
+    total_projects: int
+    coverage_percent: Optional[Decimal] = None
+
+
+class PublicDataCoverage(BaseModel):
+    fields: list[PublicFieldCoverage]
+    notes: list[str]
+
+
+class PublicInsights(BaseModel):
+    """Root payload for the anonymous public dashboard.
+
+    Contains no risk score, risk level, Risk Fusion output, anomaly or
+    duplicate score, isolation-forest score, AI reasoning, alert,
+    investigation/review state, or internal administrative note.
+    """
+
+    kpis: PublicKpis
+    trends: PublicTrends
+    by_state: list[PublicStateInsight]
+
+    # Populated only when the request is scoped to a `state`. The
+    # unscoped national district list is served by
+    # GET /public/insights/districts instead, so the default Overview
+    # payload stays small.
+    by_district: list[PublicDistrictInsight]
+    by_work_type: list[PublicCategoryStat]
+    status_distribution: list[StatusCount]
+    recent_projects: list[PublicProjectOut]
+    data_coverage: PublicDataCoverage
+    disclaimer: str
 
 
 class RiskScoreSummary(BaseModel):
