@@ -14,6 +14,7 @@ universe and current Risk Fusion output as the authenticated API.
 from __future__ import annotations
 
 import ast
+import json
 from datetime import datetime, timezone
 from typing import Any, List
 
@@ -50,6 +51,8 @@ from app.routes.projects import (
     _load_project_datasets,
     _risk_map,
     _apply_canonical_filters,
+    enrich_component_details,
+    build_component_breakdown_from_legacy,
     DEFAULT_LIMIT,
     MAX_LIMIT,
 )
@@ -210,6 +213,15 @@ def _risk_result_from_row(
             and text.endswith("]")
         ):
             try:
+                parsed = json.loads(text)
+
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+
+            except Exception:
+                pass
+
+            try:
                 parsed = ast.literal_eval(text)
 
                 if isinstance(parsed, list):
@@ -241,6 +253,18 @@ def _risk_result_from_row(
         if not text:
             return {}
 
+        # Prefer real JSON parsing (component_breakdown/source_signal_summary
+        # are written with json.dumps and may contain true/false/null, which
+        # ast.literal_eval cannot parse).
+        try:
+            parsed = json.loads(text)
+
+            if isinstance(parsed, dict):
+                return parsed
+
+        except Exception:
+            pass
+
         try:
             parsed = ast.literal_eval(text)
 
@@ -253,6 +277,23 @@ def _risk_result_from_row(
         return {
             "raw": text
         }
+
+    def _components_value(
+        value: Any,
+    ) -> dict[str, Any]:
+        """Parse component_breakdown into {component_name: RiskComponentDetail}.
+
+        Numbers and evidence come straight from the risk pipeline output;
+        only the presentational description / review_actions strings are
+        layered on, from ml/risk_config.py.
+        """
+
+        parsed = _dict_value(value)
+        components: dict[str, Any] = {}
+        for name, detail in parsed.items():
+            if isinstance(detail, dict):
+                components[name] = detail
+        return enrich_component_details(components)
 
     return RiskFusionOut(
         work_id=project_id,
@@ -359,6 +400,21 @@ def _risk_result_from_row(
 
         source_signal_summary=_dict_value(
             row.get("source_signal_summary")
+        ),
+
+        components=_components_value(
+            row.get("component_breakdown")
+        )
+        or enrich_component_details(
+            build_component_breakdown_from_legacy(row)
+        ),
+
+        data_quality_detail_available=(
+            "data_quality_notes" in row.index
+        ),
+
+        data_quality_notes=_string_list(
+            row.get("data_quality_notes")
         ),
     )
 
@@ -553,6 +609,9 @@ def list_demo_alerts(
             severity=a["severity"],
             message=a["message"],
             created_at=generated_at,
+            risk_score=a.get("risk_score"),
+            triggered_component=a.get("triggered_component"),
+            top_reason=a.get("top_reason"),
         )
         for a in page
     ]

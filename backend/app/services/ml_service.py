@@ -336,6 +336,18 @@ def _result_from_row(row: pd.Series) -> dict[str, Any]:
         {"signals": []},
     )
 
+    # --- XAI additions ---------------------------------------------------
+    result["components"] = (
+        _json_object(row["component_breakdown"], {})
+        if "component_breakdown" in row.index
+        else {}
+    )
+    result["data_quality_notes"] = (
+        _json_list(row["data_quality_notes"])
+        if "data_quality_notes" in row.index
+        else []
+    )
+
     return result
 
 

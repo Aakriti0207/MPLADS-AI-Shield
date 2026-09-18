@@ -403,6 +403,7 @@ function MinistryAiShield({ isDemo }) {
                   'Risk Score',
                   'Risk',
                   'Progress',
+                  'Top Reason',
                   ''
                 ].map(h => (
                   <th key={h}>{h}</th>
@@ -438,12 +439,16 @@ function MinistryAiShield({ isDemo }) {
                       : '—'}
                   </td>
 
+                  <td className="text-xs text-muted max-w-[260px] truncate" title={p.raw?.risk_reason_1 || ''}>
+                    {p.raw?.risk_reason_1 || '—'}
+                  </td>
+
                   <td>
                     <Link
                       to={`/projects/${encodeURIComponent(p.id)}`}
-                      className="text-xs font-semibold text-navy"
+                      className="text-xs font-semibold text-navy whitespace-nowrap"
                     >
-                      Review →
+                      View Risk Breakdown →
                     </Link>
                   </td>
                 </tr>
@@ -698,6 +703,7 @@ function ScopedAiShield({ role, isDemo }) {
                       'Location',
                       'Risk Score',
                       'Risk',
+                      'Top Reason',
                       ''
                     ].map(h => (
                       <th key={h}>{h}</th>
@@ -727,12 +733,16 @@ function ScopedAiShield({ role, isDemo }) {
                         <RiskBadge risk={p.risk} />
                       </td>
 
+                      <td className="text-xs text-muted max-w-[220px] truncate" title={p.raw?.risk_reason_1 || ''}>
+                        {p.raw?.risk_reason_1 || '—'}
+                      </td>
+
                       <td>
                         <Link
                           to={`/projects/${encodeURIComponent(p.id)}`}
-                          className="text-xs font-semibold text-navy"
+                          className="text-xs font-semibold text-navy whitespace-nowrap"
                         >
-                          Review →
+                          View Risk Breakdown →
                         </Link>
                       </td>
                     </tr>

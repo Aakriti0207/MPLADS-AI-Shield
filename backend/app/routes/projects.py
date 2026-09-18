@@ -32,8 +32,6 @@ and comes from the current Risk Fusion output.
 
 from datetime import date
 from decimal import Decimal
-from functools import lru_cache
-from pathlib import Path
 from typing import Any, List
 
 import pandas as pd
@@ -51,7 +49,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
 from app.models import Project
-from app.project_sectors import classify_project_sector
 from app.schemas import (
     ProjectOut,
     ProjectPage,
@@ -63,10 +60,238 @@ from app.aggregations import (
     load_risk_fusion,
 )
 
+from ml.risk_config import (
+    COMPONENT_LABELS,
+    RISK_COMPONENT_CAPS,
+    component_description,
+    component_review_actions,
+)
+
 
 # =====================================================================
 # Router
 # =====================================================================
+
+# ---------------------------------------------------------------------
+# Legacy-CSV fallback for component_breakdown
+# ---------------------------------------------------------------------
+#
+# ``component_breakdown`` / ``data_quality_notes`` are columns added to
+# project_risk_scores.csv by the current ml/risk.py. A processed CSV
+# generated BEFORE those columns existed is still perfectly valid input --
+# it just does not carry the per-component regrouping.
+#
+# Rather than degrade to "category contribution data is not available"
+# (which is what erased the WHY FLAGGED panel), this rebuilds the same
+# structure from columns the legacy CSV DOES carry:
+#
+#   *_contribution        -> the component's real points
+#   risk_reasons          -> the ordered reason texts
+#   source_signal_summary -> the per-signal source / severity_tier / points
+#
+# ml/risk.py writes risk_reasons and source_signal_summary from the SAME
+# sorted rows, index for index, so signal i belongs to reason i. Nothing is
+# recomputed and nothing is invented: the numbers are the backend's own.
+#
+# The one thing a legacy CSV genuinely cannot provide is the structured
+# per-signal `evidence` dict. That is reported honestly via
+# ``evidence_available: False`` rather than filled with placeholder values;
+# re-running ``python -m ml.risk`` restores full evidence.
+
+SOURCE_ORDER_TO_CONTRIBUTION_COLUMN = {
+    "compliance": "compliance_contribution",
+    "financial_anomaly": "financial_anomaly_contribution",
+    "timeline_anomaly": "timeline_anomaly_contribution",
+    "duplicate": "duplicate_contribution",
+    "data_quality": "data_quality_contribution",
+    "payment": "payment_contribution",
+    "isolation_forest": "isolation_forest_contribution",
+}
+
+SEVERITY_TIER_TO_STATUS = {3: "HIGH", 2: "MEDIUM", 1: "LOW"}
+
+
+def _loads(value: Any) -> Any:
+    """Parse a JSON cell, tolerating NaN / empty / already-parsed values."""
+
+    if value is None or isinstance(value, (list, dict)):
+        return value
+
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    text = str(value).strip()
+
+    if not text:
+        return None
+
+    try:
+        import json as _json
+
+        return _json.loads(text)
+
+    except Exception:
+        return None
+
+
+def build_component_breakdown_from_legacy(
+    row: Any,
+) -> dict[str, Any]:
+    """Rebuild the per-component breakdown from legacy risk CSV columns."""
+
+    reasons = _loads(
+        row.get("risk_reasons")
+    )
+
+    if not isinstance(reasons, list):
+        reasons = []
+
+    summary = _loads(
+        row.get("source_signal_summary")
+    )
+
+    signals = (
+        summary.get("signals")
+        if isinstance(summary, dict)
+        else None
+    )
+
+    if not isinstance(signals, list):
+        signals = []
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+
+    for index, signal in enumerate(signals):
+
+        if not isinstance(signal, dict):
+            continue
+
+        source = str(
+            signal.get("source")
+            or ""
+        )
+
+        if source not in SOURCE_ORDER_TO_CONTRIBUTION_COLUMN:
+            continue
+
+        grouped.setdefault(source, []).append(
+            {
+                "text": (
+                    reasons[index]
+                    if index < len(reasons)
+                    else None
+                ),
+                "severity_tier": signal.get("severity_tier"),
+                "points": signal.get("points"),
+            }
+        )
+
+    components: dict[str, Any] = {}
+
+    for name, cap in RISK_COMPONENT_CAPS.items():
+
+        contribution = pd.to_numeric(
+            row.get(
+                SOURCE_ORDER_TO_CONTRIBUTION_COLUMN[name]
+            ),
+            errors="coerce",
+        )
+
+        contribution = (
+            0.0
+            if pd.isna(contribution)
+            else float(contribution)
+        )
+
+        entries = grouped.get(name, [])
+
+        reason_texts = [
+            entry["text"]
+            for entry in entries
+            if entry["text"]
+        ]
+
+        tiers = [
+            int(entry["severity_tier"])
+            for entry in entries
+            if entry.get("severity_tier") is not None
+        ]
+
+        status = (
+            SEVERITY_TIER_TO_STATUS.get(max(tiers), "LOW")
+            if tiers
+            else "NONE"
+        )
+
+        components[name] = {
+            "label": COMPONENT_LABELS[name],
+            # Same definition ml/risk.py uses: the component's own 0-100
+            # fill, so score * weight / 100 == contribution exactly.
+            "score": (
+                round(contribution / cap * 100, 1)
+                if cap > 0
+                else 0.0
+            ),
+            "weight": cap,
+            "contribution": round(contribution, 2),
+            "status": status,
+            "reasons": reason_texts,
+            # Legacy CSVs carry no structured evidence -- say so, never
+            # substitute placeholder numbers.
+            "evidence": [],
+            "evidence_available": False,
+        }
+
+    return components
+
+
+def enrich_component_details(
+    components: dict[str, Any],
+) -> dict[str, Any]:
+    """Attach presentational XAI metadata to each parsed component.
+
+    ``component_breakdown`` in the risk CSV carries only the numbers and the
+    real evidence (score / weight / contribution / status / reasons /
+    evidence). The human-facing prose -- what the detector measures, and what
+    a reviewer should inspect for that CATEGORY of signal -- is owned by
+    ml/risk_config.py and attached here at serialization time.
+
+    This deliberately adds NOTHING numeric and never touches an existing key,
+    so the frontend still reconciles against exactly the backend's own
+    score / weight / contribution values.
+    """
+
+    enriched: dict[str, Any] = {}
+
+    for name, detail in components.items():
+
+        if not isinstance(detail, dict):
+            continue
+
+        merged = dict(detail)
+
+        merged.setdefault(
+            "description",
+            component_description(name),
+        )
+
+        merged.setdefault(
+            "review_actions",
+            component_review_actions(name),
+        )
+
+        merged.setdefault(
+            "evidence_available",
+            True,
+        )
+
+        enriched[name] = merged
+
+    return enriched
+
 
 router = APIRouter(
     prefix="/projects",
@@ -95,13 +320,20 @@ def _load_project_datasets():
     """
 
     try:
-        canonical_df = load_canonical_projects()
-        risk_df = load_risk_fusion()
+
+        canonical_df = (
+            load_canonical_projects()
+        )
+
+        risk_df = (
+            load_risk_fusion()
+        )
 
     except (
         FileNotFoundError,
         ValueError,
     ) as exc:
+
         raise HTTPException(
             status_code=503,
             detail=str(exc),
@@ -116,6 +348,7 @@ def _load_project_datasets():
     )
 
     if canonical_ids != risk_ids:
+
         missing_risk = canonical_ids - risk_ids
         extra_risk = risk_ids - canonical_ids
 
@@ -194,6 +427,7 @@ def _date(
         return None
 
     try:
+
         parsed = pd.to_datetime(
             value,
             errors="coerce",
@@ -205,152 +439,8 @@ def _date(
         return parsed.date()
 
     except Exception:
+
         return None
-
-
-# =====================================================================
-# Constituency resolution
-# =====================================================================
-
-@lru_cache(maxsize=1)
-def _constituency_resolution_map() -> dict[str, dict[str, Any]]:
-    """Load the derived constituency-resolution audit once per process."""
-
-    resolution_path = (
-        Path(__file__).resolve().parents[2]
-        / "data"
-        / "processed"
-        / "constituency_resolution.csv"
-    )
-
-    if not resolution_path.exists():
-        return {}
-
-    try:
-        df = pd.read_csv(
-            resolution_path,
-            encoding="utf-8-sig",
-            low_memory=False,
-        )
-    except (OSError, ValueError):
-        return {}
-
-    if not {
-        "work_id",
-        "resolved_constituency",
-    }.issubset(df.columns):
-        return {}
-
-    work_ids = (
-        df["work_id"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
-
-    valid = work_ids.ne("")
-
-    if not valid.any():
-        return {}
-
-    result = df.loc[valid].copy()
-
-    result["_work_id"] = work_ids.loc[valid]
-
-    result = result.drop_duplicates(
-        subset=["_work_id"],
-        keep="first",
-    )
-
-    return {
-        record["_work_id"]: record
-        for record in result.to_dict(
-            orient="records"
-        )
-    }
-
-
-def _project_constituency(
-    row: pd.Series,
-    resolution_lookup: dict[str, dict[str, Any]] | None = None,
-) -> str | None:
-    """
-    Return the geographic project constituency,
-    never an RS house marker.
-    """
-
-    lookup = (
-        resolution_lookup
-        if resolution_lookup is not None
-        else _constituency_resolution_map()
-    )
-
-    work_id = _clean_string(
-        row.get("work_id")
-    )
-
-    if work_id:
-        resolution = lookup.get(work_id)
-
-        if resolution:
-            resolved = _clean_string(
-                resolution.get(
-                    "resolved_constituency"
-                )
-            )
-
-            if resolved:
-                return resolved
-
-    raw = _clean_string(
-        row.get("constituency")
-    )
-
-    if raw and raw.casefold() not in {
-        "sitting rajya sabha",
-        "nominated rajya sabha",
-    }:
-        return raw
-
-    return None
-
-
-def _project_mp_type(
-    row: pd.Series,
-    resolution_lookup: dict[str, dict[str, Any]] | None = None,
-) -> str | None:
-    """
-    Return the explicit MP type from constituency-resolution metadata.
-
-    The frontend should use this field directly instead of trying to
-    infer Lok Sabha / Rajya Sabha from the constituency string.
-    """
-
-    lookup = (
-        resolution_lookup
-        if resolution_lookup is not None
-        else _constituency_resolution_map()
-    )
-
-    work_id = _clean_string(
-        row.get("work_id")
-    )
-
-    if work_id:
-        resolution = lookup.get(work_id)
-
-        if resolution:
-            mp_type = _clean_string(
-                resolution.get("mp_type")
-            )
-
-            if mp_type:
-                return mp_type
-
-    # Fallback if canonical_projects.csv itself contains mp_type.
-    return _clean_string(
-        row.get("mp_type")
-    )
 
 
 # =====================================================================
@@ -359,7 +449,6 @@ def _project_mp_type(
 
 def _canonical_row_to_project(
     row: pd.Series,
-    resolution_lookup: dict[str, dict[str, Any]] | None = None,
 ) -> ProjectOut:
     """
     Convert one canonical CSV row into the existing ProjectOut API
@@ -403,6 +492,7 @@ def _canonical_row_to_project(
         and sanctioned_amount > 0
         and expenditure is not None
     ):
+
         financial_progress = (
             expenditure
             / sanctioned_amount
@@ -424,36 +514,16 @@ def _canonical_row_to_project(
             row.get("district")
         ),
 
-        # Geographic constituency resolved from the dedicated
-        # constituency-resolution layer.
-        constituency=_project_constituency(
-            row,
-            resolution_lookup,
-        ),
-
-        # Explicit MP type. The frontend must not infer this
-        # from the constituency value.
-        mp_type=_project_mp_type(
-            row,
-            resolution_lookup,
+        constituency=_clean_string(
+            row.get("constituency")
         ),
 
         mp_name=_clean_string(
             row.get("mp")
         ),
 
-        # Normalized 12-sector project classification.
-        work_type=classify_project_sector(
-            work_description=row.get(
-                "work_description"
-            ),
-            work_category=row.get(
-                "work_category"
-            ),
-        ),
-
-        work_description=_clean_string(
-            row.get("work_description")
+        work_type=_clean_string(
+            row.get("work_category")
         ),
 
         implementing_agency=_clean_string(
@@ -537,46 +607,24 @@ def _risk_map(
 ) -> dict[str, dict[str, Any]]:
     """
     Create a work_id → Risk Fusion row mapping.
-
-    This is vectorized to avoid iterating through all Risk Fusion rows
-    with iterrows() on every API request.
     """
 
-    if risk_df.empty or "work_id" not in risk_df.columns:
-        return {}
+    result = {}
 
-    work_ids = (
-        risk_df["work_id"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-    )
+    for _, row in risk_df.iterrows():
 
-    valid = work_ids.ne("")
-
-    if not valid.any():
-        return {}
-
-    result_df = risk_df.loc[valid].copy()
-
-    result_df["_normalized_work_id"] = (
-        work_ids.loc[valid]
-    )
-
-    records = result_df.drop(
-        columns=["_normalized_work_id"]
-    ).to_dict(
-        orient="records"
-    )
-
-    return dict(
-        zip(
-            result_df[
-                "_normalized_work_id"
-            ].tolist(),
-            records,
+        work_id = _clean_string(
+            row.get("work_id")
         )
-    )
+
+        if not work_id:
+            continue
+
+        result[work_id] = (
+            row.to_dict()
+        )
+
+    return result
 
 
 # =====================================================================
@@ -633,26 +681,12 @@ def _apply_canonical_filters(
 
     result = df.copy()
 
-    resolution_lookup = (
-        _constituency_resolution_map()
-    )
-
-    if "work_id" in result.columns:
-        result["_resolved_constituency"] = (
-            result.apply(
-                lambda row: _project_constituency(
-                    row,
-                    resolution_lookup,
-                ),
-                axis=1,
-            )
-        )
-
     # ---------------------------------------------------------------
     # State
     # ---------------------------------------------------------------
 
     if state:
+
         result = result[
             result["state"]
             .fillna("")
@@ -663,28 +697,14 @@ def _apply_canonical_filters(
         ]
 
     # ---------------------------------------------------------------
-    # Normalized project sector
+    # Work category
     # ---------------------------------------------------------------
 
-    # The raw MPLADS work_category is intentionally preserved in the
-    # canonical dataset. For the Projects filter, however, we use the
-    # human-readable sector derived from work_description.
-
     if category:
-        sector_series = result.apply(
-            lambda row: classify_project_sector(
-                work_description=row.get(
-                    "work_description"
-                ),
-                work_category=row.get(
-                    "work_category"
-                ),
-            ),
-            axis=1,
-        )
 
         result = result[
-            sector_series
+            result["work_category"]
+            .fillna("")
             .astype(str)
             .str.strip()
             .str.casefold()
@@ -696,6 +716,7 @@ def _apply_canonical_filters(
     # ---------------------------------------------------------------
 
     if status_value:
+
         result = result[
             result["status"]
             .fillna("")
@@ -710,6 +731,7 @@ def _apply_canonical_filters(
     # ---------------------------------------------------------------
 
     if search:
+
         pattern = (
             search
             .strip()
@@ -720,7 +742,6 @@ def _apply_canonical_filters(
             "work_id",
             "state",
             "district",
-            "_resolved_constituency",
             "constituency",
             "work_category",
             "mp",
@@ -734,6 +755,7 @@ def _apply_canonical_filters(
         )
 
         for column in searchable_columns:
+
             if column not in result.columns:
                 continue
 
@@ -752,104 +774,6 @@ def _apply_canonical_filters(
         result = result[mask]
 
     return result
-
-
-# =====================================================================
-# GET /projects/filter-options
-# =====================================================================
-
-@router.get(
-    "/filter-options",
-)
-def get_project_filter_options():
-    """
-    Return lightweight filter values for the Projects page.
-
-    State, district, constituency, MP, and status values come from the
-    canonical dataset. Project sectors use the complete supported taxonomy
-    so the dropdown remains stable even when a sector currently has zero
-    matching projects.
-    """
-
-    canonical_df = load_canonical_projects()
-
-    def _unique_values(
-        column: str,
-    ) -> list[str]:
-        if column not in canonical_df.columns:
-            return []
-
-        values = (
-            canonical_df[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-
-        values = values[
-            (values != "")
-            & (
-                values.str.casefold()
-                != "nan"
-            )
-            & (
-                values.str.casefold()
-                != "none"
-            )
-        ]
-
-        return sorted(
-            values.unique().tolist(),
-            key=lambda value: value.casefold(),
-        )
-
-    # Keep this taxonomy identical to the shared project-sector classifier.
-    sectors = [
-        "Roads & Connectivity",
-        "Education",
-        "Healthcare",
-        "Water & Sanitation",
-        "Community & Public Buildings",
-        "Electricity & Energy",
-        "Sports & Recreation",
-        "Agriculture & Irrigation",
-        "Public Utilities",
-        "Social Welfare",
-        "Environment & Green Infrastructure",
-        "Other Public Infrastructure",
-    ]
-
-    return {
-        "states": _unique_values(
-            "state"
-        ),
-
-        "districts": _unique_values(
-            "district"
-        ),
-
-        "constituencies": sorted(
-            {
-                value
-                for _, row in canonical_df.iterrows()
-                for value in [
-                    _project_constituency(row)
-                ]
-                if value
-            },
-            key=lambda value: value.casefold(),
-        ),
-
-        "mps": _unique_values(
-            "mp"
-        ),
-
-        "categories": sectors,
-
-        "statuses": _unique_values(
-            "status"
-        ),
-    }
 
 
 # =====================================================================
@@ -894,7 +818,9 @@ def list_projects(
     # Stable deterministic ordering.
     canonical_df = (
         canonical_df
-        .sort_values("work_id")
+        .sort_values(
+            "work_id"
+        )
     )
 
     page_df = (
@@ -906,15 +832,11 @@ def list_projects(
 
     results = []
 
-    resolution_lookup = (
-        _constituency_resolution_map()
-    )
-
     for _, row in page_df.iterrows():
+
         project = (
             _canonical_row_to_project(
-                row,
-                resolution_lookup,
+                row
             )
         )
 
@@ -961,7 +883,7 @@ def query_projects(
     ),
     category: str | None = Query(
         None,
-        description="Filter by normalized project sector.",
+        description="Filter by work category.",
     ),
     status_value: str | None = Query(
         None,
@@ -973,7 +895,7 @@ def query_projects(
         max_length=120,
         description=(
             "Search project ID, state, district, "
-            "constituency, project sector, MP, or description."
+            "constituency, work category, MP, or description."
         ),
     ),
     db: Session = Depends(get_db),
@@ -1000,16 +922,11 @@ def query_projects(
         )
     )
 
-    if "_resolved_constituency" in filtered_df.columns:
-        filtered_df = filtered_df.drop(
-            columns=[
-                "_resolved_constituency"
-            ]
-        )
-
     filtered_df = (
         filtered_df
-        .sort_values("work_id")
+        .sort_values(
+            "work_id"
+        )
     )
 
     total = int(
@@ -1025,15 +942,11 @@ def query_projects(
 
     items = []
 
-    resolution_lookup = (
-        _constituency_resolution_map()
-    )
-
     for _, row in page_df.iterrows():
+
         project = (
             _canonical_row_to_project(
-                row,
-                resolution_lookup,
+                row
             )
         )
 
@@ -1091,6 +1004,7 @@ def get_project_risk(
     ]
 
     if matching.empty:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
@@ -1165,6 +1079,17 @@ def get_project_risk(
             and text.endswith("]")
         ):
             try:
+                import json as _json
+
+                parsed = _json.loads(text)
+
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+
+            except Exception:
+                pass
+
+            try:
                 import ast
 
                 parsed = ast.literal_eval(
@@ -1203,7 +1128,23 @@ def get_project_risk(
         if not text:
             return {}
 
+        # Prefer real JSON parsing (component_breakdown/source_signal_summary
+        # are written with json.dumps and may contain true/false/null, which
+        # ast.literal_eval cannot parse); fall back to ast.literal_eval for
+        # legacy CSV values written in Python-repr form.
         try:
+            import json as _json
+
+            parsed = _json.loads(text)
+
+            if isinstance(parsed, dict):
+                return parsed
+
+        except Exception:
+            pass
+
+        try:
+
             import ast
 
             parsed = ast.literal_eval(
@@ -1222,6 +1163,23 @@ def get_project_risk(
         return {
             "raw": text
         }
+
+    def _components_value(
+        value: Any,
+    ) -> dict[str, Any]:
+        """Parse component_breakdown into {component_name: RiskComponentDetail}.
+
+        Numbers and evidence come straight from the risk pipeline output;
+        only the presentational description / review_actions strings are
+        layered on, from ml/risk_config.py.
+        """
+
+        parsed = _dict_value(value)
+        components: dict[str, Any] = {}
+        for name, detail in parsed.items():
+            if isinstance(detail, dict):
+                components[name] = detail
+        return enrich_component_details(components)
 
     return RiskFusionOut(
         work_id=normalized_id,
@@ -1337,6 +1295,24 @@ def get_project_risk(
                 "source_signal_summary"
             )
         ),
+
+        components=_components_value(
+            row.get("component_breakdown")
+        )
+        or enrich_component_details(
+            build_component_breakdown_from_legacy(row)
+        ),
+
+        # False when the processed CSV predates the per-domain
+        # data-quality column, so the UI can say "not recorded"
+        # instead of the much more dangerous "all data available".
+        data_quality_detail_available=(
+            "data_quality_notes" in row.index
+        ),
+
+        data_quality_notes=_string_list(
+            row.get("data_quality_notes")
+        ),
     )
 
 
@@ -1378,6 +1354,7 @@ def get_project(
     ]
 
     if matching.empty:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
@@ -1387,37 +1364,22 @@ def get_project(
 
     row = matching.iloc[0]
 
-    resolution_lookup = (
-        _constituency_resolution_map()
-    )
-
     project = (
         _canonical_row_to_project(
-            row,
-            resolution_lookup,
+            row
         )
     )
 
-    # This endpoint needs only one Risk Fusion row, so avoid building
-    # a 43k-entry dictionary for a single project request.
-    risk_matching = risk_df[
-        risk_df["work_id"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        == normalized_id
-    ]
-
-    risk_row = (
-        risk_matching.iloc[0].to_dict()
-        if not risk_matching.empty
-        else None
+    risk_lookup = _risk_map(
+        risk_df
     )
 
     project = (
         _apply_risk_to_project(
             project,
-            risk_row,
+            risk_lookup.get(
+                normalized_id
+            ),
         )
     )
 

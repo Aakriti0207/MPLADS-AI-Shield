@@ -191,6 +191,148 @@ EVIDENCE_STATUS_THRESHOLDS = (
 )
 
 
+# ---------------------------------------------------------------------------
+# 7. XAI display metadata. Purely presentational (component display names /
+# per-domain data-quality labels) -- these do not affect scoring in any way.
+# Added for the Risk Fusion + Explainable AI (XAI) layer so the API and
+# frontend have one authoritative place to source human-readable labels
+# instead of hardcoding them in multiple route/component files.
+# ---------------------------------------------------------------------------
+COMPONENT_LABELS = {
+    "compliance": "Compliance",
+    "financial_anomaly": "Financial Anomaly",
+    "timeline_anomaly": "Timeline Anomaly",
+    "duplicate": "Duplicate / Similar Work",
+    "data_quality": "Data Quality",
+    "payment": "Payment Pattern",
+    "isolation_forest": "Statistical Outlier (Isolation Forest)",
+}
+
+# Maps the per-domain "evaluable" flags computed in assign_evidence_status()
+# to a human-readable label for data_quality_notes (Section 14 of the XAI
+# brief: distinguish "no anomaly detected" from "insufficient data").
+DATA_QUALITY_DOMAIN_LABELS = {
+    "compliance_evaluable": "Compliance data",
+    "financial_evaluable": "Financial anomaly data",
+    "timeline_evaluable": "Timeline anomaly data",
+    "duplicate_evaluable": "Duplicate/similarity data",
+    "payment_evaluable": "Payment pattern data",
+    "isolation_forest_evaluable": "Statistical outlier (Isolation Forest) data",
+}
+
+
+# ---------------------------------------------------------------------------
+# 8. XAI explanatory metadata (PART 5/10/18 of the XAI brief).
+#
+# Purely presentational, exactly like COMPONENT_LABELS above: these strings
+# do not participate in scoring and are never used to derive a number. They
+# exist so the API (and therefore the UI tooltips / "What to review" panel)
+# has ONE authoritative place to source per-component prose, instead of
+# React components hardcoding their own wording that can silently drift
+# away from what the detector actually measures.
+#
+# COMPONENT_DESCRIPTIONS answers "what does this detector actually measure?"
+# COMPONENT_REVIEW_ACTIONS answers "what should a human reviewer inspect?"
+#
+# IMPORTANT: review actions are review SUGGESTIONS tied to the category of
+# signal, never automated conclusions and never claims about a specific
+# project's data. Project-specific facts live in the per-signal `evidence`
+# dicts built in ml/risk.py, which are derived from real observed values.
+# ---------------------------------------------------------------------------
+COMPONENT_DESCRIPTIONS = {
+    "compliance": (
+        "Deterministic checks against documented MPLADS rules (see "
+        "ml/compliance/rules.py). A flag here means an explicit, written rule "
+        "condition was met -- the most defensible evidence category, which is "
+        "why it carries the largest cap."
+    ),
+    "financial_anomaly": (
+        "Peer-relative statistical comparison of this project's amounts "
+        "(sanction, expenditure, disbursement and their ratios) against "
+        "comparable projects. An outlier is unusual, not necessarily improper."
+    ),
+    "timeline_anomaly": (
+        "Peer-relative statistical comparison of this project's durations "
+        "(recommendation-to-sanction, sanction-to-completion, and related "
+        "intervals) against comparable projects."
+    ),
+    "duplicate": (
+        "Similar-work detection across the dataset, rarity-weighted so a match "
+        "on a common boilerplate description counts for far less than a match "
+        "on a near-unique one."
+    ),
+    "data_quality": (
+        "Source/field conflicts detected in the underlying records (rule DQ01). "
+        "This describes data-collection inconsistency, not project behaviour, "
+        "which is why it carries the smallest cap."
+    ),
+    "payment": (
+        "Payment-pattern analysis over the recorded transactions for this "
+        "project (counts, amounts, spacing) relative to its peer baseline."
+    ),
+    "isolation_forest": (
+        "Unsupervised multivariate outlier detection (Isolation Forest) over "
+        "the engineered feature set. It flags projects whose overall feature "
+        "combination is unusual, even when no single field is."
+    ),
+}
+
+COMPONENT_REVIEW_ACTIONS = {
+    "compliance": [
+        "Open the flagged rule(s) and confirm the underlying record values "
+        "against the sanction order.",
+        "Check whether a documented approval or revision explains the "
+        "condition before escalating.",
+    ],
+    "financial_anomaly": [
+        "Verify expenditure and disbursement figures against sanctioned "
+        "estimates and supporting bills.",
+        "Compare the work's scope with the comparable projects in its peer "
+        "group -- a larger scope can legitimately explain a larger amount.",
+    ],
+    "timeline_anomaly": [
+        "Confirm the recorded sanction, start and completion dates against "
+        "the source records.",
+        "Check whether the deviation reflects a documented administrative "
+        "delay or a data-entry error.",
+    ],
+    "duplicate": [
+        "Open the matched work ID(s) and confirm whether they describe the "
+        "same physical work or two genuinely distinct works.",
+        "Check location, agency and sanction date on both records before "
+        "treating the match as a duplicate.",
+    ],
+    "data_quality": [
+        "Reconcile the conflicting fields against the authoritative source "
+        "record.",
+        "Re-run the risk assessment for this project once the record has "
+        "been corrected.",
+    ],
+    "payment": [
+        "Review the individual payment transactions and their supporting "
+        "vouchers.",
+        "Confirm the payment schedule against the agreed milestones for the "
+        "work.",
+    ],
+    "isolation_forest": [
+        "Treat this as a prioritisation hint: review it alongside the other "
+        "components rather than on its own.",
+        "Inspect the observed feature values listed under evidence for the "
+        "field that looks least consistent with the rest of the record.",
+    ],
+}
+
+
+def component_description(component_name: str) -> str:
+    """Human-readable description of what one component measures."""
+    return COMPONENT_DESCRIPTIONS.get(component_name, "")
+
+
+def component_review_actions(component_name: str) -> list[str]:
+    """Reviewer guidance for one component. Suggestions, never conclusions."""
+    return list(COMPONENT_REVIEW_ACTIONS.get(component_name, ()))
+
+
 def risk_level_for(score: float) -> str:
     for upper_bound, level in RISK_LEVEL_THRESHOLDS:
         if score < upper_bound:

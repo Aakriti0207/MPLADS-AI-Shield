@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BellRing } from 'lucide-react'
@@ -139,23 +138,42 @@ export default function Alerts() {
                       <BellRing size={16} />
                     </div>
 
-                    {/* Alert information */}
+                    {/* Project information */}
                     <div className="min-w-0 flex-1">
 
-                      {/* Severity */}
-                      <div className="flex items-center">
+                      {/* Severity + triggered component */}
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge
                           color={tone.color}
                           bg={tone.bg}
                         >
                           {tone.label}
                         </Badge>
+
+                        {alert.triggered_component && (
+                          <span className="text-[11px] font-medium text-navy bg-panel rounded-full px-2 py-0.5">
+                            {alert.triggered_component}
+                          </span>
+                        )}
+
+                        {alert.risk_score !== null && alert.risk_score !== undefined && (
+                          <span className="text-[11px] text-muted">
+                            Risk score: <span className="font-semibold text-ink">{alert.risk_score}</span>
+                          </span>
+                        )}
                       </div>
 
                       {/* Project ID */}
                       <div className="text-[13px] text-ink mt-2 font-mono break-all">
                         {projectId || 'Project ID unavailable'}
                       </div>
+
+                      {/* Top reason */}
+                      {alert.top_reason && (
+                        <p className="text-[12px] text-muted mt-1.5 leading-4">
+                          {alert.top_reason}
+                        </p>
+                      )}
 
                       {/* Location */}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[12px] text-muted">

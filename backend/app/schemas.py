@@ -28,7 +28,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # --- Authentication -----------------------------------------------------
-
+# Added alongside JWT authentication. Kept in this same module rather
+# than a separate file since the project doesn't otherwise split
+# schemas.py by resource.
 
 class RegisterRequest(BaseModel):
     """Request body for POST /auth/register."""
@@ -42,6 +44,7 @@ class LoginRequest(BaseModel):
     """Request body for POST /auth/login."""
 
     email: EmailStr
+    password: str
 
 
 class TokenResponse(BaseModel):
@@ -83,18 +86,8 @@ class ProjectOut(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
-
-    # MP metadata.
-    #
-    # `mp_type` is supplied by the canonical constituency-resolution layer
-    # and is intentionally separate from `constituency`. For example,
-    # a Rajya Sabha project should not require the frontend to infer its
-    # MP type from a constituency marker.
-    mp_type: Optional[str] = None
     mp_name: Optional[str] = None
-
     work_type: Optional[str] = None
-    work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
 
     sanctioned_amount: Optional[Decimal] = None
@@ -115,7 +108,6 @@ class ProjectOut(BaseModel):
     status: Optional[str] = None
 
     # --- Phase 2: ML risk-scoring output (advisory, not a fraud label) --
-
     # Mirrors app/models.py's Project columns of the same names, in the
     # same order, so the two stay easy to diff against each other.
     risk_score: Optional[float] = None
@@ -143,7 +135,55 @@ class ProjectOut(BaseModel):
     risk_metadata: Optional[dict[str, Any]] = None
 
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+updated_at: Optional[datetime] = None
+
+
+class RiskComponentDetail(BaseModel):
+    """Structured, explainable breakdown for ONE Risk Fusion component.
+
+    Added for the Risk Fusion + Explainable AI (XAI) layer (PART 2/3 of the
+    brief). Every field here is derived from the same evidence the legacy
+    *_contribution / risk_reasons / source_signal_summary fields on
+    RiskFusionOut already carry -- this is a re-shaping for the frontend
+    component-card UI, not a second risk calculation. By construction,
+    ``score * weight / 100 == contribution`` (rounding aside), so the UI can
+    reconcile a component card with the overall risk_score directly.
+    """
+
+    label: str
+    # 0-100 fill within this component alone (contribution / weight * 100).
+    score: float
+    # This component's real point cap out of 100 (risk_config.py's
+    # RISK_COMPONENT_CAPS) -- caps sum to exactly 100 across all components.
+    weight: float
+    # Points this component actually added to the overall risk_score.
+    contribution: float
+    # HIGH / MEDIUM / LOW / NONE -- NONE means no signal fired in this
+    # component (not the same as "data was unavailable"; see
+    # RiskFusionOut.data_quality_notes for that distinction).
+    status: str
+    reasons: list[str] = []
+    evidence: list[dict[str, Any]] = []
+
+    # --- Presentational metadata sourced from ml/risk_config.py --------
+    # Attached at serialization time (not stored in the risk CSV) so the
+    # wording can be corrected without regenerating 43,863 rows. Neither
+    # field participates in scoring.
+    #
+    # description: what this detector actually measures.
+    # review_actions: what a human reviewer should inspect for this
+    #   CATEGORY of signal. These are suggestions, never conclusions, and
+    #   never assert anything about this specific project's data --
+    #   project-specific facts live in `evidence` above.
+    description: str = ""
+    review_actions: list[str] = []
+
+    # False when this breakdown was rebuilt from a legacy processed CSV
+    # that predates the structured evidence column. The scores/weights/
+    # contributions/reasons are still the backend's real values -- only
+    # the per-signal evidence dicts are missing, and the UI must say so
+    # rather than render an empty evidence panel as "nothing found".
+    evidence_available: bool = True
 
 
 class RiskFusionOut(BaseModel):
@@ -185,6 +225,26 @@ class RiskFusionOut(BaseModel):
     top_reason_3: Optional[str] = None
     risk_reasons: list[str]
     source_signal_summary: dict[str, Any]
+
+    # --- XAI additions (Risk Fusion + Explainable AI layer) -------------
+    # Per-component structured breakdown (score/weight/contribution/status/
+    # reasons/evidence), keyed by component name (compliance,
+    # financial_anomaly, timeline_anomaly, duplicate, data_quality, payment,
+    # isolation_forest). Empty dict only if the upstream CSV predates this
+    # column (old cached file) -- the frontend must handle that gracefully.
+    components: dict[str, RiskComponentDetail] = {}
+
+    # Human-readable list of which evidence domains were NOT evaluable for
+    # this project (e.g. "Payment pattern data") -- distinguishes "clean"
+    # from "insufficient data to tell" per-domain, not just overall.
+    data_quality_notes: list[str] = []
+
+    # Whether per-domain data-quality detail was recorded at all.
+    # An empty data_quality_notes list means "every domain was
+    # evaluable" ONLY when this is True; when it is False the detail
+    # simply was not captured and must not be presented as a clean bill
+    # of health (see evidence_status for the overall rollup).
+    data_quality_detail_available: bool = True
 
 
 class ByStateStat(BaseModel):
@@ -273,14 +333,8 @@ class PublicProjectOut(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
-
-    # MP type is exposed explicitly so the public project list does not
-    # infer Lok Sabha / Rajya Sabha from the constituency string.
-    mp_type: Optional[str] = None
     mp_name: Optional[str] = None
-
     work_type: Optional[str] = None
-    work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
     sanctioned_amount: Optional[Decimal] = None
     expenditure: Optional[Decimal] = None
@@ -356,10 +410,10 @@ class EstimatedCostSummary(BaseModel):
 
     NOTE: real Phase 2 rows have no source value for estimated_cost at
     all (see app/models.py / import_phase2.py) -- so on the real
-    dataset, project_count_with_data will legitimately be 0 (or close
-    to it) and total/average/minimum/maximum will be None. That is
-    reported as-is here rather than defaulted to 0, per Phase 4's
-    NULL-handling requirement.
+    dataset, project_count_with_data will legitimately be 0 (or close to
+    it) and total/average/minimum/maximum will be None. That is reported
+    as-is here rather than defaulted to 0, per Phase 4's NULL-handling
+    requirement.
     """
 
     total: Optional[Decimal] = None
@@ -372,8 +426,7 @@ class EstimatedCostSummary(BaseModel):
 class ProgressSummary(BaseModel):
     """Phase 4: summary statistics for a progress field (financial_progress
     or physical_progress). Same None-means-no-data semantics as
-    RiskScoreSummary/EstimatedCostSummary above.
-    """
+    RiskScoreSummary/EstimatedCostSummary above."""
 
     average: Optional[Decimal] = None
     minimum: Optional[Decimal] = None
@@ -396,7 +449,6 @@ class AnalyticsResponse(BaseModel):
     """
 
     # --- Shared with DashboardStats (same aggregation functions) ---
-
     total_projects: int
     total_sanctioned_amount: Decimal
     total_expenditure: Decimal
@@ -410,7 +462,6 @@ class AnalyticsResponse(BaseModel):
     by_work_type: list[ByWorkTypeStat]
 
     # --- New Phase 4 aggregates ---
-
     risk_score_summary: RiskScoreSummary
     estimated_cost_summary: EstimatedCostSummary
     financial_progress_summary: ProgressSummary
@@ -435,9 +486,15 @@ class AlertOut(BaseModel):
     message: str
     created_at: datetime
 
+    # --- XAI additions (additive, Optional -- existing consumers of this
+    # schema are unaffected). Sourced from the same cached Risk Fusion
+    # frame already read to build `message` above; no extra I/O.
+    risk_score: Optional[float] = None
+    triggered_component: Optional[str] = None
+    top_reason: Optional[str] = None
+
 
 # --- Phase 5: POST /upload-analyze --------------------------------------
-
 #
 # IMPORTANT SCOPE NOTE: the real Project.risk_score / risk_level (Phase 2)
 # are produced by an OFFLINE pipeline that combines compliance, anomaly,
@@ -453,7 +510,6 @@ class AlertOut(BaseModel):
 # a newly uploaded project with no offline/corpus-wide step required.
 # See app/upload_analysis.py for the glue that adapts uploaded fields
 # into what those rules expect.
-
 
 class ComplianceFindingOut(BaseModel):
     """One rule's real, unmodified output from ml/compliance/rules.py's
@@ -484,8 +540,8 @@ class ComplianceSummaryOut(BaseModel):
 
 class UploadRowValidationError(BaseModel):
     """One field-level problem found while parsing/validating an
-    uploaded CSV row. Row-level, so one bad row never fails the rest
-    of the file."""
+    uploaded CSV row. Row-level, so one bad row never fails the rest of
+    the file."""
 
     field: str
     message: str
@@ -562,12 +618,6 @@ class ReportProjectRow(BaseModel):
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
-
-    # Explicit MP type, consistent with ProjectOut/PublicProjectOut.
-    mp_type: Optional[str] = None
-    mp_name: Optional[str] = None
-
-    work_description: Optional[str] = None
     implementing_agency: Optional[str] = None
     status: Optional[str] = None
     sanctioned_amount: Optional[Decimal] = None
@@ -614,7 +664,7 @@ class UploadAnalyzeResponse(BaseModel):
     total_rows: int
     valid_rows: int
     rows_with_errors: int
-    persisted_to_database: bool
+    persisted_to_database: bool  # always False -- see persistence_note
     persistence_note: str
     risk_scoring_note: str
     results: list[UploadRowResult]

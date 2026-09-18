@@ -60,7 +60,9 @@ from ml.risk_config import (
     ANOMALY_OVERLAP_DISCOUNT,
     COMPLIANCE_CAP,
     COMPLIANCE_SEVERITY_POINTS,
+    COMPONENT_LABELS,
     DATA_QUALITY_CAP,
+    DATA_QUALITY_DOMAIN_LABELS,
     DATA_QUALITY_RULE_POINTS,
     DUPLICATE_CAP,
     DUPLICATE_SIMILARITY_THRESHOLD,
@@ -68,6 +70,7 @@ from ml.risk_config import (
     FINANCIAL_OVERLAP_RULE_IDS,
     ISOLATION_FOREST_CAP,
     PAYMENT_CAP,
+    RISK_COMPONENT_CAPS,
     TIMELINE_ANOMALY_CAP,
     TIMELINE_OVERLAP_RULE_IDS,
     anomaly_points,
@@ -122,6 +125,8 @@ OUTPUT_COLUMNS = [
     "top_reason_3",
     "risk_reasons",
     "source_signal_summary",
+    "component_breakdown",
+    "data_quality_notes",
 ]
 
 REQUIRED_COMPLIANCE_FINDINGS_COLUMNS = frozenset(
@@ -683,32 +688,147 @@ def _format_metric_value(metric_name: str, value: float | None) -> str:
     return f"{value:.2f}"
 
 
+# --------------------------------------------------------------------------
+# XAI evidence helpers. These build small, structured evidence dicts
+# alongside each reason_text -- the exact same underlying data the reason
+# sentence is generated from, just kept machine-readable for the frontend
+# Risk Fusion / component-card UI instead of only baked into prose. Nothing
+# here recomputes or reinterprets a signal; it only reshapes fields already
+# present on the evidence rows built above.
+# --------------------------------------------------------------------------
+REASON_ROW_COLUMNS = ["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text", "evidence"]
+
+
+def _jsonable(value: Any) -> Any:
+    """Convert a pandas/numpy scalar to a plain, JSON-serializable value."""
+    if value is None:
+        return None
+    if isinstance(value, (np.floating,)):
+        value = float(value)
+    elif isinstance(value, (np.integer,)):
+        return int(value)
+    elif isinstance(value, (np.bool_,)):
+        return bool(value)
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return value
+
+
+def _drop_none(mapping: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in mapping.items() if value is not None}
+
+
 def _compliance_reason_rows(compliance_flags: pd.DataFrame) -> pd.DataFrame:
     if compliance_flags.empty:
-        return pd.DataFrame(columns=["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"])
+        return pd.DataFrame(columns=REASON_ROW_COLUMNS)
     rows = compliance_flags.copy()
     rows["severity_tier"] = np.where(rows["severity"] == "HIGH", 3, 2)
     rows["source_order"] = 0
     rows["sub_order"] = rows["rule_id"]
     rows["reason_text"] = rows["message"]
-    return rows[["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]]
+    rows["evidence"] = rows.apply(
+        lambda r: _drop_none({
+            "rule_id": _jsonable(r.get("rule_id")),
+            "category": _jsonable(r.get("category")),
+            "severity": _jsonable(r.get("severity")),
+        }),
+        axis=1,
+    )
+    return rows[REASON_ROW_COLUMNS]
 
 
 def _dq_reason_rows(dq_flags: pd.DataFrame) -> pd.DataFrame:
     if dq_flags.empty:
-        return pd.DataFrame(columns=["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"])
+        return pd.DataFrame(columns=REASON_ROW_COLUMNS)
     rows = dq_flags.copy()
     rows["severity_tier"] = 1
     rows["points"] = DATA_QUALITY_RULE_POINTS
     rows["source_order"] = 4
     rows["sub_order"] = rows["rule_id"]
     rows["reason_text"] = rows["message"]
-    return rows[["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]]
+    rows["evidence"] = rows.apply(
+        lambda r: _drop_none({
+            "rule_id": _jsonable(r.get("rule_id")),
+            "category": _jsonable(r.get("category")),
+            "severity": _jsonable(r.get("severity")),
+        }),
+        axis=1,
+    )
+    return rows[REASON_ROW_COLUMNS]
+
+
+def _anomaly_evidence_dict(row: pd.Series, labels: dict[str, str]) -> dict[str, Any]:
+    """Build structured, honest peer-comparison evidence for one Phase 5 row.
+
+    Only fields that are actually present on the row are included (Phase 5's
+    REQUIRED_ANOMALY_COLUMNS contract does not guarantee peer_median/
+    peer_group_size/evidence_json exist -- see risk.py's validate_inputs --
+    so this degrades gracefully to "unavailable" per-field rather than
+    fabricating a number). Amount/day values are only compared to peer_median
+    as a percentage when they're on the same (untransformed) scale -- Phase 5
+    log-transforms some metrics before computing peer statistics, and
+    dividing a raw observed value by a log-space median would be a fabricated,
+    meaningless percentage, so that case instead reports the z-score only.
+    """
+    metric_name = row.get("metric_name")
+    observed_value = row.get("observed_value")
+    evidence: dict[str, Any] = {
+        "metric": labels.get(metric_name, metric_name),
+        "observed_value": _jsonable(observed_value),
+        "observed_display": _format_metric_value(
+            metric_name, observed_value if pd.notna(observed_value) else None
+        ),
+        "direction": _jsonable(row.get("direction")),
+        "peer_group_level": _jsonable(row.get("peer_group_level")),
+        "peer_group_key": _jsonable(row.get("peer_group_key")),
+    }
+    z_score = row.get("modified_z_score")
+    if pd.notna(z_score):
+        evidence["modified_z_score"] = round(float(z_score), 2)
+
+    transformation = None
+    evidence_json_raw = row.get("evidence_json") if "evidence_json" in row.index else None
+    if isinstance(evidence_json_raw, str) and evidence_json_raw.strip():
+        try:
+            transformation = json.loads(evidence_json_raw).get("transformation")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            transformation = None
+
+    if "peer_group_size" in row.index and pd.notna(row.get("peer_group_size")):
+        evidence["peer_group_size"] = int(row.get("peer_group_size"))
+
+    peer_median = row.get("peer_median") if "peer_median" in row.index else None
+    if pd.notna(peer_median):
+        if transformation in (None, "none"):
+            # Same scale as observed_value -- a direct comparison is valid.
+            evidence["peer_median"] = round(float(peer_median), 2)
+            evidence["peer_median_display"] = _format_metric_value(metric_name, float(peer_median))
+            if float(peer_median) != 0 and pd.notna(observed_value):
+                evidence["peer_deviation_pct"] = round(
+                    (float(observed_value) - float(peer_median)) / abs(float(peer_median)) * 100, 1
+                )
+        else:
+            # Peer statistics are on a transformed (e.g. log1p) scale --
+            # not directly comparable to the raw observed value, so no
+            # percentage is shown; the z-score above remains the valid
+            # peer-comparison statistic.
+            evidence["peer_comparison_note"] = (
+                "Peer median is on a transformed statistical scale and is not directly "
+                "comparable to the observed value shown; the z-score is the valid comparison."
+            )
+
+    evidence["review_note"] = "Statistical peer-comparison signal for review -- not proof of wrongdoing."
+    return _drop_none(evidence)
 
 
 def _anomaly_reason_rows(anomaly_rows: pd.DataFrame, domain: str, labels: dict[str, str], source_order: int) -> pd.DataFrame:
     if anomaly_rows.empty:
-        return pd.DataFrame(columns=["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"])
+        return pd.DataFrame(columns=REASON_ROW_COLUMNS)
     rows = anomaly_rows.copy()
     tier_map = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
     rows["severity_tier"] = rows["severity_bucket"].map(tier_map).fillna(1).astype(int)
@@ -733,7 +853,8 @@ def _anomaly_reason_rows(anomaly_rows: pd.DataFrame, domain: str, labels: dict[s
         )
 
     rows["reason_text"] = rows.apply(_text, axis=1)
-    return rows[["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]]
+    rows["evidence"] = rows.apply(lambda r: _anomaly_evidence_dict(r, labels), axis=1)
+    return rows[REASON_ROW_COLUMNS]
 
 
 def _duplicate_reason_rows(best_exact: pd.DataFrame, best_similar: pd.DataFrame) -> pd.DataFrame:
@@ -756,7 +877,16 @@ def _duplicate_reason_rows(best_exact: pd.DataFrame, best_similar: pd.DataFrame)
                 ),
                 axis=1,
             )
-            frames.append(exact[["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]])
+            exact["evidence"] = exact.apply(
+                lambda r: _drop_none({
+                    "matched_work_id": _jsonable(r.get("matched_work_id")),
+                    "match_type": "EXACT_MATCH",
+                    "similarity_score": round(float(r["similarity_score"]), 4) if pd.notna(r.get("similarity_score")) else None,
+                    "description_frequency": int(r["description_frequency"]) if pd.notna(r.get("description_frequency")) else None,
+                }),
+                axis=1,
+            )
+            frames.append(exact[REASON_ROW_COLUMNS])
     if not best_similar.empty:
         similar = best_similar.reset_index().dropna(subset=["matched_work_id"]).copy()
         if not best_exact.empty:
@@ -776,9 +906,18 @@ def _duplicate_reason_rows(best_exact: pd.DataFrame, best_similar: pd.DataFrame)
                 ),
                 axis=1,
             )
-            frames.append(similar[["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]])
+            similar["evidence"] = similar.apply(
+                lambda r: _drop_none({
+                    "matched_work_id": _jsonable(r.get("matched_work_id")),
+                    "match_type": "SIMILAR_MATCH",
+                    "similarity_score": round(float(r["similarity_score"]), 4) if pd.notna(r.get("similarity_score")) else None,
+                    "description_frequency": int(r["description_frequency"]) if pd.notna(r.get("description_frequency")) else None,
+                }),
+                axis=1,
+            )
+            frames.append(similar[REASON_ROW_COLUMNS])
     if not frames:
-        return pd.DataFrame(columns=["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"])
+        return pd.DataFrame(columns=REASON_ROW_COLUMNS)
     return pd.concat(frames, ignore_index=True)
 
 
@@ -793,9 +932,8 @@ def _upstream_reason_rows(
     source_order: int,
     source_name: str,
 ) -> pd.DataFrame:
-    columns = ["work_id", "severity_tier", "points", "source_order", "sub_order", "reason_text"]
     if frame.empty:
-        return pd.DataFrame(columns=columns)
+        return pd.DataFrame(columns=REASON_ROW_COLUMNS)
     rows = []
     for _, row in frame.copy().sort_values("work_id", kind="mergesort").iterrows():
         score = float(row[score_column])
@@ -807,15 +945,37 @@ def _upstream_reason_rows(
             reasons = []
         if not isinstance(reasons, list) or not reasons:
             reasons = [f"{source_name} contributed a score of {score:.2f} based on its upstream evidence."]
+
+        # PART 8: this was previously an unused parameter -- the real,
+        # already-computed upstream evidence (signal families, methods,
+        # observed values) now flows through to the XAI evidence field
+        # instead of being discarded.
+        evidence_payload: dict[str, Any] = {}
+        raw_evidence = row.get(evidence_column)
+        if isinstance(raw_evidence, str) and raw_evidence.strip():
+            try:
+                parsed = json.loads(raw_evidence)
+                if isinstance(parsed, dict):
+                    evidence_payload = parsed
+            except (TypeError, ValueError, json.JSONDecodeError):
+                evidence_payload = {}
+
         points = score / 100.0 * cap
         severity_tier = 3 if score >= 75 else 2 if score >= 50 else 1
+        signals = evidence_payload.get("signals") if isinstance(evidence_payload.get("signals"), list) else []
         for index, reason in enumerate(reasons):
+            # Prefer the one matching per-signal evidence entry when the
+            # upstream engine emitted one signal per reason; otherwise fall
+            # back to the whole evidence payload for that source so no real
+            # evidence is dropped.
+            evidence = signals[index] if index < len(signals) and isinstance(signals[index], dict) else evidence_payload
             rows.append({
                 "work_id": str(row["work_id"]), "severity_tier": severity_tier,
                 "points": points, "source_order": source_order,
                 "sub_order": f"{source_name}:{index}", "reason_text": str(reason),
+                "evidence": {k: _jsonable(v) for k, v in evidence.items()} if evidence else {},
             })
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame(rows, columns=REASON_ROW_COLUMNS)
 
 
 def generate_reasons(
@@ -868,6 +1028,12 @@ def generate_reasons(
     top_reasons = {work_id: ["", "", ""] for work_id in work_ids}
     all_reasons: dict[str, list[str]] = {work_id: [] for work_id in work_ids}
     summaries: dict[str, list[dict[str, Any]]] = {work_id: [] for work_id in work_ids}
+    # Per-(work_id, source_order) reason/evidence rows, used only to build
+    # component_breakdown below -- a per-component regrouping of exactly the
+    # same rows already used for top_reasons/risk_reasons/source_signal_summary
+    # above, so a component card can show ALL of its own reasons/evidence
+    # (not just the 3 highest-ranked across every component combined).
+    by_component: dict[str, dict[int, pd.DataFrame]] = {}
 
     if not reason_rows.empty:
         reason_rows = reason_rows.sort_values(
@@ -881,11 +1047,57 @@ def generate_reasons(
             padded = (texts + ["", "", ""])[:3]
             top_reasons[work_id] = padded
             summaries[work_id] = group[["source_order", "sub_order", "severity_tier", "points"]].to_dict("records")
+            by_component[work_id] = {
+                source_order: sub_group for source_order, sub_group in group.groupby("source_order", sort=False)
+            }
 
     source_names = {
         0: "compliance", 1: "financial_anomaly", 2: "timeline_anomaly", 3: "duplicate",
         4: "data_quality", 5: "payment", 6: "isolation_forest",
     }
+    contribution_column_by_source = {
+        0: "compliance_contribution", 1: "financial_anomaly_contribution",
+        2: "timeline_anomaly_contribution", 3: "duplicate_contribution",
+        4: "data_quality_contribution", 5: "payment_contribution",
+        6: "isolation_forest_contribution",
+    }
+    tier_status = {3: "HIGH", 2: "MEDIUM", 1: "LOW"}
+
+    def _component_breakdown_for(work_id: str) -> dict[str, Any]:
+        """One entry per Risk Fusion component -- PART 2/3 of the XAI brief.
+
+        `score` is the component's own 0-100 fill (contribution / weight),
+        `weight` is the component's real cap out of 100 from risk_config.py,
+        and `contribution` is the actual points it added to risk_score --
+        these three numbers are the only ones the UI needs to reconcile a
+        component card with the overall score exactly (score * weight / 100
+        == contribution, by construction).
+        """
+        groups = by_component.get(work_id, {})
+        components: dict[str, Any] = {}
+        for source_order, component_name in source_names.items():
+            cap = RISK_COMPONENT_CAPS[component_name]
+            contribution = 0.0
+            if contributions is not None and work_id in contributions.index:
+                contribution = float(contributions.loc[work_id, contribution_column_by_source[source_order]])
+            sub_group = groups.get(source_order)
+            if sub_group is not None and not sub_group.empty:
+                reasons_list = sub_group["reason_text"].tolist()
+                evidence_list = [e if isinstance(e, dict) else {} for e in sub_group["evidence"].tolist()]
+                status = tier_status.get(int(sub_group["severity_tier"].max()), "LOW")
+            else:
+                reasons_list, evidence_list, status = [], [], "NONE"
+            score = round(contribution / cap * 100, 1) if cap > 0 else 0.0
+            components[component_name] = {
+                "label": COMPONENT_LABELS[component_name],
+                "score": score,
+                "weight": cap,
+                "contribution": round(contribution, 2),
+                "status": status,
+                "reasons": reasons_list,
+                "evidence": evidence_list,
+            }
+        return components
 
     result = pd.DataFrame(index=work_ids)
     result["top_reason_1"] = [top_reasons[w][0] or None for w in work_ids]
@@ -908,6 +1120,10 @@ def generate_reasons(
             sort_keys=True,
             allow_nan=False,
         )
+        for w in work_ids
+    ]
+    result["component_breakdown"] = [
+        json.dumps(_component_breakdown_for(w), sort_keys=True, ensure_ascii=False, allow_nan=False, default=str)
         for w in work_ids
     ]
     return result
@@ -1012,6 +1228,24 @@ def build_output(inputs: dict[str, pd.DataFrame]) -> pd.DataFrame:
     output["top_reason_3"] = reasons["top_reason_3"].to_numpy()
     output["risk_reasons"] = reasons["risk_reasons"].to_numpy()
     output["source_signal_summary"] = reasons["source_signal_summary"].to_numpy()
+    output["component_breakdown"] = reasons["component_breakdown"].to_numpy()
+
+    # PART 14: distinguish "no anomaly detected" from "insufficient data" --
+    # per-domain evaluability was already computed above in
+    # evidence_status_frame but previously only rolled up into the single
+    # evidence_status column; this exposes which specific domain(s) were not
+    # evaluable, in the same human-readable labels risk_config.py owns.
+    def _data_quality_notes(row: pd.Series) -> str:
+        missing = [
+            label
+            for column, label in DATA_QUALITY_DOMAIN_LABELS.items()
+            if not bool(row[column])
+        ]
+        return json.dumps(missing, ensure_ascii=False)
+
+    output["data_quality_notes"] = (
+        evidence_status_frame.apply(_data_quality_notes, axis=1).reindex(work_ids).to_numpy()
+    )
 
     output = output.reset_index(drop=True)
 
