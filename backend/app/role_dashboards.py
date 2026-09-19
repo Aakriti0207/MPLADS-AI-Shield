@@ -37,6 +37,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from app.text_quality import clean_source_text
+
 from app.rbac import (
     ROLE_DISTRICT_AUTHORITY,
     ROLE_MP,
@@ -345,7 +347,13 @@ def _to_row(row: pd.Series) -> ScopedProjectRow:
         # the Project Details page, Risk Fusion, Alerts and Reports use,
         # for every role -- there is no role-specific project id.
         project_id=str(row.get("work_id")).strip(),
-        work_description=_text(row.get("work_description")),
+        # A large share of Hindi-language work_description values were
+        # corrupted into literal "?" characters upstream of this dataset
+        # (see app/text_quality.py). Withheld here the same way
+        # ProjectOut.project_name withholds it in app/routes/projects.py,
+        # so the MP/State/District cards fall back to work_category
+        # instead of showing garbled text.
+        work_description=clean_source_text(_text(row.get("work_description"))),
         state=_text(row.get("state")),
         district=_text(row.get("district")),
         constituency=_text(row.get("constituency")),

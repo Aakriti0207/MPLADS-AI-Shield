@@ -48,6 +48,7 @@ which work IDs are real.
 
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, List
 
 import pandas as pd
@@ -81,6 +82,10 @@ from app.rbac import (
     scope_canonical,
     scope_frames,
 )
+
+from app.project_sectors import classify_project_sector
+
+from app.text_quality import clean_source_text
 
 from app.aggregations import (
     load_canonical_projects,
@@ -356,6 +361,131 @@ def _load_project_datasets():
             load_risk_fusion()
         )
 
+        # ---------------------------------------------------------------
+        # Phase 1 metadata enrichment
+        # ---------------------------------------------------------------
+        # constituency_resolution.csv is the authoritative mapping for the
+        # project-location constituency and MP metadata resolved yesterday.
+        # Keep canonical_projects.csv as the project universe, then enrich it
+        # by work_id so ProjectOut receives the same metadata everywhere.
+        #
+        # This runs BEFORE any RBAC scoping below: scope_frames() and every
+        # other rbac.py function match against `state`/`district`/
+        # `constituency`/`mp`, and this enrichment only refines those same
+        # columns' VALUES (preferring the resolved ones) -- it never
+        # changes the work_id universe (validate="one_to_one") or renames
+        # a column rbac.py depends on, so scoping continues to operate
+        # correctly, now against the more accurate resolved constituency.
+        resolution_path = (
+            Path(__file__).resolve().parents[2]
+            / "data"
+            / "processed"
+            / "constituency_resolution.csv"
+        )
+
+        if resolution_path.exists():
+            resolution_df = pd.read_csv(resolution_path)
+
+            required_columns = {
+                "work_id",
+                "mp",
+                "mp_type",
+                "resolved_constituency",
+            }
+
+            if required_columns.issubset(resolution_df.columns):
+                resolution_meta = resolution_df[
+                    [
+                        "work_id",
+                        "mp",
+                        "mp_type",
+                        "resolved_constituency",
+                    ]
+                ].copy()
+
+                resolution_meta["work_id"] = (
+                    resolution_meta["work_id"]
+                    .astype(str)
+                    .str.strip()
+                )
+
+                # One mapping row per work_id is expected. Drop duplicate
+                # mappings defensively so the project universe cannot grow
+                # because of a many-to-one merge.
+                resolution_meta = resolution_meta.drop_duplicates(
+                    subset=["work_id"],
+                    keep="first",
+                )
+
+                canonical_df = canonical_df.copy()
+                canonical_df["work_id"] = (
+                    canonical_df["work_id"]
+                    .astype(str)
+                    .str.strip()
+                )
+
+                canonical_df = canonical_df.merge(
+                    resolution_meta,
+                    on="work_id",
+                    how="left",
+                    suffixes=("", "_resolved"),
+                    validate="one_to_one",
+                )
+
+                # Prefer the resolved constituency/MP metadata when present;
+                # fall back to canonical values if a project has no mapping.
+                resolved_constituency = (
+                    canonical_df["resolved_constituency"]
+                    .replace({"": pd.NA, "nan": pd.NA})
+                    if "resolved_constituency" in canonical_df.columns
+                    else pd.Series(pd.NA, index=canonical_df.index)
+                )
+                canonical_constituency = (
+                    canonical_df["constituency"]
+                    if "constituency" in canonical_df.columns
+                    else pd.Series(pd.NA, index=canonical_df.index)
+                )
+                canonical_df["constituency"] = (
+                    resolved_constituency
+                    .combine_first(canonical_constituency)
+                )
+
+                resolved_mp = (
+                    canonical_df["mp_resolved"]
+                    if "mp_resolved" in canonical_df.columns
+                    else pd.Series(pd.NA, index=canonical_df.index)
+                )
+                canonical_mp = (
+                    canonical_df["mp"]
+                    if "mp" in canonical_df.columns
+                    else pd.Series(pd.NA, index=canonical_df.index)
+                )
+                canonical_df["mp"] = resolved_mp.combine_first(canonical_mp)
+
+                resolved_mp_type = (
+                    canonical_df["mp_type_resolved"]
+                    if "mp_type_resolved" in canonical_df.columns
+                    else canonical_df["mp_type"]
+                    if "mp_type" in canonical_df.columns
+                    else pd.Series(pd.NA, index=canonical_df.index)
+                )
+                if "mp_type" in canonical_df.columns and "mp_type_resolved" in canonical_df.columns:
+                    canonical_mp_type = canonical_df["mp_type"]
+                    canonical_df["mp_type"] = resolved_mp_type.combine_first(
+                        canonical_mp_type
+                    )
+                else:
+                    canonical_df["mp_type"] = resolved_mp_type
+
+                # These helper columns are no longer needed by ProjectOut.
+                for column in (
+                    "resolved_constituency",
+                    "mp_resolved",
+                    "mp_type_resolved",
+                ):
+                    if column in canonical_df.columns:
+                        canonical_df.drop(columns=column, inplace=True)
+
     except (
         FileNotFoundError,
         ValueError,
@@ -492,6 +622,32 @@ def _canonical_row_to_project(
     project_id = _clean_string(
         row.get("work_id")
     )
+    project_name = _clean_string(row.get("project_name"))
+
+    if not project_name:
+        project_name = _clean_string(row.get("work_description"))
+
+    # Never use work_category as a project name. If the source description
+    # is unavailable/corrupted, expose the absence rather than showing
+    # values such as "Normal/Others" as though they were project names.
+    if project_name:
+        normalized_name = project_name.casefold()
+        if normalized_name in {
+            "normal/others",
+            "normal / others",
+            "others",
+        }:
+            project_name = None
+
+    # A large share of work_description values for Hindi-language works
+    # were corrupted into literal "?" characters upstream of this
+    # dataset (confirmed at the raw CSV byte level -- not a rendering
+    # issue here, and not recoverable). Showing "P.C.C ??? ?? ???????"
+    # as a project name is worse than showing nothing, so the same
+    # corruption check the frontend already applied to work_description
+    # is applied here too, before the value ever leaves the API.
+    if project_name and clean_source_text(project_name) is None:
+        project_name = None
 
     if not project_id:
         raise ValueError(
@@ -527,11 +683,45 @@ def _canonical_row_to_project(
         )
 
     # ---------------------------------------------------------------
+    # Clean resolved project-location constituency.
+    #
+    # "Sitting Rajya Sabha" / "Sitting Lok Sabha" describe the MP seat
+    # metadata, not the project's geographic constituency. Likewise, an
+    # unresolved/ambiguous resolution must not be presented as a real
+    # constituency.
+    #
+    # This cleaning is display-only (ProjectOut), not applied to the
+    # dataframe -- app/rbac.py's scope_canonical() still matches MPs
+    # against the raw "Sitting Rajya Sabha" value via the `mp` column,
+    # so an RS member's scoping is unaffected by this row hiding the
+    # sentinel from the API response.
+    # ---------------------------------------------------------------
+
+    constituency = _clean_string(
+        row.get("constituency")
+    )
+
+    if constituency:
+        normalized_constituency = constituency.casefold()
+
+        if (
+            normalized_constituency in {
+                "sitting rajya sabha",
+                "sitting lok sabha",
+            }
+            or normalized_constituency.startswith("unresolved_")
+            or normalized_constituency.startswith("unresolved ")
+        ):
+            constituency = None
+
+    # ---------------------------------------------------------------
     # Build response.
     # ---------------------------------------------------------------
 
     return ProjectOut(
         project_id=project_id,
+
+        project_name=project_name,
 
         state=_clean_string(
             row.get("state")
@@ -541,16 +731,22 @@ def _canonical_row_to_project(
             row.get("district")
         ),
 
-        constituency=_clean_string(
-            row.get("constituency")
-        ),
+        constituency=constituency,
 
         mp_name=_clean_string(
             row.get("mp")
         ),
 
-        work_type=_clean_string(
-            row.get("work_category")
+        mp_type=_clean_string(
+            row.get("mp_type")
+        ),
+
+        # Project Category is the normalized sector used by the
+        # Project Explorer. The raw work_category remains unchanged
+        # in canonical_projects.csv for traceability.
+        work_type=classify_project_sector(
+            work_description=row.get("work_description"),
+            work_category=row.get("work_category"),
         ),
 
         implementing_agency=_clean_string(
@@ -695,6 +891,25 @@ def _apply_risk_to_project(
 # Filtering
 # =====================================================================
 
+def _with_project_sector(df: pd.DataFrame) -> pd.DataFrame:
+    """Add the same normalized project-sector used by ProjectOut.
+
+    The raw ``work_category`` is source metadata (for example
+    ``Normal/Others``). Project Explorer filters must use the human-readable
+    sector classification so the filter and table show the same category.
+    """
+
+    result = df.copy()
+    result["_project_sector"] = result.apply(
+        lambda row: classify_project_sector(
+            work_description=row.get("work_description"),
+            work_category=row.get("work_category"),
+        ),
+        axis=1,
+    )
+    return result
+
+
 def _apply_canonical_filters(
     df: pd.DataFrame,
     state: str | None,
@@ -712,7 +927,7 @@ def _apply_canonical_filters(
     further -- they cannot be used to reach a record the scope excluded.
     """
 
-    result = df.copy()
+    result = _with_project_sector(df)
 
     # ---------------------------------------------------------------
     # District / constituency
@@ -751,13 +966,13 @@ def _apply_canonical_filters(
         ]
 
     # ---------------------------------------------------------------
-    # Work category
+    # Project category / normalized sector
     # ---------------------------------------------------------------
 
     if category:
 
         result = result[
-            result["work_category"]
+            result["_project_sector"]
             .fillna("")
             .astype(str)
             .str.strip()
@@ -798,6 +1013,7 @@ def _apply_canonical_filters(
             "district",
             "constituency",
             "work_category",
+            "_project_sector",
             "mp",
             "implementing_agency",
             "work_description",
@@ -952,7 +1168,7 @@ def query_projects(
     ),
     category: str | None = Query(
         None,
-        description="Filter by work category.",
+        description="Filter by normalized project category.",
     ),
     status_value: str | None = Query(
         None,
@@ -972,7 +1188,7 @@ def query_projects(
         max_length=120,
         description=(
             "Search project ID, state, district, "
-            "constituency, work category, MP, or description."
+            "constituency, project category, MP, or description."
         ),
     ),
     db: Session = Depends(get_db),
@@ -1112,17 +1328,26 @@ def get_project_filter_options(
     This endpoint is convenience only, never enforcement: /projects/query
     re-checks every filter it receives regardless of what was offered
     here.
+
+    `categories` returns the normalized project-sector values (the same
+    classify_project_sector() output ProjectOut.work_type and
+    /projects/query's `category` filter both use) rather than the raw
+    work_category column, so the dropdown always matches what filtering
+    actually operates on. `mp_types` mirrors ProjectOut.mp_type (Lok
+    Sabha / Rajya Sabha / Nominated), sourced from the same
+    constituency_resolution.csv enrichment.
     """
 
     canonical_df, _risk_df = _load_project_datasets()
 
     scoped_df = scope_canonical(canonical_df, scope)
+    sectored_df = _with_project_sector(scoped_df)
 
-    def _distinct(column: str) -> list[str]:
-        if column not in scoped_df.columns:
+    def _distinct(df: pd.DataFrame, column: str) -> list[str]:
+        if column not in df.columns:
             return []
         values = (
-            scoped_df[column]
+            df[column]
             .dropna()
             .astype(str)
             .str.strip()
@@ -1139,11 +1364,12 @@ def get_project_filter_options(
         locked.append("constituency")
 
     return ProjectFilterOptions(
-        states=_distinct("state"),
-        districts=_distinct("district"),
-        constituencies=_distinct("constituency"),
-        categories=_distinct("work_category"),
-        statuses=_distinct("status"),
+        states=_distinct(scoped_df, "state"),
+        districts=_distinct(scoped_df, "district"),
+        constituencies=_distinct(scoped_df, "constituency"),
+        categories=_distinct(sectored_df, "_project_sector"),
+        statuses=_distinct(scoped_df, "status"),
+        mp_types=_distinct(scoped_df, "mp_type"),
         scope=ScopeInfo(**scope.as_metadata()),
         role_key=scope.role,
         locked_filters=locked,

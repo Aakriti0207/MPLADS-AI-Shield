@@ -123,10 +123,18 @@ class ProjectOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     project_id: str
+    # Human-readable project name, distinct from the normalized
+    # work_type/category below. Falls back to work_description when the
+    # source has no explicit project_name; never derived from
+    # work_category, so a project never displays a category value
+    # ("Normal/Others") in place of a name.
+    project_name: Optional[str] = None
     state: Optional[str] = None
     district: Optional[str] = None
     constituency: Optional[str] = None
     mp_name: Optional[str] = None
+    # Lok Sabha / Rajya Sabha / Nominated, from constituency_resolution.csv.
+    mp_type: Optional[str] = None
     work_type: Optional[str] = None
     implementing_agency: Optional[str] = None
 
@@ -985,6 +993,9 @@ class ProjectFilterOptions(BaseModel):
     constituencies: list[str] = []
     categories: list[str] = []
     statuses: list[str] = []
+    # MP seat type (Lok Sabha / Rajya Sabha / Nominated), sourced from
+    # constituency_resolution.csv the same way ProjectOut.mp_type is.
+    mp_types: list[str] = []
     scope: Optional[ScopeInfo] = None
     role_key: Optional[str] = None
     locked_filters: list[str] = []

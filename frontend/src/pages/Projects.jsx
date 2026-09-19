@@ -40,7 +40,8 @@ const PROJECT_SECTORS = [
 
 const TABLE_COLUMNS = [
   'Work ID',
-  'Project / Work',
+  'Project Name',
+  'Project Category',
   'State',
   'District',
   'Constituency',
@@ -137,11 +138,13 @@ export default function Projects() {
   const [districtFilter, setDistrictFilter] = useState(searchParams.get('district') || 'All')
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [mpTypeFilter, setMpTypeFilter] = useState('All')
 
   // Scope + option lists, both supplied by the backend.
   const [scope, setScope] = useState(null)
   const [lockedFilters, setLockedFilters] = useState([])
   const [districtOptions, setDistrictOptions] = useState([])
+  const [mpTypeOptions, setMpTypeOptions] = useState([])
   const [scopeMessage, setScopeMessage] = useState(null)
 
   const [skip, setSkip] = useState(0)
@@ -190,12 +193,18 @@ export default function Projects() {
     setSkip(0)
   }
 
+  function handleMpTypeChange(value) {
+    setMpTypeFilter(value)
+    setSkip(0)
+  }
+
   function handleReset() {
     setStateFilter('All')
     setDistrictFilter('All')
     setSearchParams(new URLSearchParams(), { replace: true })
     setCategoryFilter('All')
     setStatusFilter('All')
+    setMpTypeFilter('All')
     setRawQuery('')
     setDebouncedQuery('')
     setSkip(0)
@@ -209,6 +218,11 @@ export default function Projects() {
       district: districtFilter,
       category: categoryFilter,
       status: statusFilter,
+      // NOTE: the backend does not yet filter on mpType server-side --
+      // /projects/query has no matching query parameter for it. This is
+      // sent in anticipation of that support; until it lands, selecting
+      // an MP type narrows the dropdown/options only, not the results.
+      mpType: mpTypeFilter,
       search: debouncedQuery,
     }),
     [
@@ -217,6 +231,7 @@ export default function Projects() {
       districtFilter,
       categoryFilter,
       statusFilter,
+      mpTypeFilter,
       debouncedQuery,
     ],
   )
@@ -313,6 +328,16 @@ export default function Projects() {
 
         if (data.scope) setScope(data.scope)
 
+        const mpTypes = Array.isArray(data.mp_types)
+          ? data.mp_types.filter(Boolean).sort()
+          : Array.isArray(data.mpTypes)
+            ? data.mpTypes.filter(Boolean).sort()
+            : []
+
+        if (mpTypes.length) {
+          setMpTypeOptions(mpTypes)
+        }
+
         const categories = Array.isArray(data.categories)
           ? data.categories.filter(Boolean)
           : []
@@ -364,6 +389,26 @@ export default function Projects() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
 
+  // Fallback MP-type options from loaded rows, for the same reason as
+  // the state fallback above: only used if /projects/filter-options
+  // didn't return any (older backend, or the request failed).
+  useEffect(() => {
+    if (mpTypeOptions.length === 0 && items.length > 0) {
+      const values = [
+        ...new Set(
+          items
+            .map((project) => String(project?.mpType ?? '').trim())
+            .filter(Boolean),
+        ),
+      ].sort()
+
+      if (values.length) {
+        setMpTypeOptions(values)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
+
   const anyRiskScore = items.some(
     (project) =>
       project.riskScore !== null &&
@@ -412,6 +457,9 @@ export default function Projects() {
         categories={categoryOptions}
         status={statusFilter}
         onStatusChange={handleStatusChange}
+        mpType={mpTypeFilter}
+        onMpTypeChange={handleMpTypeChange}
+        mpTypes={mpTypeOptions}
         onReset={handleReset}
         lockedFilters={lockedFilters}
         scope={scope}
@@ -493,16 +541,25 @@ export default function Projects() {
                       </td>
 
                       <td
-                        className="max-w-[220px] truncate"
+                        className="max-w-[260px] truncate"
                         title={
+                          project.projectName ||
+                          project.project_name ||
                           project.workDescription ||
-                          project.workType ||
-                          'Untitled work'
+                          'Untitled project'
                         }
                       >
-                        {project.workDescription ||
-                          project.workType ||
-                          'Untitled work'}
+                        {project.projectName ||
+                          project.project_name ||
+                          project.workDescription ||
+                          'Untitled project'}
+                      </td>
+
+                      <td
+                        className="max-w-[220px] truncate"
+                        title={project.workType || 'Project category not available'}
+                      >
+                        {project.workType || '—'}
                       </td>
 
                       <td className="whitespace-nowrap">

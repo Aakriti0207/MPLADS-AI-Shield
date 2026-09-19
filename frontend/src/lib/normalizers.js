@@ -38,6 +38,17 @@ export function normalizeProject(project = {}) {
   return {
     id: project.project_id ?? null,
 
+    // Human-readable project name, distinct from workType (the
+    // normalized category). The backend already falls back to a
+    // cleaned work_description when no explicit project_name exists
+    // in the source, and filters out junk values like "Normal/Others"
+    // -- so this is preferred over workDescription below wherever both
+    // are present.
+    projectName:
+      project.project_name ??
+      project.projectName ??
+      null,
+
     state: project.state ?? null,
     district: project.district ?? null,
     constituency: project.constituency ?? null,
@@ -51,6 +62,8 @@ export function normalizeProject(project = {}) {
 
     mpName: project.mp_name ?? null,
 
+    // Normalized project-sector category (e.g. "Education",
+    // "Roads & Connectivity"), not the raw work_category value.
     workType: project.work_type ?? null,
 
     workDescription: cleanWorkDescription(
