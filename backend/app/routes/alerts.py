@@ -43,7 +43,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from app.aggregations import load_canonical_projects
+from app.aggregations import load_canonical_projects, load_risk_fusion as _load_shared_risk_fusion
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import Project
@@ -154,19 +154,27 @@ SEVERITY_PRIORITY = {
 
 @lru_cache(maxsize=1)
 def _load_risk_fusion() -> pd.DataFrame:
-    """Load and cache the production Risk Fusion artifact.
+    """Return the current Risk Fusion output, shaped for Alerts.
 
-    The cache avoids rereading the large CSV for every Alerts request.
-    Restart/reload the backend after regenerating project_risk_scores.csv.
+    This used to independently `pd.read_csv()` project_risk_scores.csv
+    on its own -- a second full parse of the same large, JSON-column-
+    heavy CSV that app/aggregations.py already loads, caches, and
+    accelerates with a Parquet cache (see that module's
+    `_read_processed_table`). That meant every Alerts request after a
+    cold start paid its own separate, unaccelerated parse, on top of a
+    second full copy of the data sitting in memory -- and since
+    warm_up_projects() (app/routes/projects.py) only primes the SHARED
+    aggregations.py cache, this local cache never benefited from the
+    startup warm-up: the first Alerts request after every restart was
+    still slow.
+
+    Reusing the shared loader here means this frame comes pre-warmed at
+    server startup, same as Dashboard/Projects, and this function now
+    only does the Alerts-specific column check + reshaping on top of an
+    already-loaded, already-cached DataFrame.
     """
 
-    if not RISK_OUTPUT_PATH.exists():
-        raise RuntimeError(
-            f"Risk Fusion output not found: {RISK_OUTPUT_PATH}. "
-            "Run the Risk Fusion pipeline first."
-        )
-
-    df = pd.read_csv(RISK_OUTPUT_PATH, low_memory=False)
+    df = _load_shared_risk_fusion()
 
     required = {
         "work_id",
@@ -190,7 +198,10 @@ def _load_risk_fusion() -> pd.DataFrame:
             + ", ".join(sorted(missing))
         )
 
-    df["work_id"] = df["work_id"].astype(str).str.strip()
+    # The shared loader already strips/dedupes work_id and drops
+    # blank/nan IDs (see app/aggregations.py's load_risk_fusion). Only
+    # the Alerts-specific risk_level normalization is still needed here.
+    df = df.copy()
     df["risk_level"] = (
         df["risk_level"]
         .fillna("LOW")
@@ -198,15 +209,6 @@ def _load_risk_fusion() -> pd.DataFrame:
         .str.upper()
         .str.strip()
     )
-
-    # Only valid project IDs are usable as alert records.
-    df = df[
-        (df["work_id"] != "")
-        & (df["work_id"].str.lower() != "nan")
-    ].copy()
-
-    # One authoritative Risk Fusion row per project.
-    df = df.drop_duplicates(subset=["work_id"], keep="first")
 
     return df
 

@@ -1070,11 +1070,21 @@ def _classify_sectors(df: pd.DataFrame) -> list[Any]:
 
 
 def _with_project_sector(df: pd.DataFrame) -> pd.DataFrame:
-    """Add the normalized project sector used by Project Explorer filters."""
+    """Add the normalized project sector used by Project Explorer filters.
+
+    app/aggregations.py's load_canonical_projects() already computes this
+    exact classification once per process, as a `project_sector` column
+    (see the comment there). Reuse it under the `_project_sector` name
+    this module's filters/search already key off, instead of re-running
+    the 43,863-row classifier a second time on every cold start.
+    """
     if "_project_sector" in df.columns:
         return df
     result = df.copy()
-    result["_project_sector"] = _classify_sectors(result)
+    if "project_sector" in result.columns:
+        result["_project_sector"] = result["project_sector"]
+    else:
+        result["_project_sector"] = _classify_sectors(result)
     return result
 
 

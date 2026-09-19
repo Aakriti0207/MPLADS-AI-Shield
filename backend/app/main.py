@@ -47,6 +47,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.routes import alerts, analytics, auth, dashboard, demo, projects, public, reports, upload
+from app.routes.projects import warm_up_projects
 
 load_dotenv()
 
@@ -203,6 +204,42 @@ app.include_router(alerts.router)
 app.include_router(analytics.router)
 app.include_router(upload.router)
 app.include_router(reports.router)
+
+
+@app.on_event("startup")
+def _warm_up_project_caches() -> None:
+    """
+    Build the canonical/Risk Fusion project caches now, while the server
+    is starting up, instead of on whichever request happens to arrive
+    first.
+
+    warm_up_projects() (app/routes/projects.py) does the one-time, CPU-
+    and I/O-heavy work behind every Dashboard/Projects endpoint: loading
+    canonical_projects.csv and project_risk_scores.csv (via
+    app/aggregations.py, itself cached), merging in the constituency
+    resolution data, sorting the 43,863-row frame, and classifying every
+    project's sector. All of that was previously happening lazily on the
+    first real request -- which is exactly why the first person to open
+    the site saw a 10-20+ second page load. Doing it here means that by
+    the time Uvicorn reports "Application startup complete" and starts
+    accepting connections, that work is already done and every request
+    (Dashboard's included, since it shares these same caches) hits warm
+    caches from the very first hit.
+
+    Wrapped defensively: a missing/invalid data file should not prevent
+    the process from starting -- it should behave exactly as it already
+    does today, i.e. the affected endpoints return a 503 with a clear
+    reason when they're actually called. Skipping the warm-up on error
+    just means those requests fall back to the pre-existing lazy-load
+    behavior instead of crashing the server at boot.
+    """
+    try:
+        warm_up_projects()
+    except Exception:  # noqa: BLE001 - startup must never crash on this
+        logger.exception(
+            "Project cache warm-up failed at startup; endpoints will "
+            "fall back to loading data lazily on first request."
+        )
 
 
 @app.exception_handler(Exception)

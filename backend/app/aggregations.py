@@ -105,6 +105,43 @@ def load_canonical_projects() -> pd.DataFrame:
     df = df.drop_duplicates(
         subset=["work_id"]
     )
+    # -----------------------------------------------------------------
+    # Precompute the normalized project sector ONCE per process.
+    #
+    # classify_project_sector() is a pure function of
+    # work_description/work_category, both static canonical fields --
+    # its output never changes between requests for a given loaded
+    # dataset. Previously this was recomputed with a row-wise
+    # df.apply(axis=1) inside compute_by_work_type_from_canonical() on
+    # EVERY call to /dashboard/stats and /dashboard/role-overview, i.e.
+    # ~43,863 Python-level function calls per request. That was the
+    # dominant cost behind the slow (~9s+) dashboard load.
+    #
+    # Since this function is already wrapped in @lru_cache(maxsize=1),
+    # computing the column here means the expensive row-wise apply now
+    # runs exactly once per process (or once per CSV/parquet refresh),
+    # not once per request. Everything downstream (work-type breakdown,
+    # recent projects) just reads this column.
+    # -----------------------------------------------------------------
+    if {"work_description", "work_category"} & set(df.columns):
+        df["project_sector"] = (
+            df.apply(
+                lambda row: (
+                    classify_project_sector(
+                        work_description=row.get("work_description"),
+                        work_category=row.get("work_category"),
+                    )
+                    or "Not specified"
+                ),
+                axis=1,
+            )
+            .fillna("Not specified")
+            .astype(str)
+            .str.strip()
+            .replace("", "Not specified")
+        )
+    else:
+        df["project_sector"] = "Not specified"
     return df
 # =====================================================================
 # Risk Fusion loader
@@ -347,34 +384,45 @@ def compute_by_work_type_from_canonical(
     """
     if df.empty:
         return []
-    required_columns = {
-        "work_description",
-        "work_category",
-    }
-    # Keep this helper robust if a reduced dataframe is passed by another
-    # route. Missing source columns are treated as unavailable.
-    available_columns = required_columns.intersection(df.columns)
-    if not available_columns:
-        work_type = pd.Series(
-            "Not specified",
-            index=df.index,
-            dtype="object",
-        )
+    # ------------------------------------------------------------------
+    # `project_sector` is precomputed once in load_canonical_projects()
+    # (see the @lru_cache loader above) so this no longer re-runs a
+    # 43,863-row df.apply(axis=1) on every request. Any dataframe that
+    # descends from that loader (including role-scoped subsets, which
+    # are produced by row selection and therefore keep the column)
+    # already has it. The apply() fallback is kept only for a reduced
+    # dataframe built elsewhere without that column, so this helper
+    # stays robust rather than silently misbehaving.
+    # ------------------------------------------------------------------
+    if "project_sector" in df.columns:
+        work_type = df["project_sector"]
     else:
-        work_type = df.apply(
-            lambda row: (
-                classify_project_sector(
-                    work_description=(
-                        row.get("work_description")
-                    ),
-                    work_category=(
-                        row.get("work_category")
-                    ),
-                )
-                or "Not specified"
-            ),
-            axis=1,
-        )
+        required_columns = {
+            "work_description",
+            "work_category",
+        }
+        available_columns = required_columns.intersection(df.columns)
+        if not available_columns:
+            work_type = pd.Series(
+                "Not specified",
+                index=df.index,
+                dtype="object",
+            )
+        else:
+            work_type = df.apply(
+                lambda row: (
+                    classify_project_sector(
+                        work_description=(
+                            row.get("work_description")
+                        ),
+                        work_category=(
+                            row.get("work_category")
+                        ),
+                    )
+                    or "Not specified"
+                ),
+                axis=1,
+            )
     work_type = (
         work_type
         .fillna("Not specified")
@@ -503,11 +551,15 @@ def compute_recent_projects_from_canonical(
                 "constituency": _none_if_blank_value(row.get("constituency")),
                 "mp_name": _none_if_blank_value(row.get("mp")),
                 "work_type": (
-                    classify_project_sector(
-                        work_description=row.get("work_description"),
-                        work_category=row.get("work_category"),
+                    row.get("project_sector")
+                    if "project_sector" in df.columns
+                    else (
+                        classify_project_sector(
+                            work_description=row.get("work_description"),
+                            work_category=row.get("work_category"),
+                        )
+                        or "Not specified"
                     )
-                    or "Not specified"
                 ),
                 "implementing_agency": _none_if_blank_value(
                     row.get("implementing_agency")
