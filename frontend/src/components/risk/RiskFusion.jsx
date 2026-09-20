@@ -8,6 +8,7 @@ import WhyFlagged from './WhyFlagged'
 import PeerComparison from './PeerComparison'
 import DataQualityPanel from './DataQualityPanel'
 import RecommendedReview from './RecommendedReview'
+import RiskCharts from './RiskCharts'
 
 /* ==========================================================================
    RISK FUSION -- EXPLAINABLE AI
@@ -57,6 +58,7 @@ export {
   PeerComparison,
   DataQualityPanel,
   RecommendedReview,
+  RiskCharts,
 }
 
 /**
@@ -124,6 +126,9 @@ export default function RiskFusion({ risk, loading = false, error = null }) {
           </p>
         </div>
       )}
+
+      {/* Anomaly graph + peer-to-peer graph, above the detailed panels */}
+      <RiskCharts model={model} />
 
       <div className="grid xl:grid-cols-2 gap-4 items-start">
         {/* LEFT: what the score is, and how much each component added */}

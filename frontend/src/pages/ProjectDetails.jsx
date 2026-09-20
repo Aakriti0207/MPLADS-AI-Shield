@@ -29,6 +29,8 @@ import PeerComparison from '../components/risk/PeerComparison'
 import RecommendedReview from '../components/risk/RecommendedReview'
 import DataQualityPanel from '../components/risk/DataQualityPanel'
 import WhyRisky from '../components/risk/WhyRisky'
+import RiskLevelBanner from '../components/risk/RiskLevelBanner'
+import RiskCharts from '../components/risk/RiskCharts'
 import { buildRiskModel, statusTone } from '../lib/riskModel'
 
 import { downloadProjectReport } from '../features/reports/api'
@@ -641,6 +643,8 @@ export default function ProjectDetails() {
               />
             </Card>
 
+            {riskModel && <RiskCharts model={riskModel} />}
+
             {riskModel && (
               <div className="grid xl:grid-cols-2 gap-4 items-start">
                 <Card>
@@ -896,6 +900,14 @@ export default function ProjectDetails() {
           </div>
         )}
       </div>
+
+      {showRiskIntelligence && (
+        <RiskLevelBanner
+          level={riskModel?.level || p.risk}
+          score={riskModel?.score ?? p.riskScore}
+          model={riskModel}
+        />
+      )}
 
       <div className="mb-4">
         <Disclaimer />
