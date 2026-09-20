@@ -107,6 +107,8 @@ def list_public_projects(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     state: str | None = Query(None),
+    district: str | None = Query(None),
+    constituency: str | None = Query(None),
     category: str | None = Query(None),
     status_value: str | None = Query(None, alias="status"),
     search: str | None = Query(None, max_length=120),
@@ -116,6 +118,10 @@ def list_public_projects(
     query = db.query(Project)
     if state:
         query = query.filter(Project.state == state)
+    if district:
+        query = query.filter(Project.district == district)
+    if constituency:
+        query = query.filter(Project.constituency == constituency)
     if category:
         query = query.filter(Project.work_type == category)
     if status_value:
@@ -125,6 +131,7 @@ def list_public_projects(
         query = query.filter(or_(
             Project.project_id.ilike(pattern),
             Project.state.ilike(pattern),
+            Project.district.ilike(pattern),
             Project.constituency.ilike(pattern),
             Project.work_type.ilike(pattern),
             Project.mp_name.ilike(pattern),

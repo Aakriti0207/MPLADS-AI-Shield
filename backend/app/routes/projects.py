@@ -1186,6 +1186,61 @@ def _apply_canonical_filters(
     return result
 
 
+# Risk Fusion levels a client may filter on. Risk is a post-hoc overlay
+# (risk_fusion output joined on work_id), not a column of the canonical
+# frame, so it is filtered here rather than inside
+# _apply_canonical_filters().
+RISK_LEVEL_FILTER_VALUES = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+
+
+def normalize_risk_level_filter(value: str | None) -> str | None:
+    """
+    Validate and normalise a `risk_level` query value.
+
+    None / blank / "All" mean "no risk filter". Anything else must be one
+    of RISK_LEVEL_FILTER_VALUES (case-insensitive) or the request is
+    rejected with 422 -- silently ignoring an unknown level would return
+    an UNFILTERED page under a label claiming it was filtered.
+    """
+    if value is None:
+        return None
+    cleaned = value.strip().upper()
+    if not cleaned or cleaned == "ALL":
+        return None
+    if cleaned not in RISK_LEVEL_FILTER_VALUES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "risk_level must be one of: "
+                + ", ".join(RISK_LEVEL_FILTER_VALUES)
+                + "."
+            ),
+        )
+    return cleaned
+
+
+def filter_by_risk_level(
+    df: pd.DataFrame,
+    risk_level: str | None,
+) -> pd.DataFrame:
+    """
+    Keep only rows whose CURRENT Risk Fusion level equals `risk_level`.
+
+    Runs on an already-authorized, already-narrowed frame (RBAC scope and
+    the state/district/constituency/search filters have been applied), so
+    it can only ever shrink what the caller may see. Rows with no Risk
+    Fusion result never match a level filter. `risk_level` must already
+    be normalised by normalize_risk_level_filter().
+    """
+    if not risk_level or df.empty:
+        return df
+    light = _risk_light_lookup()
+    levels = df["work_id"].map(
+        lambda work_id: (light.get(work_id) or (None, None))[1]
+    )
+    return df[levels == risk_level]
+
+
 # =====================================================================
 # GET /projects
 # =====================================================================
@@ -1281,6 +1336,13 @@ def query_projects(
         None,
         description="Filter by constituency (must be inside your authorized scope).",
     ),
+    risk_level: str | None = Query(
+        None,
+        description=(
+            "Filter by current Risk Fusion level "
+            "(CRITICAL, HIGH, MEDIUM or LOW)."
+        ),
+    ),
     search: str | None = Query(
         None,
         max_length=120,
@@ -1308,6 +1370,7 @@ def query_projects(
         requested_district=district,
         requested_constituency=constituency,
     )
+    risk_level = normalize_risk_level_filter(risk_level)
     key = _page_key(
         scope,
         "query",
@@ -1319,6 +1382,7 @@ def query_projects(
         district,
         constituency,
         search,
+        risk_level,
     )
     etag = _etag_for(key)
     not_modified = _not_modified(request, etag)
@@ -1335,6 +1399,7 @@ def query_projects(
             district=district,
             constituency=constituency,
         )
+        filtered_df = filter_by_risk_level(filtered_df, risk_level)
         total = int(len(filtered_df))
         items = _rows_to_projects(filtered_df.iloc[skip: skip + limit])
         page = _cache_put(
@@ -1360,7 +1425,71 @@ def query_projects(
 # =====================================================================
 # GET /projects/filter-options
 # =====================================================================
-#
+def _distinct_values(df: pd.DataFrame, column: str) -> list[str]:
+    """Sorted, de-duplicated, non-blank string values of one column."""
+    if column not in df.columns:
+        return []
+    values = (
+        pd.Series(df[column].dropna().unique())
+        .astype(str)
+        .str.strip()
+    )
+    values = values[
+        (values != "") & (values.str.lower() != "nan")
+    ]
+    return sorted(set(values))
+
+
+def build_filter_options(
+    scoped_df: pd.DataFrame,
+    state: str | None = None,
+    district: str | None = None,
+    scope_info: ScopeInfo | None = None,
+    role_key: str | None = None,
+    locked_filters: list[str] | None = None,
+) -> ProjectFilterOptions:
+    """
+    Distinct filter values present in an ALREADY-AUTHORIZED frame.
+
+    With no `state`/`district` this is exactly the flat option lists the
+    Project Explorer has always received. When a caller supplies them the
+    location lists cascade, so a map or explorer can offer only districts
+    of the chosen state and only constituencies of the chosen
+    state/district instead of one national list:
+
+      districts       -> limited to `state`
+      constituencies  -> limited to `state` and `district`
+
+    Every other list is unchanged. The narrowing runs on the scoped frame,
+    so a caller can never learn a value outside its own jurisdiction --
+    naming an out-of-scope state or district just yields empty lists.
+    """
+    sectored_df = _with_project_sector(scoped_df)
+    district_df = (
+        _apply_canonical_filters(scoped_df, state, None, None, None)
+        if state
+        else scoped_df
+    )
+    constituency_df = (
+        _apply_canonical_filters(
+            scoped_df, state, None, None, None, district=district
+        )
+        if (state or district)
+        else scoped_df
+    )
+    return ProjectFilterOptions(
+        states=_distinct_values(scoped_df, "state"),
+        districts=_distinct_values(district_df, "district"),
+        constituencies=_distinct_values(constituency_df, "constituency"),
+        categories=_distinct_values(sectored_df, "_project_sector"),
+        statuses=_distinct_values(scoped_df, "status"),
+        mp_types=_distinct_values(scoped_df, "mp_type"),
+        scope=scope_info,
+        role_key=role_key,
+        locked_filters=locked_filters or [],
+    )
+
+
 # Declared BEFORE the "/{project_id:path}" routes below so it is matched
 # as a literal path rather than swallowed as a project ID.
 @router.get(
@@ -1370,6 +1499,19 @@ def query_projects(
 def get_project_filter_options(
     request: Request,
     response: Response,
+    state: str | None = Query(
+        None,
+        description=(
+            "Optional. Limit `districts` and `constituencies` to this "
+            "state (cascading dropdowns)."
+        ),
+    ),
+    district: str | None = Query(
+        None,
+        description=(
+            "Optional. Limit `constituencies` to this district."
+        ),
+    ),
     db: Session = Depends(get_db),
     scope: UserScope = Depends(get_scope),
 ):
@@ -1384,33 +1526,21 @@ def get_project_filter_options(
 
     `categories` are the normalized project-sector values (the same
     classify_project_sector() output ProjectOut.work_type and the `category`
-    filter use). The result is computed once per scope and cached; it used
-    to run a 43,863-row Python loop on every call.
+    filter use). The result is computed once per (scope, state, district)
+    and cached; it used to run a 43,863-row Python loop on every call.
+
+    `state` / `district` are optional and only narrow the location lists
+    (see build_filter_options); without them the response is unchanged.
     """
     canonical_df, _risk_df = _load_project_datasets()
     scoped_df = _scoped_canonical(canonical_df, scope)
-    key = _page_key(scope, "options")
+    key = _page_key(scope, "options", state, district)
     etag = _etag_for(key)
     not_modified = _not_modified(request, etag)
     if not_modified is not None:
         return not_modified
     options = _cache_get(_OPTIONS_CACHE, key)
     if options is None:
-        sectored_df = _with_project_sector(scoped_df)
-
-        def _distinct(df: pd.DataFrame, column: str) -> list[str]:
-            if column not in df.columns:
-                return []
-            values = (
-                pd.Series(df[column].dropna().unique())
-                .astype(str)
-                .str.strip()
-            )
-            values = values[
-                (values != "") & (values.str.lower() != "nan")
-            ]
-            return sorted(set(values))
-
         locked = []
         if scope.scope_type in ("state", "district", "constituency"):
             locked.append("state")
@@ -1421,14 +1551,11 @@ def get_project_filter_options(
         options = _cache_put(
             _OPTIONS_CACHE,
             key,
-            ProjectFilterOptions(
-                states=_distinct(scoped_df, "state"),
-                districts=_distinct(scoped_df, "district"),
-                constituencies=_distinct(scoped_df, "constituency"),
-                categories=_distinct(sectored_df, "_project_sector"),
-                statuses=_distinct(scoped_df, "status"),
-                mp_types=_distinct(scoped_df, "mp_type"),
-                scope=ScopeInfo(**scope.as_metadata()),
+            build_filter_options(
+                scoped_df,
+                state=state,
+                district=district,
+                scope_info=ScopeInfo(**scope.as_metadata()),
                 role_key=scope.role,
                 locked_filters=locked,
             ),
