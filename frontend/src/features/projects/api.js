@@ -27,6 +27,7 @@ function buildQuery({
   constituency = '',
   category = '',
   status = '',
+  riskLevel = '',
   search = '',
 } = {}) {
   const params = new URLSearchParams({
@@ -56,6 +57,13 @@ function buildQuery({
 
   if (status && status !== 'All') {
     params.set('status', status)
+  }
+
+  // Risk Fusion level (Critical/High/Medium/Low). Only the protected and
+  // demo APIs understand it; the anonymous /public/projects endpoint never
+  // exposes risk data, so callers must not offer this filter there.
+  if (riskLevel && riskLevel !== 'All') {
+    params.set('risk_level', riskLevel.toUpperCase())
   }
 
   if (search && search.trim()) {
@@ -249,6 +257,26 @@ export async function fetchDemoProjectRisk(projectId) {
 // SCOPE-AWARE FILTER OPTIONS
 // ================================================================
 
+// Optional cascade: with `state` the district list is limited to that
+// state, and with `state`/`district` the constituency list is limited too.
+// Returns '' (no query string) when nothing is selected, so the plain
+// call is identical to what Projects.jsx has always made.
+function buildOptionsQuery({ state = '', district = '' } = {}) {
+  const params = new URLSearchParams()
+
+  if (state && state !== 'All') {
+    params.set('state', state)
+  }
+
+  if (district && district !== 'All') {
+    params.set('district', district)
+  }
+
+  const query = params.toString()
+
+  return query ? `?${query}` : ''
+}
+
 /**
  * GET /projects/filter-options
  *
@@ -262,8 +290,32 @@ export async function fetchDemoProjectRisk(projectId) {
  * Projects.jsx did neither, which is why it silently never returned
  * anything.
  */
-export async function fetchProjectFilterOptions() {
-  const response = await apiFetch('/projects/filter-options')
+export async function fetchProjectFilterOptions(cascade = {}) {
+  const response = await apiFetch(
+    `/projects/filter-options${buildOptionsQuery(cascade)}`
+  )
+
+  if (!response.ok) {
+    throw new Error(
+      `Backend returned ${response.status} ${response.statusText}`
+    )
+  }
+
+  return response.json()
+}
+
+/**
+ * GET /demo/projects/filter-options
+ *
+ * Demo sessions carry no real JWT, so they must not call the protected
+ * /projects/filter-options (it would only 401). The demo universe is
+ * unscoped, so nothing is ever locked. Same response shape and the same
+ * optional `state` / `district` cascade as the protected endpoint.
+ */
+export async function fetchDemoProjectFilterOptions(cascade = {}) {
+  const response = await apiFetch(
+    `/demo/projects/filter-options${buildOptionsQuery(cascade)}`
+  )
 
   if (!response.ok) {
     throw new Error(

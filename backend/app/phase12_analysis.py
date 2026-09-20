@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from ml.anomalies.statistics import (
 from ml.anomalies.timeline import TIMELINE_METRICS
 from ml.compliance.engine import build_compliance_outputs
 from ml.duplicates.engine import build_phase6_outputs
-from ml.features import build_ml_features
+from ml.features import build_features_from_canonical_file, build_ml_features
 from ml.status import resolve_status_frame
 from ml.isolation_forest.engine import (
     fit_isolation_forest_model,
@@ -402,19 +403,71 @@ def _canonicalize(frame: pd.DataFrame) -> pd.DataFrame:
 # Historical reference data
 # ---------------------------------------------------------------------------
 
-def _load_historical_features() -> pd.DataFrame:
-    if not HISTORICAL_FEATURES_PATH.exists():
+# In-process cache for the baseline derived from canonical_projects.csv (see
+# _derive_historical_features). Keyed by the source file's identity so a
+# refreshed canonical file is picked up without restarting the process.
+_DERIVED_FEATURES_LOCK = threading.Lock()
+_DERIVED_FEATURES_CACHE: tuple[tuple[int, int], pd.DataFrame] | None = None
+
+
+def _derive_historical_features() -> pd.DataFrame:
+    """Rebuild the Phase 3 feature baseline in memory from canonical_projects.csv.
+
+    ``data/processed/ml_features.csv`` is a *generated* artifact: it is listed
+    in the backend .gitignore, so a fresh checkout (or a CI run) does not have
+    it until ``python -m ml.features`` has been run. It is, however, a pure,
+    deterministic function of the tracked ``canonical_projects.csv`` -- exactly
+    what ``ml.features.main()`` computes and writes. Recomputing it here gives
+    an upload analysis the same baseline the file would hold, without ever
+    writing to data/processed (uploads must not touch production outputs).
+
+    The frame is round-tripped through CSV text so its dtypes match what
+    ``pd.read_csv(ml_features.csv)`` returns, keeping downstream model fitting
+    identical whichever source the baseline came from.
+    """
+    global _DERIVED_FEATURES_CACHE
+
+    if not HISTORICAL_CANONICAL_PATH.exists():
         raise AnalysisInputError(
             "Historical ML features are unavailable. "
             "Run the production ML pipeline before analyzing uploads."
         )
 
-    try:
-        historical = pd.read_csv(HISTORICAL_FEATURES_PATH)
-    except Exception as exc:
-        raise AnalysisInputError(
-            "Unable to load the historical ML feature baseline."
-        ) from exc
+    stat = HISTORICAL_CANONICAL_PATH.stat()
+    key = (stat.st_mtime_ns, stat.st_size)
+
+    with _DERIVED_FEATURES_LOCK:
+        cached = _DERIVED_FEATURES_CACHE
+        if cached is not None and cached[0] == key:
+            return cached[1].copy()
+
+        try:
+            features = build_features_from_canonical_file(
+                HISTORICAL_CANONICAL_PATH
+            )
+            buffer = io.StringIO()
+            features.to_csv(buffer, index=False)
+            buffer.seek(0)
+            baseline = pd.read_csv(buffer)
+        except Exception as exc:
+            raise AnalysisInputError(
+                "Unable to build the historical ML feature baseline."
+            ) from exc
+
+        _DERIVED_FEATURES_CACHE = (key, baseline)
+        return baseline.copy()
+
+
+def _load_historical_features() -> pd.DataFrame:
+    if HISTORICAL_FEATURES_PATH.exists():
+        try:
+            historical = pd.read_csv(HISTORICAL_FEATURES_PATH)
+        except Exception as exc:
+            raise AnalysisInputError(
+                "Unable to load the historical ML feature baseline."
+            ) from exc
+    else:
+        historical = _derive_historical_features()
 
     if historical.empty:
         raise AnalysisInputError(

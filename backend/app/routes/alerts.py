@@ -91,7 +91,13 @@ class AlertListItem(BaseModel):
     # Cheap additions (already in the cached in-process Risk Fusion frame --
     # no extra I/O per row) so the list card can show a risk score and which
     # component triggered it without a second request per project.
+    #
+    # alert_type / triggered_component both name the single largest
+    # contributing Risk Fusion component -- the same pair, with the same
+    # meaning, that AlertDetail returns -- so a list card and its detail page
+    # never disagree about what kind of alert this is.
     risk_score: Optional[float] = None
+    alert_type: Optional[str] = None
     triggered_component: Optional[str] = None
     top_reason: Optional[str] = None
 
@@ -642,6 +648,7 @@ def list_alerts(
                 district=location.get("district"),
                 constituency=location.get("constituency"),
                 risk_score=_risk_score(row.get("risk_score")),
+                alert_type=triggered_component,
                 triggered_component=triggered_component,
                 top_reason=_optional_text(row.get("top_reason_1")),
             )
