@@ -51,6 +51,14 @@ from app.aggregations import (
 )
 from app.geo_centroids import resolve_coordinates
 
+try:
+    from app.geo_centroids import resolve_coordinates
+except ImportError:  # geo_centroids.py not present in this checkout
+    # Keeps the public API importable/working without the coordinate
+    # helper: coordinates are simply reported as unavailable (None).
+    def resolve_coordinates(state, district):
+        return None, None, None
+
 # =====================================================================
 # Public-safe column allowlist
 #

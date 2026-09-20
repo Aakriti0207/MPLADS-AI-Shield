@@ -37,3 +37,54 @@ button, input, select { font: inherit; }
 @media print {
   .no-print { display: none !important; }
 }
+
+/* =====================================================================
+   Public transparency portal
+   Scoped under .public-portal so nothing here can change the internal
+   (authenticated) dashboards. Light surface, white cards, blue primary,
+   larger type for citizens, visible keyboard focus.
+   ===================================================================== */
+.public-portal { font-size: 15px; line-height: 1.55; color: #16232e; background: #f5f7fa; }
+.public-portal :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid #1d63a8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.skip-link {
+  position: absolute; left: 12px; top: -60px; z-index: 100;
+  background: #0b2e4f; color: #fff; padding: 10px 16px; border-radius: 6px; font-weight: 600;
+}
+.skip-link:focus { top: 12px; }
+
+@layer components {
+  .pub-card { @apply bg-white border border-line rounded-xl; }
+  .pub-btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[15px] font-semibold transition min-h-[44px]; }
+  .pub-btn-primary { @apply pub-btn bg-blue text-white hover:bg-navy; }
+  .pub-btn-secondary { @apply pub-btn bg-white text-navy border border-line hover:bg-navy-bg; }
+  .pub-input { @apply w-full rounded-lg border border-[#b9c3cc] bg-white px-3 py-2.5 text-[15px] text-ink min-h-[44px] placeholder:text-[#6b7883] transition-colors focus:border-blue; }
+  .pub-label { @apply block text-[13px] font-semibold text-ink mb-1.5; }
+  .pub-eyebrow { @apply text-[12px] font-semibold uppercase tracking-[0.12em] text-blue; }
+  .skeleton { @apply rounded-md bg-[#e3e8ed] animate-pulse; }
+
+  /* Shared horizontal rhythm for the public portal's header, main
+     content and footer. Replaces the old flat `px-4 md:px-6`: the
+     fixed 1200px cap + fixed padding left too much empty gutter on
+     laptop/desktop screens. `clamp` grows the side padding gently with
+     viewport width instead of jumping at a breakpoint, and the wider
+     max-width lets cards/charts actually use large screens. */
+  .pub-px { padding-left: clamp(16px, 3vw, 40px); padding-right: clamp(16px, 3vw, 40px); }
+
+  /* Clickable card affordance shared by state tiles, location cards
+     etc.: a soft hover lift + tinted background so the whole card
+     reads as interactive, not just its link text. */
+  .pub-card-hover { @apply hover:shadow-soft hover:border-blue hover:bg-navy-bg/40 transition; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-portal *, .public-portal *::before, .public-portal *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

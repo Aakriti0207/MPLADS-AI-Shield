@@ -12,9 +12,23 @@ export const CHART_COLORS = {
   green: '#1b8a5a',
   amber: '#b7791f',
   red: '#c0392b',
+  teal: '#0f7a72',
+  indigo: '#5b4b8a',
   ink: '#16232e',
   muted: '#55636e',
   line: '#dce2e8',
+}
+
+// Restrained accent-tone lookup for public-portal stat cards and
+// decorative highlights. Each entry pairs a text/icon colour with its
+// soft tint background and a matching Tailwind border-top class, all
+// drawn from the palette above so a "tone" never invents a new hue.
+export const ACCENT_TONES = {
+  blue: { bg: 'bg-info-bg', fg: 'text-info', top: 'border-t-info' },
+  green: { bg: 'bg-good-bg', fg: 'text-good', top: 'border-t-good' },
+  amber: { bg: 'bg-warn-bg', fg: 'text-warn', top: 'border-t-warn' },
+  teal: { bg: 'bg-teal-bg', fg: 'text-teal', top: 'border-t-teal' },
+  indigo: { bg: 'bg-indigo-bg', fg: 'text-indigo', top: 'border-t-indigo' },
 }
 
 // Risk-level colour + background pairs. Keys are upper-case to match the

@@ -4,9 +4,24 @@ export function toNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
+// Indian-style magnitude formatting:
+//   < ₹1,00,000        -> "₹12,345"     (plain rupees, grouped)
+//   ₹1,00,000 - <1 Cr  -> "₹1.25 Lakh"
+//   >= ₹1,00,00,000    -> "₹1.52 Cr"
+// Previously this always divided by 1 crore, so a ₹14,84,933 sanction
+// showed as the confusing "₹0.15 Cr" instead of "₹14.85 Lakh".
 export function formatCurrency(value) {
   const number = toNumber(value)
-  return number === null ? 'Not available' : `₹${(number / 10000000).toFixed(2)} Cr`
+  if (number === null) return 'Not available'
+  const sign = number < 0 ? '-' : ''
+  const abs = Math.abs(number)
+  if (abs >= 10000000) {
+    return `${sign}₹${(abs / 10000000).toFixed(2)} Cr`
+  }
+  if (abs >= 100000) {
+    return `${sign}₹${(abs / 100000).toFixed(2)} Lakh`
+  }
+  return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`
 }
 
 export function formatNumber(value) {

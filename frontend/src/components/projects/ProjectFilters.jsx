@@ -4,6 +4,26 @@ import { Search } from 'lucide-react'
 const FIELD_LABEL_CLASS = 'text-[11px] font-medium text-muted mb-1 block'
 const SELECT_CLASS = 'w-full border border-line rounded-md px-3 py-2 text-[13px] bg-white text-ink'
 const LOCKED_CLASS = 'w-full border border-line rounded-md px-3 py-2 text-[13px] bg-panel text-ink font-medium'
+// Only used until the real /projects/filter-options `statuses` list
+// loads. The old permanent list here ('Recommended', 'In Progress',
+// 'Delayed'...) never matched any real backend status value, so
+// selecting most of those options silently returned zero results --
+// and NOT_SPECIFIED (14% of all projects) wasn't selectable at all.
+const FALLBACK_STATUSES = [
+  'SANCTIONED',
+  'ONGOING',
+  'COMPLETED',
+  'NOT_SPECIFIED',
+]
+
+function prettyStatusLabel(value) {
+  const text = String(value ?? '').trim()
+  if (!text) return text
+  return (
+    text.charAt(0).toUpperCase() +
+    text.slice(1).toLowerCase()
+  ).replace(/_/g, ' ')
+}
 
 /**
  * Compact filter bar for the Project Explorer.
@@ -30,7 +50,8 @@ export default function ProjectFilters({
   state, onStateChange, states = [],
   district, onDistrictChange, districts = [],
   category, onCategoryChange, categories = [],
-  status, onStatusChange,
+  status, onStatusChange, statuses = [],
+  mpType, onMpTypeChange, mpTypes = [],
   onReset,
   lockedFilters = [],
   scope = null,
@@ -38,6 +59,7 @@ export default function ProjectFilters({
   const stateLocked = lockedFilters.includes('state')
   const districtLocked = lockedFilters.includes('district')
   const constituencyLocked = lockedFilters.includes('constituency')
+  const statusOptions = statuses.length ? statuses : FALLBACK_STATUSES
 
   return (
     <div className="card p-3.5 mb-4">
@@ -85,6 +107,14 @@ export default function ProjectFilters({
           </div>
         )}
 
+        <div className="w-full sm:w-auto sm:min-w-[150px]">
+          <label className={FIELD_LABEL_CLASS}>MP Type</label>
+          <select value={mpType} onChange={event => onMpTypeChange(event.target.value)} className={SELECT_CLASS}>
+            <option>All</option>
+            {mpTypes.map(value => <option key={value}>{value}</option>)}
+          </select>
+        </div>
+
         <div className="w-full sm:w-auto sm:min-w-[180px]">
           <label className={FIELD_LABEL_CLASS}>Category</label>
           <select value={category} onChange={event => onCategoryChange(event.target.value)} className={SELECT_CLASS}>
@@ -97,12 +127,11 @@ export default function ProjectFilters({
           <label className={FIELD_LABEL_CLASS}>Status</label>
           <select value={status} onChange={event => onStatusChange(event.target.value)} className={SELECT_CLASS}>
             <option>All</option>
-            <option>Recommended</option>
-            <option>Sanctioned</option>
-            <option>Ongoing</option>
-            <option>In Progress</option>
-            <option>Completed</option>
-            <option>Delayed</option>
+            {statusOptions.map(value => (
+              <option key={value} value={value}>
+                {prettyStatusLabel(value)}
+              </option>
+            ))}
           </select>
         </div>
 

@@ -170,3 +170,126 @@ export function normalizePublicOverview(stats = {}) {
     recent_projects: (safe.recent_projects || []).map(normalizePublicProject),
   }
 }
+
+// ---------------------------------------------------------------------
+// Public portal explorer contract (GET /public/explorer/*, /public/meta)
+//
+// Same rule as everything above: an explicit allowlist. Fields not named
+// here are dropped, so even if a future backend change added an internal
+// field to one of these payloads it could not reach the public UI.
+// ---------------------------------------------------------------------
+
+export function normalizeExplorerProject(row = {}) {
+  return {
+    id: row.project_id ?? null,
+    title: row.title ?? null,
+    description: row.description ?? null,
+    state: row.state ?? null,
+    district: row.district ?? null,
+    constituency: row.constituency ?? null,
+    category: row.category ?? null,
+    status: row.status ?? null,
+    sanctioned: toNumber(row.sanctioned_amount),
+    expenditure: toNumber(row.expenditure),
+    utilisationPercent: toNumber(row.utilisation_percent),
+    sanctionDate: row.sanction_date ?? null,
+    completionDate: row.completion_date ?? null,
+    mpName: row.mp_name ?? null,
+    agency: row.implementing_agency ?? null,
+    recommendedAmount: toNumber(row.recommended_amount),
+    recommendedDate: row.recommended_date ?? null,
+    firstExpenditureDate: row.first_expenditure_date ?? null,
+    lastExpenditureDate: row.last_expenditure_date ?? null,
+  }
+}
+
+export function normalizeExplorerPage(payload = {}) {
+  return {
+    items: (payload.items || []).map(normalizeExplorerProject),
+    total: toNumber(payload.total) ?? 0,
+    page: toNumber(payload.page) ?? 1,
+    pageSize: toNumber(payload.page_size) ?? 20,
+    totalPages: toNumber(payload.total_pages) ?? 0,
+  }
+}
+
+export function normalizeFilterOptions(payload = {}) {
+  const options = list => (list || []).map(o => ({ value: o.value, count: toNumber(o.count) ?? 0 }))
+  return {
+    states: options(payload.states),
+    districts: options(payload.districts),
+    categories: options(payload.categories),
+    statuses: options(payload.statuses),
+    years: options(payload.years),
+  }
+}
+
+export function normalizeAreaRow(row = {}) {
+  return {
+    name: row.name ?? null,
+    state: row.state ?? null,
+    projectCount: toNumber(row.project_count) ?? 0,
+    sanctioned: toNumber(row.sanctioned_amount),
+    expenditure: toNumber(row.expenditure),
+    completedProjects: toNumber(row.completed_projects) ?? 0,
+    ongoingProjects: toNumber(row.ongoing_projects) ?? 0,
+    utilisationPercent: toNumber(row.utilisation_percent),
+  }
+}
+
+export function normalizeAreaResponse(payload = {}) {
+  return {
+    level: payload.level ?? 'state',
+    state: payload.state ?? null,
+    rows: (payload.rows || []).map(normalizeAreaRow),
+  }
+}
+
+export function normalizeMeta(meta = {}) {
+  return {
+    totalProjects: toNumber(meta.total_projects),
+    refreshedAt: meta.dataset_refreshed_at ?? null,
+    latestRecordDate: meta.latest_record_date ?? null,
+    sourceNote: meta.source_note ?? null,
+  }
+}
+
+export function normalizeExplorerSummary(payload = {}) {
+  const kpis = payload.kpis || {}
+  const util = payload.utilisation || {}
+  return {
+    scopeState: payload.scope_state ?? null,
+    scopeDistrict: payload.scope_district ?? null,
+    kpis: {
+      totalProjects: toNumber(kpis.total_projects),
+      totalSanctioned: toNumber(kpis.total_sanctioned_amount),
+      totalExpenditure: toNumber(kpis.total_expenditure),
+      completedProjects: toNumber(kpis.completed_projects),
+      activeWorks: toNumber(kpis.active_works),
+      completionRatePercent: toNumber(kpis.completion_rate_percent),
+      statesCovered: toNumber(kpis.states_covered),
+      districtsCovered: toNumber(kpis.districts_covered),
+    },
+    utilisation: {
+      percent: toNumber(util.percent),
+      projectsWithSanction: toNumber(util.projects_with_sanctioned_amount),
+      sanctioned: toNumber(util.sanctioned_amount),
+      expenditureOnThose: toNumber(util.expenditure_on_those_projects),
+      projectsWithExpenditureRecord: toNumber(util.projects_with_expenditure_record),
+      totalProjects: toNumber(util.total_projects),
+    },
+    statusDistribution: (payload.status_distribution || []).map(row => ({
+      status: row.status ?? null,
+      count: toNumber(row.count) ?? 0,
+    })),
+    byState: (payload.by_state || []).map(normalizeAreaRow),
+    byDistrict: (payload.by_district || []).map(normalizeAreaRow),
+    byCategory: (payload.by_category || []).map(row => ({
+      category: row.category ?? null,
+      count: toNumber(row.count) ?? 0,
+      sanctioned: toNumber(row.total_sanctioned_amount),
+      expenditure: toNumber(row.total_expenditure),
+    })),
+    meta: normalizeMeta(payload.meta),
+  }
+}

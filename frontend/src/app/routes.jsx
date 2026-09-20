@@ -1,3 +1,4 @@
+import React from 'react'
 import Home from '../pages/Home'
 import About from '../pages/About'
 import Login from '../pages/Login'
@@ -12,6 +13,14 @@ import AiShield from '../pages/AiShield'
 import MapPage from '../pages/MapPage'
 import Reports from '../pages/Reports'
 import { PERMISSION } from '../lib/roles'
+
+// Public transparency portal pages. Statistics (charts) and the map
+// (Leaflet) are code-split so the landing page stays light.
+const PublicProjects = React.lazy(() => import('../pages/public/PublicProjects'))
+const PublicProjectDetail = React.lazy(() => import('../pages/public/PublicProjectDetail'))
+const PublicMap = React.lazy(() => import('../pages/public/PublicMap'))
+const PublicStatistics = React.lazy(() => import('../pages/public/PublicStatistics'))
+const PublicLocations = React.lazy(() => import('../pages/public/PublicLocations'))
 
 // Centralized route configuration.
 //
@@ -41,6 +50,14 @@ export const publicRoutes = [
   // in publicRoutes like Home/About/Login, not appRoutes+ProtectedRoute.
   { path: '/ai-insights', element: AiInsights, title: 'AI Insights' },
   { path: '/about', element: About, title: 'About' },
+  // Public portal (anonymous, canonical /public/explorer/* data only).
+  { path: '/public/projects', element: PublicProjects, title: 'Projects' },
+  { path: '/public/projects/:id', element: PublicProjectDetail, title: 'Project details' },
+  { path: '/public/map', element: PublicMap, title: 'Explore Map' },
+  { path: '/public/statistics', element: PublicStatistics, title: 'Statistics' },
+  { path: '/public/locations', element: PublicLocations, title: 'Explore by location' },
+  { path: '/public/locations/:state', element: PublicLocations, title: 'State overview' },
+  { path: '/public/locations/:state/:district', element: PublicLocations, title: 'District overview' },
   { path: '/login', element: Login, title: 'Sign in' },
 ]
 

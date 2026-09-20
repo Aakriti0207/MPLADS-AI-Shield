@@ -238,3 +238,30 @@ describe('normalizePublicDistrictResponse', () => {
     expect(normalizePublicDistrictResponse({}).districts).toEqual([])
   })
 })
+
+import { normalizeExplorerProject, normalizeExplorerSummary } from '../publicNormalizers'
+
+describe('explorer normalizers (allowlist)', () => {
+  it('drops any field that is not on the public allowlist', () => {
+    const p = normalizeExplorerProject({
+      project_id: 'A/1', title: 'T', state: 'Bihar',
+      risk_score: 91, risk_level: 'HIGH', isolation_forest_score: 0.7, review_status: 'open', admin_notes: 'x',
+    })
+    const keys = Object.keys(p).join(' ').toLowerCase()
+    expect(p.id).toBe('A/1')
+    for (const w of ['risk', 'isolation', 'review', 'admin']) expect(keys).not.toContain(w)
+    expect(JSON.stringify(p)).not.toContain('91')
+  })
+  it('keeps missing numbers as null', () => {
+    const p = normalizeExplorerProject({ project_id: 'A/1' })
+    expect(p.sanctioned).toBeNull()
+    expect(p.expenditure).toBeNull()
+    expect(p.utilisationPercent).toBeNull()
+  })
+  it('normalizes a summary without leaking extra keys', () => {
+    const s = normalizeExplorerSummary({ kpis: { total_projects: 5 }, risk_summary: { high: 3 }, meta: { total_projects: 5 } })
+    expect(s.kpis.totalProjects).toBe(5)
+    expect(s.risk_summary).toBeUndefined()
+    expect(s.byState).toEqual([])
+  })
+})

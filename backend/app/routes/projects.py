@@ -423,12 +423,28 @@ def _build_project_datasets():
                 f"extra_risk={len(extra_risk)}."
             ),
         )
-    # Establish the API's deterministic work_id order once. Filtering
-    # preserves this order, so list/query endpoints no longer sort the full
+    # Establish the API's deterministic row order once. Filtering preserves
+    # this order, so list/query endpoints no longer sort the full
     # 43,863-row frame on every request.
+    #
+    # Sorted by State -> District -> Work ID (rather than Work ID alone) so
+    # that the unfiltered Project Explorer, and the state names within it,
+    # read alphabetically instead of in the CSV's original load order
+    # (which happens to cluster many same-state rows together but not in
+    # A-Z order). Missing state/district values sort last, not first.
+    sort_keys = [
+        col
+        for col in ("state", "district", "work_id")
+        if col in canonical_df.columns
+    ]
     canonical_df = (
         canonical_df
-        .sort_values("work_id", kind="mergesort")
+        .sort_values(
+            sort_keys,
+            key=lambda col: col.astype(str).str.casefold(),
+            na_position="last",
+            kind="mergesort",
+        )
         .reset_index(drop=True)
     )
     canonical_df = _add_derived_columns(canonical_df)
@@ -793,9 +809,22 @@ def _canonical_row_to_project(
     sanctioned_amount = _decimal(
         row.get("sanction_amount")
     )
+    # ---------------------------------------------------------------
+    # Expenditure: prefer total_expenditure, but a large share of
+    # canonical rows (mostly COMPLETED/ONGOING works) never got a
+    # total_expenditure figure recorded upstream even though the money
+    # actually disbursed against the sanction (amount_disbursed) IS
+    # present. Falling back to amount_disbursed turns "Not available"
+    # into a real figure for those rows without inventing anything --
+    # it is the same source data, just a different column recording it.
+    # ---------------------------------------------------------------
     expenditure = _decimal(
         row.get("total_expenditure")
     )
+    if expenditure is None:
+        expenditure = _decimal(
+            row.get("amount_disbursed")
+        )
     # ---------------------------------------------------------------
     # Calculate financial progress from canonical financial data.
     #
@@ -909,6 +938,16 @@ def _canonical_row_to_project(
         location_precision=location_precision,
         status=_clean_string(
             row.get("status")
+        ),
+        # The source data's own compliance flag: a payment exists with no
+        # matching sanction record. Read directly, never inferred/guessed --
+        # if the column isn't present in an older CSV, this is simply None
+        # rather than fabricated.
+        expenditure_without_sanction=(
+            bool(row.get("flag_expenditure_without_sanction"))
+            if "flag_expenditure_without_sanction" in row.index
+            and pd.notna(row.get("flag_expenditure_without_sanction"))
+            else None
         ),
         # -----------------------------------------------------------
         # Legacy Phase-2 risk fields.
@@ -1070,6 +1109,7 @@ _FILTER_NORM_COLUMNS = (
     "constituency",
     "status",
     "_project_sector",
+    "mp_type",
 )
 
 
@@ -1151,6 +1191,7 @@ def _apply_canonical_filters(
     search: str | None,
     district: str | None = None,
     constituency: str | None = None,
+    mp_type: str | None = None,
 ) -> pd.DataFrame:
     """
     Apply project filters to an already-authorized canonical frame.
@@ -1169,6 +1210,7 @@ def _apply_canonical_filters(
         ("state", state),
         ("_project_sector", category),
         ("status", status_value),
+        ("mp_type", mp_type),
     ):
         norm_column = f"_n_{column}"
         if not value or norm_column not in result.columns:
@@ -1342,6 +1384,9 @@ def query_projects(
             "Filter by current Risk Fusion level "
             "(CRITICAL, HIGH, MEDIUM or LOW)."
         ),
+    mp_type: str | None = Query(
+        None,
+        description="Filter by MP type (e.g. Lok Sabha / Rajya Sabha).",
     ),
     search: str | None = Query(
         None,
@@ -1371,6 +1416,13 @@ def query_projects(
         requested_constituency=constituency,
     )
     risk_level = normalize_risk_level_filter(risk_level)
+    # The frontend historically sent this filter as camelCase ("mpType")
+    # while /projects/query had no parameter for it at all. mp_type above
+    # covers a caller using the snake_case name; this covers one still
+    # using the old camelCase name, so neither integration breaks.
+    if not mp_type:
+        mp_type = request.query_params.get("mpType") or None
+    mp_type = mp_type.strip() if mp_type else None
     key = _page_key(
         scope,
         "query",
@@ -1381,6 +1433,7 @@ def query_projects(
         status_value,
         district,
         constituency,
+        mp_type,
         search,
         risk_level,
     )
@@ -1398,6 +1451,7 @@ def query_projects(
             search,
             district=district,
             constituency=constituency,
+            mp_type=mp_type,
         )
         filtered_df = filter_by_risk_level(filtered_df, risk_level)
         total = int(len(filtered_df))
