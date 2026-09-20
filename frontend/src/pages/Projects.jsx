@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { formatCurrency, formatNumber } from '../lib/formatters'
-import { RiskBadge, StatusBadge, Progress } from '../components/UI'
+import { RiskBadge, StatusBadge, Progress, Badge } from '../components/UI'
 import LoadingState from '../components/ui/LoadingState'
 import ErrorState from '../components/ui/ErrorState'
 import Pagination from '../components/ui/Pagination'
@@ -52,6 +52,19 @@ const TABLE_COLUMNS = [
   'Expenditure',
   'Progress',
 ]
+// Build a fallback label when the source project name/description is
+// missing or unusable (a real gap in the upstream MPLADS data for ~28%
+// of records -- many Hindi-language descriptions were corrupted into
+// literal "?" characters before this data ever reached the API, and
+// cannot be recovered here). Rather than a bare, blank-feeling
+// "Untitled project", show what we DO reliably know about the work.
+function fallbackProjectLabel(project) {
+  const place = project.constituency || project.district || project.state
+  if (project.workType && place) {
+    return `${project.workType} work (${place})`
+  }
+  return project.workType || 'Untitled project'
+}
 // Clean MP display names without modifying backend/source data.
 function cleanMpName(value) {
   const text = String(value ?? '').trim()
@@ -90,7 +103,7 @@ function financialProgressPct(project) {
 }
 // One table row. Memoized: typing in the search box re-renders the page on
 // every keystroke, but rows only re-render when their own project changes.
-const ProjectRow = memo(function ProjectRow({ project, onOpen }) {
+const ProjectRow = memo(function ProjectRow({ project, onOpen, index }) {
   const pct =
     financialProgressPct(project)
   const hasRisk =
@@ -105,6 +118,9 @@ const ProjectRow = memo(function ProjectRow({ project, onOpen }) {
   return (
     <tr
       className="hover:bg-panel cursor-pointer"
+      style={{
+        backgroundColor: index % 2 === 1 ? 'rgba(0,0,0,0.02)' : undefined,
+      }}
       onClick={() => {
         if (project.id) onOpen(projectUrl)
       }}
@@ -130,13 +146,13 @@ const ProjectRow = memo(function ProjectRow({ project, onOpen }) {
           project.projectName ||
           project.project_name ||
           project.workDescription ||
-          'Untitled project'
+          fallbackProjectLabel(project)
         }
       >
         {project.projectName ||
           project.project_name ||
           project.workDescription ||
-          'Untitled project'}
+          fallbackProjectLabel(project)}
       </td>
       <td
         className="max-w-[220px] truncate"
@@ -178,9 +194,23 @@ const ProjectRow = memo(function ProjectRow({ project, onOpen }) {
           status={project.status}
         />
       </td>
-      <td className="whitespace-nowrap">
-        {formatCurrency(
-          project.sanctioned,
+      <td
+        className="whitespace-nowrap"
+        title={
+          project.expenditureWithoutSanction
+            ? 'Flagged: a payment was recorded for this work, but no sanction record exists for it in the source data.'
+            : project.sanctioned == null &&
+                String(project.status ?? '').trim().toUpperCase() === 'NOT_SPECIFIED'
+              ? 'No sanction record was found in the source data for this work.'
+              : undefined
+        }
+      >
+        {project.expenditureWithoutSanction ? (
+          <Badge color="#b45309" bg="#fef3c7">
+            ⚠ No sanction on record
+          </Badge>
+        ) : (
+          formatCurrency(project.sanctioned)
         )}
       </td>
       <td className="whitespace-nowrap">
@@ -190,7 +220,14 @@ const ProjectRow = memo(function ProjectRow({ project, onOpen }) {
       </td>
       <td className="min-w-[110px]">
         {pct === null ? (
-          <span className="text-xs text-muted">
+          <span
+            className="text-xs text-muted"
+            title={
+              String(project.status ?? '').trim().toUpperCase() === 'NOT_SPECIFIED'
+                ? 'Progress cannot be calculated without a sanction record.'
+                : undefined
+            }
+          >
             Not available
           </span>
         ) : (
@@ -265,6 +302,7 @@ export default function Projects() {
   const [lockedFilters, setLockedFilters] = useState([])
   const [districtOptions, setDistrictOptions] = useState([])
   const [mpTypeOptions, setMpTypeOptions] = useState([])
+  const [statusOptions, setStatusOptions] = useState([])
   const [scopeMessage, setScopeMessage] = useState(null)
   const [skip, setSkip] = useState(0)
   const [items, setItems] = useState([])
@@ -334,10 +372,7 @@ export default function Projects() {
       district: districtFilter,
       category: categoryFilter,
       status: statusFilter,
-      // NOTE: the backend does not yet filter on mpType server-side --
-      // /projects/query has no matching query parameter for it. This is
-      // sent in anticipation of that support; until it lands, selecting
-      // an MP type narrows the dropdown/options only, not the results.
+      // Filtered server-side by /projects/query (mp_type parameter).
       mpType: mpTypeFilter,
       search: debouncedQuery,
     }),
@@ -494,6 +529,12 @@ export default function Projects() {
         if (mpTypes.length) {
           setMpTypeOptions(mpTypes)
         }
+        const statuses = Array.isArray(data.statuses)
+          ? data.statuses.filter(Boolean)
+          : []
+        if (statuses.length) {
+          setStatusOptions(statuses)
+        }
         const categories = Array.isArray(data.categories)
           ? data.categories.filter(Boolean)
           : []
@@ -598,6 +639,7 @@ export default function Projects() {
         categories={categoryOptions}
         status={statusFilter}
         onStatusChange={handleStatusChange}
+        statuses={statusOptions}
         mpType={mpTypeFilter}
         onMpTypeChange={handleMpTypeChange}
         mpTypes={mpTypeOptions}
@@ -638,15 +680,21 @@ export default function Projects() {
                     ...TABLE_COLUMNS,
                     riskColumnLabel,
                   ].map((header) => (
-                    <th key={header}>{header}</th>
+                    <th
+                      key={header}
+                      className="sticky top-0 z-10 bg-white"
+                    >
+                      {header}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {items.map((project) => (
+                {items.map((project, index) => (
                   <ProjectRow
                     key={project.id}
                     project={project}
+                    index={index}
                     onOpen={openProject}
                   />
                 ))}

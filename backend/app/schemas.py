@@ -154,6 +154,12 @@ class ProjectOut(BaseModel):
     longitude: Optional[Decimal] = None
 
     status: Optional[str] = None
+    # True when canonical_projects.csv's own flag_expenditure_without_sanction
+    # column is set: money was recorded as disbursed for this work, but no
+    # sanction record exists in the source data at all. This is why
+    # sanctioned_amount is None alongside a real expenditure figure -- it is
+    # a flagged data-integrity/compliance anomaly, not an ordinary gap.
+    expenditure_without_sanction: Optional[bool] = None
 
     # --- Phase 2: ML risk-scoring output (advisory, not a fraud label) --
     # Mirrors app/models.py's Project columns of the same names, in the

@@ -4,9 +4,13 @@ import { riskTone, statusTone } from '../lib/theme'
 // Generic pill. Colour/background are always passed explicitly (from
 // src/lib/theme.js) rather than via Tailwind utility classes, so the
 // exact hex tokens stay in one place instead of drifting per-component.
-export function Badge({ children, color = '#55636e', bg = '#eef1f3', className = '' }) {
+export function Badge({ children, color = '#55636e', bg = '#eef1f3', className = '', title }) {
   return (
-    <span className={`badge ${className}`} style={{ color, backgroundColor: bg, borderColor: `${color}22` }}>
+    <span
+      className={`badge ${className}`}
+      style={{ color, backgroundColor: bg, borderColor: `${color}22` }}
+      title={title}
+    >
       {children}
     </span>
   )
@@ -19,7 +23,21 @@ export function RiskBadge({ risk }) {
 
 export function StatusBadge({ status }) {
   const tone = statusTone(status)
-  return <Badge color={tone.color} bg={tone.bg}>{status || 'Unknown'}</Badge>
+  const normalized = String(status || '').trim().toUpperCase()
+  // Confirmed against the source data: every NOT_SPECIFIED row has a
+  // recorded expenditure/payment entry but no matching sanction record --
+  // that is why Sanctioned/Progress show as "Not available" alongside it.
+  // Explaining that on hover turns "looks broken" into "this is a known
+  // upstream data gap".
+  const title =
+    normalized === 'NOT_SPECIFIED'
+      ? 'A payment was recorded for this work, but no sanction record was found in the source data -- so the sanctioned amount and progress cannot be calculated.'
+      : undefined
+  return (
+    <Badge color={tone.color} bg={tone.bg} title={title}>
+      {status || 'Unknown'}
+    </Badge>
+  )
 }
 
 export function Section({ title, subtitle, action, children }) {

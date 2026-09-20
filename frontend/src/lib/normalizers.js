@@ -92,6 +92,13 @@ export function normalizeProject(project = {}) {
 
     status: project.status ?? null,
 
+    // Source data's own compliance flag: a payment was recorded for
+    // this work with no matching sanction record. See Sanctioned
+    // column in Projects.jsx, which shows a warning chip instead of
+    // "Not available" when this is true.
+    expenditureWithoutSanction:
+      project.expenditure_without_sanction ?? null,
+
     riskScore: toNumber(
       project.risk_score,
     ),
