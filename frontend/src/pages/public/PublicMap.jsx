@@ -81,7 +81,7 @@ export default function PublicMap() {
         description="Each circle is a state or union territory; a bigger circle means more recorded projects. Select one to see its numbers and districts."
       />
 
-      <div className="pub-card p-4 mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="pub-card p-4 mb-5 border-t-[3px] border-t-info grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label htmlFor="map-state" className="pub-label">State</label>
           <select id="map-state" className={selectClass} value={state} onChange={e => setState(e.target.value)}>
@@ -114,7 +114,7 @@ export default function PublicMap() {
         <PublicError onRetry={areas.retry} />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
-          <div className="pub-card overflow-hidden">
+          <div className="pub-card overflow-hidden border-t-[3px] border-t-teal">
             <div className="h-[380px] md:h-[560px] relative" role="region" aria-label="Map of projects by state. A list of the same data follows the map.">
               <MapContainer bounds={INDIA_BOUNDS} scrollWheelZoom={false} className="h-full w-full" minZoom={4}>
                 <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -168,7 +168,7 @@ export default function PublicMap() {
             </div>
           </div>
 
-          <aside aria-label="States and districts" className="pub-card p-4">
+          <aside aria-label="States and districts" className="pub-card p-4 border-t-[3px] border-t-indigo">
             {!state ? (
               <>
                 <h2 className="text-[17px] font-bold text-navy mb-3">States and UTs</h2>

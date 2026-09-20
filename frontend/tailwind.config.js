@@ -20,6 +20,12 @@ export default {
         bad: '#c0392b',
         high: '#b4552e',
         info: '#2b6cb0',
+        // Restrained supporting accents (public-portal refresh): muted
+        // teal for transparency/informational sections, indigo for
+        // analytics/financial highlights. Used sparingly -- see
+        // src/lib/theme.js ACCENT_TONES for the paired badge usage.
+        teal: '#0f7a72',
+        indigo: '#5b4b8a',
         // Light tint backgrounds for badges/callouts -- paired 1:1 with
         // the tones above so badge text/background always come from the
         // same semantic pair instead of drifting to generic Tailwind hues.
@@ -29,6 +35,8 @@ export default {
         'high-bg': '#fbe7df',
         'info-bg': '#e4eef9',
         'navy-bg': '#eef3f8',
+        'teal-bg': '#e2f2f0',
+        'indigo-bg': '#efeaf7',
       },
       borderRadius: {
         // Restrained radius scale (6-10px) per the government-portal

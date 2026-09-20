@@ -14,6 +14,11 @@ import { fetchExplorerProjects, fetchExplorerSummary } from '../../features/publ
 import { formatCount, formatInr, formatPercent, showInr, titleCase } from '../../lib/publicFormat'
 import { PORTAL_PATHS, locationPath, projectsLink } from '../../lib/publicTheme'
 
+// Purely decorative rotation for the state/district tile grid -- same
+// restrained accent set used on the Home state tiles, no semantic
+// meaning attached to any one colour.
+const AREA_ACCENT = ['border-t-info', 'border-t-teal', 'border-t-indigo', 'border-t-good']
+
 function AreaList({ rows, getLink, label }) {
   const [find, setFind] = useState('')
   const shown = rows.filter(r => (titleCase(r.name) || '').toLowerCase().includes(find.trim().toLowerCase()))
@@ -26,9 +31,12 @@ function AreaList({ rows, getLink, label }) {
       </div>
       {shown.length === 0 ? <PublicEmpty title={`No ${label} found`} suggestions={['Check the spelling', 'Clear the search']} /> : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map(r => (
+          {shown.map((r, index) => (
             <li key={r.name}>
-              <Link to={getLink(r)} className="pub-card p-4 block h-full hover:border-blue hover:shadow-soft transition">
+              <Link
+                to={getLink(r)}
+                className={`pub-card p-4 block h-full border-t-[3px] pub-card-hover ${AREA_ACCENT[index % AREA_ACCENT.length]}`}
+              >
                 <div className="text-[16px] font-semibold text-navy">{titleCase(r.name)}</div>
                 <div className="mt-1 text-[22px] font-bold text-ink">{formatCount(r.projectCount)} <span className="text-[13px] font-normal text-muted">projects</span></div>
                 <div className="text-[13px] text-muted mt-0.5">{showInr(r.sanctioned)} sanctioned &middot; {showInr(r.expenditure)} spent</div>
@@ -91,19 +99,19 @@ export default function PublicLocations() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard label="Projects" value={formatCount(d.kpis.totalProjects)} description="Recorded in this area" />
-            <StatCard label="Sanctioned" value={formatInr(d.kpis.totalSanctioned)} description="Amount approved" />
-            <StatCard label="Expenditure" value={formatInr(d.kpis.totalExpenditure)} description="Amount recorded as spent" />
-            <StatCard label="Completed" value={formatCount(d.kpis.completedProjects)} description="Works with a completion record" />
-            <StatCard label="Ongoing" value={formatCount(ongoing)} description="Works recorded as under way" />
+            <StatCard label="Projects" value={formatCount(d.kpis.totalProjects)} description="Recorded in this area" tone="teal" />
+            <StatCard label="Sanctioned" value={formatInr(d.kpis.totalSanctioned)} description="Amount approved" tone="blue" />
+            <StatCard label="Expenditure" value={formatInr(d.kpis.totalExpenditure)} description="Amount recorded as spent" tone="indigo" />
+            <StatCard label="Completed" value={formatCount(d.kpis.completedProjects)} description="Works with a completion record" tone="green" />
+            <StatCard label="Ongoing" value={formatCount(ongoing)} description="Works recorded as under way" tone="amber" />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2 mt-6">
-            <section className="pub-card p-6" aria-labelledby="loc-status">
+            <section className="pub-card p-6 border-t-[3px] border-t-info" aria-labelledby="loc-status">
               <h2 id="loc-status" className="text-[19px] font-bold text-navy mb-4">Project status</h2>
               <StatusBars rows={d.statusDistribution} />
             </section>
-            <section className="pub-card p-6" aria-labelledby="loc-util">
+            <section className="pub-card p-6 border-t-[3px] border-t-teal" aria-labelledby="loc-util">
               <h2 id="loc-util" className="text-[19px] font-bold text-navy mb-4">Fund utilization</h2>
               {d.utilisation.percent === null
                 ? <p className="text-[14px] text-muted">Fund utilization cannot be calculated for this area from the current records.</p>

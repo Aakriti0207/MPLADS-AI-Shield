@@ -4,7 +4,7 @@ import { ArrowRight, MapPin } from 'lucide-react'
 import StatusPill from './StatusPill'
 import UtilisationBar from './UtilisationBar'
 import { NOT_AVAILABLE, formatInr, titleCase } from '../../lib/publicFormat'
-import { publicProjectPath } from '../../lib/publicTheme'
+import { publicProjectPath, statusStyle } from '../../lib/publicTheme'
 
 export function locationText(project) {
   const parts = [titleCase(project.district), project.state].filter(Boolean)
@@ -19,9 +19,15 @@ export default function ProjectCard({ project }) {
   const href = publicProjectPath(project.id)
   const title = project.title || 'Project description not recorded'
   const hasSpend = project.expenditure !== null
+  // Same colour the status pill uses, applied as a thin edge so a card's
+  // stage reads at a glance even before the eye reaches the pill text.
+  const edge = statusStyle(project.status || 'Not specified').bar
 
   return (
-    <article className="pub-card p-5 flex flex-col h-full hover:shadow-soft transition">
+    <article
+      className="pub-card p-5 flex flex-col h-full border-l-[3px] hover:shadow-soft hover:-translate-y-0.5 transition"
+      style={{ borderLeftColor: edge }}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill status={project.status} />
         {project.category && (

@@ -61,10 +61,23 @@ button, input, select { font: inherit; }
   .pub-btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[15px] font-semibold transition min-h-[44px]; }
   .pub-btn-primary { @apply pub-btn bg-blue text-white hover:bg-navy; }
   .pub-btn-secondary { @apply pub-btn bg-white text-navy border border-line hover:bg-navy-bg; }
-  .pub-input { @apply w-full rounded-lg border border-[#b9c3cc] bg-white px-3 py-2.5 text-[15px] text-ink min-h-[44px] placeholder:text-[#6b7883]; }
+  .pub-input { @apply w-full rounded-lg border border-[#b9c3cc] bg-white px-3 py-2.5 text-[15px] text-ink min-h-[44px] placeholder:text-[#6b7883] transition-colors focus:border-blue; }
   .pub-label { @apply block text-[13px] font-semibold text-ink mb-1.5; }
   .pub-eyebrow { @apply text-[12px] font-semibold uppercase tracking-[0.12em] text-blue; }
   .skeleton { @apply rounded-md bg-[#e3e8ed] animate-pulse; }
+
+  /* Shared horizontal rhythm for the public portal's header, main
+     content and footer. Replaces the old flat `px-4 md:px-6`: the
+     fixed 1200px cap + fixed padding left too much empty gutter on
+     laptop/desktop screens. `clamp` grows the side padding gently with
+     viewport width instead of jumping at a breakpoint, and the wider
+     max-width lets cards/charts actually use large screens. */
+  .pub-px { padding-left: clamp(16px, 3vw, 40px); padding-right: clamp(16px, 3vw, 40px); }
+
+  /* Clickable card affordance shared by state tiles, location cards
+     etc.: a soft hover lift + tinted background so the whole card
+     reads as interactive, not just its link text. */
+  .pub-card-hover { @apply hover:shadow-soft hover:border-blue hover:bg-navy-bg/40 transition; }
 }
 
 @media (prefers-reduced-motion: reduce) {

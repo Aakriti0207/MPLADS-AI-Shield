@@ -12,12 +12,18 @@ const STEPS = [
   { title: 'Project is completed', text: 'A completion record is entered once the work is finished.' },
 ]
 
+// Decorative-only accent walking the stages from "recorded" (blue) to
+// "recorded and spent" (teal/green) -- five distinct tones, none of
+// them re-used elsewhere as a status colour, so this never competes
+// with the semantic status pills used on project cards.
+const STEP_ACCENT = ['border-t-info', 'border-t-teal', 'border-t-indigo', 'border-t-warn', 'border-t-good']
+
 export default function LifecycleSteps() {
   return (
     <ol className="grid gap-3 md:grid-cols-5 md:gap-2 items-stretch">
       {STEPS.map((step, index) => (
         <li key={step.title} className="relative">
-          <div className="pub-card p-4 h-full">
+          <div className={`pub-card p-4 h-full border-t-[3px] ${STEP_ACCENT[index]}`}>
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-navy text-white text-[14px] font-bold" aria-hidden="true">
               {index + 1}
             </span>

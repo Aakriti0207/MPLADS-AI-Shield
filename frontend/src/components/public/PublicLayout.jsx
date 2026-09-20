@@ -9,12 +9,12 @@ import { PORTAL_PATHS } from '../../lib/publicTheme'
  * <main> landmark and the footer. Everything is scoped by the
  * `.public-portal` class so the internal app's styles are unaffected.
  */
-export default function PublicLayout({ children, width = 'max-w-[1200px]' }) {
+export default function PublicLayout({ children, width = 'max-w-[1440px]' }) {
   return (
     <div className="public-portal min-h-screen flex flex-col">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <PublicNavbar />
-      <main id="main-content" tabIndex={-1} className={`${width} w-full mx-auto px-4 md:px-6 py-6 md:py-10 flex-1`}>
+      <main id="main-content" tabIndex={-1} className={`${width} w-full mx-auto pub-px py-6 md:py-10 flex-1`}>
         {children}
       </main>
       <PublicFooter />
@@ -25,7 +25,7 @@ export default function PublicLayout({ children, width = 'max-w-[1200px]' }) {
 function PublicFooter() {
   return (
     <footer className="bg-white border-t border-line">
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-8 grid gap-8 md:grid-cols-3">
+      <div className="max-w-[1440px] mx-auto pub-px py-8 grid gap-8 md:grid-cols-3">
         <div>
           <div className="text-[16px] font-bold text-navy">MPLADS</div>
           <div className="text-[13px] text-muted">Public Transparency Portal</div>

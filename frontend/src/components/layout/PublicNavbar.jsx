@@ -66,7 +66,7 @@ export default function PublicNavbar() {
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-line">
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-[1440px] mx-auto pub-px h-16 flex items-center justify-between gap-4">
         <Link to={PORTAL_PATHS.home} className="flex items-center gap-3 shrink-0" aria-label="MPLADS Public Transparency Portal - home">
           <span className="w-10 h-10 rounded-lg bg-navy flex items-center justify-center" aria-hidden="true">
             <Landmark size={20} color="white" />

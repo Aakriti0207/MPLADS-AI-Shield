@@ -16,6 +16,10 @@ import { fetchExplorerProjects, fetchExplorerSummary } from '../features/public/
 import { formatCount, formatInr, formatPercent, showInr } from '../lib/publicFormat'
 import { PORTAL_PATHS, locationPath } from '../lib/publicTheme'
 
+// Purely decorative rotation for the state-tile grid -- gives the row a
+// touch of variety without any of these colours carrying meaning.
+const STATE_ACCENT = ['border-t-info', 'border-t-teal', 'border-t-indigo', 'border-t-good']
+
 /**
  * Public landing page.
  *
@@ -75,15 +79,15 @@ export default function Home() {
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <StatCard icon={FolderKanban} label="Total projects" value={formatCount(data.kpis.totalProjects)}
-                description="Projects recorded in the public MPLADS dataset" />
+                description="Projects recorded in the public MPLADS dataset" tone="teal" />
               <StatCard icon={BadgeIndianRupee} label="Total sanctioned" value={formatInr(data.kpis.totalSanctioned)}
-                description="Amount approved for these works" />
+                description="Amount approved for these works" tone="blue" />
               <StatCard icon={Wallet} label="Total expenditure" value={formatInr(data.kpis.totalExpenditure)}
-                description="Amount recorded as spent so far" />
+                description="Amount recorded as spent so far" tone="indigo" />
               <StatCard icon={CheckCircle2} label="Completed projects" value={formatCount(data.kpis.completedProjects)}
-                description={data.kpis.completionRatePercent !== null ? `${formatPercent(data.kpis.completionRatePercent)} of all recorded projects` : 'Works with a completion record'} />
+                description={data.kpis.completionRatePercent !== null ? `${formatPercent(data.kpis.completionRatePercent)} of all recorded projects` : 'Works with a completion record'} tone="green" />
               <StatCard icon={Clock} label="Ongoing projects" value={formatCount(ongoing)}
-                description="Works recorded as under way" />
+                description="Works recorded as under way" tone="amber" />
             </div>
             <DataFreshness meta={data.meta} className="mt-4" />
           </>
@@ -93,13 +97,13 @@ export default function Home() {
       {/* ------------------------------------------------ status + funds */}
       {data && (
         <section className="mt-10 grid gap-5 lg:grid-cols-2" aria-label="Project status and fund utilization">
-          <div className="pub-card p-6">
+          <div className="pub-card p-6 border-t-[3px] border-t-info">
             <h2 className="text-[20px] font-bold text-navy">Project status</h2>
             <p className="text-[14px] text-muted mt-1 mb-5">How many projects are at each stage.</p>
             <StatusBars rows={data.statusDistribution} />
           </div>
 
-          <div className="pub-card p-6">
+          <div className="pub-card p-6 border-t-[3px] border-t-teal">
             <h2 className="text-[20px] font-bold text-navy">Fund utilization</h2>
             <p className="text-[14px] text-muted mt-1 mb-5">How much of the sanctioned money has been recorded as spent.</p>
             {data.utilisation.percent === null ? (
@@ -134,7 +138,7 @@ export default function Home() {
       )}
 
       {/* ------------------------------------------------ how funds are used */}
-      <section className="mt-12" aria-labelledby="how-title">
+      <section className="mt-12 rounded-2xl bg-teal-bg/60 p-5 md:p-8" aria-labelledby="how-title">
         <SectionHeading id="how-title" title="How MPLADS funds are used"
           description="A project moves through these stages. The numbers on this portal come from the records kept at each stage." />
         <LifecycleSteps />
@@ -153,9 +157,12 @@ export default function Home() {
           )
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {topStates.map(row => (
+            {topStates.map((row, index) => (
               <li key={row.name}>
-                <Link to={locationPath(row.name)} className="pub-card p-5 block h-full hover:shadow-soft hover:border-blue transition">
+                <Link
+                  to={locationPath(row.name)}
+                  className={`pub-card p-5 block h-full border-t-[3px] pub-card-hover ${STATE_ACCENT[index % STATE_ACCENT.length]}`}
+                >
                   <div className="text-[16px] font-semibold text-navy">{row.name}</div>
                   <div className="text-[24px] font-bold text-ink mt-1">{formatCount(row.projectCount)}</div>
                   <div className="text-[13px] text-muted">projects &middot; {showInr(row.sanctioned)} sanctioned</div>
@@ -185,7 +192,7 @@ export default function Home() {
       </section>
 
       {/* ------------------------------------------------ about teaser */}
-      <section className="mt-12 pub-card p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5" aria-labelledby="about-teaser">
+      <section className="mt-12 pub-card p-6 md:p-8 border-t-[3px] border-t-indigo flex flex-col md:flex-row md:items-center justify-between gap-5" aria-labelledby="about-teaser">
         <div>
           <h2 id="about-teaser" className="text-[20px] font-bold text-navy flex items-center gap-2">
             <Landmark size={20} aria-hidden="true" /> New to MPLADS?

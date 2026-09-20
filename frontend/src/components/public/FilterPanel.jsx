@@ -116,9 +116,12 @@ export default function FilterPanel({ value, options, onApply, onDraftStateChang
         Filters{applied ? ` (${applied})` : ''}
       </button>
 
-      <div className="hidden lg:block pub-card p-5">
+      <div className="hidden lg:block pub-card p-5 border-t-[3px] border-t-info">
         <h2 className="text-[16px] font-bold text-navy mb-4 flex items-center gap-2">
-          <SlidersHorizontal size={16} aria-hidden="true" /> Filters
+          <span className="inline-flex w-7 h-7 rounded-full bg-info-bg text-info items-center justify-center" aria-hidden="true">
+            <SlidersHorizontal size={14} />
+          </span>
+          Filters
         </h2>
         <Fields idPrefix="f-desktop" draft={draft} setDraft={setDraft} options={options} onDraftStateChange={onDraftStateChange} />
         {actions}

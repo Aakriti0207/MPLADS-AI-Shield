@@ -107,7 +107,7 @@ export default function PublicProjects() {
         description="Search sanctioned works and see what was approved, what has been spent and where each project stands."
       />
 
-      <form role="search" onSubmit={event => { event.preventDefault(); update({ q: text.trim() }) }} className="mb-5">
+      <form role="search" onSubmit={event => { event.preventDefault(); update({ q: text.trim() }) }} className="mb-5 pub-card p-4 border-t-[3px] border-t-info">
         <label htmlFor="project-search" className="pub-label">Search projects</label>
         <div className="relative">
           <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" aria-hidden="true" />

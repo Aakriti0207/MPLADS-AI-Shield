@@ -122,7 +122,7 @@ export default function PublicProjectDetail() {
   const overspent = p.utilisationPercent !== null && p.utilisationPercent > 100
 
   return (
-    <PublicLayout width="max-w-[1000px]">
+    <PublicLayout width="max-w-[1100px]">
       <nav aria-label="Breadcrumb" className="text-[13.5px] text-muted flex items-center flex-wrap gap-1 mb-4">
         <Link to={PORTAL_PATHS.home} className="hover:underline">Home</Link><ChevronRight size={14} aria-hidden="true" />
         <Link to={PORTAL_PATHS.projects} className="hover:underline">Projects</Link><ChevronRight size={14} aria-hidden="true" />
