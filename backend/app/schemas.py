@@ -152,6 +152,12 @@ class ProjectOut(BaseModel):
 
     latitude: Optional[Decimal] = None
     longitude: Optional[Decimal] = None
+    # Precision of latitude/longitude above -- see app/geo_centroids.py.
+    # "district_centroid" / "state_centroid" are both administrative-area
+    # APPROXIMATIONS, never the project's real location (no source data
+    # in this project contains an actual project-level coordinate). None
+    # means neither could be resolved and no coordinates are returned.
+    location_precision: Optional[str] = None
 
     status: Optional[str] = None
 
@@ -491,6 +497,15 @@ class PublicProjectOut(BaseModel):
     start_date: Optional[date] = None
     expected_completion: Optional[date] = None
     actual_completion: Optional[date] = None
+
+    # Same district/state-centroid fallback as ProjectOut (see
+    # app/geo_centroids.py) -- an administrative-area approximation,
+    # never the project's real location. Added so the public map
+    # experience matches the authenticated/demo one instead of silently
+    # having no coordinate field at all.
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
+    location_precision: Optional[str] = None
 
 
 class ProjectPage(BaseModel):

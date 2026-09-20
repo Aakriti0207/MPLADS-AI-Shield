@@ -58,6 +58,7 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
+from app.geo_centroids import resolve_coordinates
 from app.models import Project
 from app.schemas import (
     ProjectFilterOptions,
@@ -522,10 +523,15 @@ _PAGE_CACHE_MAX = 512
 _OPTIONS_CACHE: "OrderedDict[str, Any]" = OrderedDict()
 _OPTIONS_CACHE_MAX = 64
 
-# Browser-side caching. `Vary: Authorization` makes the browser keep one
-# copy per access token, so one user's cached page is never replayed to
-# another user.
-_CACHE_CONTROL = "private, max-age=60, stale-while-revalidate=300"
+# Responses here are authenticated project/business data, so they must not be
+# stored by the browser (disk cache included) or any intermediary -- the same
+# `Cache-Control: no-store` policy the security-headers middleware
+# (app/main.py) applies to every other route, and which tests/test_security.py
+# asserts for GET /projects. Speed does not depend on browser caching: the
+# ready-made page/options caches above are server-side and per-process.
+# The ETag / `Vary: Authorization` / 304 handling below is kept, so a client
+# that sends its own If-None-Match still gets a cheap 304.
+_CACHE_CONTROL = "no-store"
 
 
 def _cache_get(cache: "OrderedDict[str, Any]", key: str) -> Any:
@@ -835,17 +841,34 @@ def _canonical_row_to_project(
         ):
             constituency = None
     # ---------------------------------------------------------------
+    # Approximate map coordinates.
+    #
+    # canonical_projects.csv has no project-level latitude/longitude
+    # (see app/geo_centroids.py's module docstring for the full
+    # investigation) -- so rather than hardcoding None, resolve a
+    # documented district/state-CENTROID fallback from the project's
+    # own state/district. `location_precision` tells the caller which
+    # (or neither) was used, so this is never mistaken for a real
+    # project-specific location.
+    # ---------------------------------------------------------------
+    state_value = _clean_string(
+        row.get("state")
+    )
+    district_value = _clean_string(
+        row.get("district")
+    )
+    latitude, longitude, location_precision = resolve_coordinates(
+        state_value,
+        district_value,
+    )
+    # ---------------------------------------------------------------
     # Build response.
     # ---------------------------------------------------------------
     return ProjectOut(
         project_id=project_id,
         project_name=project_name,
-        state=_clean_string(
-            row.get("state")
-        ),
-        district=_clean_string(
-            row.get("district")
-        ),
+        state=state_value,
+        district=district_value,
         constituency=constituency,
         mp_name=_clean_string(
             row.get("mp")
@@ -878,9 +901,12 @@ def _canonical_row_to_project(
         actual_completion=_date(
             row.get("completion_date")
         ),
-        # Geographic coordinates are not present in canonical data.
-        latitude=None,
-        longitude=None,
+        # Geographic coordinates are not present in canonical data --
+        # resolved above via the documented centroid fallback instead
+        # of being hardcoded to None. See app/geo_centroids.py.
+        latitude=latitude,
+        longitude=longitude,
+        location_precision=location_precision,
         status=_clean_string(
             row.get("status")
         ),

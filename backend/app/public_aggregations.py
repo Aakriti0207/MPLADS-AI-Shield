@@ -49,6 +49,7 @@ from app.aggregations import (
     CANONICAL_PROJECTS_PATH,
     load_canonical_projects,
 )
+from app.geo_centroids import resolve_coordinates
 
 # =====================================================================
 # Public-safe column allowlist
@@ -669,10 +670,22 @@ def to_public_project(row: pd.Series) -> dict[str, Any]:
     if pd.notna(sanctioned) and sanctioned > 0 and pd.notna(expenditure):
         financial_progress = float(expenditure / sanctioned * 100)
 
+    state = _text_or_none(row.get("state_label"))
+    district = _text_or_none(row.get("district_label"))
+    # Same documented district/state-centroid fallback used by the
+    # protected, demo, and DB-backed public project APIs (see
+    # app/geo_centroids.py) -- an administrative-area approximation,
+    # never the project's real location. Kept here too so /public/
+    # insights' recent_projects matches every other surface instead of
+    # silently reporting null coordinates.
+    latitude, longitude, location_precision = resolve_coordinates(
+        state, district
+    )
+
     return {
         "project_id": str(row.get("work_id")),
-        "state": _text_or_none(row.get("state_label")),
-        "district": _text_or_none(row.get("district_label")),
+        "state": state,
+        "district": district,
         "constituency": _text_or_none(row.get("constituency")),
         "mp_name": _text_or_none(row.get("mp")),
         "work_type": _text_or_none(row.get("category_label")),
@@ -689,6 +702,9 @@ def to_public_project(row: pd.Series) -> dict[str, Any]:
         # reported as null rather than estimated.
         "expected_completion": None,
         "actual_completion": _date_or_none(row.get("completion_date")),
+        "latitude": latitude,
+        "longitude": longitude,
+        "location_precision": location_precision,
     }
 
 
