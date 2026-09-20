@@ -65,6 +65,11 @@ PUBLIC_COLUMNS: tuple[str, ...] = (
     "district",
     "constituency",
     "work_category",
+    # Derived (from work_category + work_description in
+    # app/aggregations.load_canonical_projects) citizen-friendly sector,
+    # e.g. "Roads & Connectivity". Public-safe: it is a label computed
+    # from two already-public fields.
+    "project_sector",
     "work_description",
     "implementing_agency",
     "mp",
@@ -184,6 +189,7 @@ def build_public_frame(canonical_df: pd.DataFrame) -> pd.DataFrame:
     frame["state_label"] = _clean_text_series(frame, "state")
     frame["district_label"] = _clean_text_series(frame, "district")
     frame["category_label"] = _clean_text_series(frame, "work_category")
+    frame["sector_label"] = _clean_text_series(frame, "project_sector")
 
     if "status" in frame.columns:
         frame["status_label"] = frame["status"].map(_status_label)
