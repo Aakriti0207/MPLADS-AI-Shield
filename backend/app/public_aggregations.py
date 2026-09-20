@@ -50,6 +50,14 @@ from app.aggregations import (
     load_canonical_projects,
 )
 
+try:
+    from app.geo_centroids import resolve_coordinates
+except ImportError:  # geo_centroids.py not present in this checkout
+    # Keeps the public API importable/working without the coordinate
+    # helper: coordinates are simply reported as unavailable (None).
+    def resolve_coordinates(state, district):
+        return None, None, None
+
 # =====================================================================
 # Public-safe column allowlist
 #
@@ -64,6 +72,11 @@ PUBLIC_COLUMNS: tuple[str, ...] = (
     "district",
     "constituency",
     "work_category",
+    # Derived (from work_category + work_description in
+    # app/aggregations.load_canonical_projects) citizen-friendly sector,
+    # e.g. "Roads & Connectivity". Public-safe: it is a label computed
+    # from two already-public fields.
+    "project_sector",
     "work_description",
     "implementing_agency",
     "mp",
@@ -183,6 +196,7 @@ def build_public_frame(canonical_df: pd.DataFrame) -> pd.DataFrame:
     frame["state_label"] = _clean_text_series(frame, "state")
     frame["district_label"] = _clean_text_series(frame, "district")
     frame["category_label"] = _clean_text_series(frame, "work_category")
+    frame["sector_label"] = _clean_text_series(frame, "project_sector")
 
     if "status" in frame.columns:
         frame["status_label"] = frame["status"].map(_status_label)
@@ -669,10 +683,22 @@ def to_public_project(row: pd.Series) -> dict[str, Any]:
     if pd.notna(sanctioned) and sanctioned > 0 and pd.notna(expenditure):
         financial_progress = float(expenditure / sanctioned * 100)
 
+    state = _text_or_none(row.get("state_label"))
+    district = _text_or_none(row.get("district_label"))
+    # Same documented district/state-centroid fallback used by the
+    # protected, demo, and DB-backed public project APIs (see
+    # app/geo_centroids.py) -- an administrative-area approximation,
+    # never the project's real location. Kept here too so /public/
+    # insights' recent_projects matches every other surface instead of
+    # silently reporting null coordinates.
+    latitude, longitude, location_precision = resolve_coordinates(
+        state, district
+    )
+
     return {
         "project_id": str(row.get("work_id")),
-        "state": _text_or_none(row.get("state_label")),
-        "district": _text_or_none(row.get("district_label")),
+        "state": state,
+        "district": district,
         "constituency": _text_or_none(row.get("constituency")),
         "mp_name": _text_or_none(row.get("mp")),
         "work_type": _text_or_none(row.get("category_label")),
@@ -689,6 +715,9 @@ def to_public_project(row: pd.Series) -> dict[str, Any]:
         # reported as null rather than estimated.
         "expected_completion": None,
         "actual_completion": _date_or_none(row.get("completion_date")),
+        "latitude": latitude,
+        "longitude": longitude,
+        "location_precision": location_precision,
     }
 
 

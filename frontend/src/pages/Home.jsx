@@ -1,321 +1,202 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { Eye, Info } from 'lucide-react'
-import { fetchPublicOverview } from '../features/dashboard/api'
-import { fetchPublicDistricts, fetchPublicInsights } from '../features/public/api'
-import { formatCurrency, formatNumber, toNumber } from '../lib/formatters'
-import { CHART_COLORS } from '../lib/theme'
-import { Disclaimer } from '../components/UI'
-import EmptyState from '../components/ui/EmptyState'
-import IndiaStateGrid from '../components/home/IndiaStateGrid'
-import PublicTrends from '../components/home/PublicTrends'
-import StateDistrictInsights from '../components/home/StateDistrictInsights'
-import PublicNavbar from '../components/layout/PublicNavbar'
+import { ArrowRight, BadgeIndianRupee, CheckCircle2, Clock, FolderKanban, Landmark, MapPinned, Wallet } from 'lucide-react'
+import PublicLayout from '../components/public/PublicLayout'
+import SearchBox from '../components/public/SearchBox'
+import StatCard from '../components/public/StatCard'
+import StatusBars from '../components/public/StatusBars'
+import UtilisationBar from '../components/public/UtilisationBar'
+import LifecycleSteps from '../components/public/LifecycleSteps'
+import ProjectCard from '../components/public/ProjectCard'
+import DataFreshness from '../components/public/DataFreshness'
+import { PublicError, SectionHeading } from '../components/public/PublicStates'
+import { LoadingRegion, ProjectCardSkeleton, Skeleton, StatCardSkeleton } from '../components/public/Skeleton'
+import usePublicQuery from '../lib/usePublicQuery'
+import { fetchExplorerProjects, fetchExplorerSummary } from '../features/public/api'
+import { formatCount, formatInr, formatPercent, showInr } from '../lib/publicFormat'
+import { PORTAL_PATHS, locationPath } from '../lib/publicTheme'
 
 /**
- * Public Overview (Phase 5 overhaul).
+ * Public landing page.
  *
- * Anonymous-only surface. Everything rendered here comes from the
- * `/public/*` routes via the dedicated public data contract
- * (features/public/api.js + lib/publicNormalizers.js):
+ * Answers, in order: what is MPLADS, how much money / how many projects,
+ * where, what status -- then hands the citizen to search, map or
+ * statistics. Every number comes from the public explorer API; when a
+ * value is unavailable the card says so instead of showing 0.
  *
- *   GET /public/insights            KPIs, real trends, state + district
- *                                   insights, categories, status
- *   GET /public/insights/districts  State -> District drilldown
- *   GET /public/overview            recently monitored public projects
- *
- * Deliberately absent (Phase 5 requirement): risk score, risk level,
- * Risk Fusion output, financial/payment/timeline anomaly scores,
- * duplicate score, isolation-forest score, AI reasoning / why-risky
- * text, alerts, investigation or review state, and internal
- * administrative notes. The former "Requiring Review" KPI -- which was
- * derived from `risk_level_counts` on `/public/overview` -- has been
- * removed along with the backend field that fed it.
- *
- * Where the source dataset genuinely lacks data (e.g. projects with no
- * expenditure date), the page says so via the coverage notes rather than
- * showing an invented figure.
+ * Only two requests are made on load (an aggregate summary and one
+ * short page of recent projects) -- no project-level bulk fetch.
  */
 export default function Home() {
   const navigate = useNavigate()
+  const summary = usePublicQuery(opts => fetchExplorerSummary({}, opts), [])
+  const recent = usePublicQuery(opts => fetchExplorerProjects({ sort: 'recent', pageSize: 6, detailed: true }, opts), [])
 
-  const [insights, setInsights] = useState(null)
-  const [insightsError, setInsightsError] = useState(null)
-
-  const [overview, setOverview] = useState(null)
-  const [overviewError, setOverviewError] = useState(null)
-
-  const [selectedState, setSelectedState] = useState(null)
-  const [districts, setDistricts] = useState([])
-  const [districtsLoading, setDistrictsLoading] = useState(false)
-  const [districtsError, setDistrictsError] = useState(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    fetchPublicInsights()
-      .then(data => { if (!cancelled) setInsights(data) })
-      .catch(err => {
-        if (!cancelled) setInsightsError(err.message || 'Failed to reach the API')
-      })
-
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-
-    fetchPublicOverview()
-      .then(data => { if (!cancelled) setOverview(data) })
-      .catch(err => {
-        if (!cancelled) setOverviewError(err.message || 'Failed to reach the API')
-      })
-
-    return () => { cancelled = true }
-  }, [])
-
-  // State -> District drilldown. Fetching only the district table keeps
-  // the national payload from being recomputed on every state click.
-  useEffect(() => {
-    if (!selectedState) {
-      setDistricts([])
-      setDistrictsError(null)
-      setDistrictsLoading(false)
-      return undefined
-    }
-
-    let cancelled = false
-    setDistrictsLoading(true)
-    setDistrictsError(null)
-
-    fetchPublicDistricts(selectedState)
-      .then(data => { if (!cancelled) setDistricts(data.districts) })
-      .catch(err => {
-        if (!cancelled) setDistrictsError(err.message || 'Failed to reach the API')
-      })
-      .finally(() => { if (!cancelled) setDistrictsLoading(false) })
-
-    return () => { cancelled = true }
-  }, [selectedState])
-
-  const live = !!insights
-  const loadingLive = !insights && !insightsError
-  const kpiData = insights?.kpis ?? null
-
-  const kpis = [
-    [
-      'Total Projects',
-      formatNumber(kpiData?.totalProjects),
-      'All recorded MPLADS works',
-    ],
-    [
-      'Sanctioned Amount',
-      formatCurrency(kpiData?.totalSanctioned),
-      'Cumulative sanction',
-    ],
-    [
-      'Expenditure',
-      formatCurrency(kpiData?.totalExpenditure),
-      kpiData?.utilisationPercent !== null && kpiData?.utilisationPercent !== undefined
-        ? `${Math.round(kpiData.utilisationPercent)}% of sanctioned amount`
-        : 'Cumulative expenditure',
-    ],
-    [
-      'Completed Works',
-      formatNumber(kpiData?.completedProjects),
-      kpiData?.completionRatePercent !== null && kpiData?.completionRatePercent !== undefined
-        ? `${Math.round(kpiData.completionRatePercent)}% of total`
-        : '',
-    ],
-    [
-      'Active Works',
-      formatNumber(kpiData?.activeWorks),
-      'Sanctioned or ongoing',
-    ],
-  ]
-
-  const statusColors = {
-    Ongoing: CHART_COLORS.blue,
-    Active: CHART_COLORS.blue,
-    Sanctioned: CHART_COLORS.navy,
-    Completed: CHART_COLORS.green,
-    Recommended: CHART_COLORS.amber,
-    'Not specified': CHART_COLORS.muted,
-  }
-
-  const statusData = useMemo(() => (insights?.statusDistribution || [])
-    .map(item => ({
-      name: item.status,
-      value: toNumber(item.count) || 0,
-      color: statusColors[item.status] || CHART_COLORS.muted,
-    }))
-    .filter(d => d.value > 0), [insights])
-
-  const recentProjects = overview?.recent_projects || []
-  const coverageNotes = insights?.dataCoverage?.notes || []
-
-  // The trend charts always show the national series. Selecting a state
-  // drills the state/district panel only, so the label stays "Nationwide"
-  // rather than implying the charts were re-scoped.
-  const scopeLabel = 'Nationwide'
+  const data = summary.data
+  const ongoing = useMemo(
+    () => data?.statusDistribution.find(row => row.status === 'Ongoing')?.count ?? null,
+    [data]
+  )
+  const topStates = useMemo(
+    () => (data?.byState || []).filter(row => row.name && row.name !== 'Not specified').slice(0, 8),
+    [data]
+  )
 
   return (
-    <div className="min-h-screen bg-panel">
-      <PublicNavbar />
-
-      <div className="max-w-[1200px] mx-auto px-5 py-6">
-        <h1 className="text-[21px] font-semibold text-ink">MPLADS Project Monitoring</h1>
-        <p className="text-[13px] text-muted mt-1.5 max-w-[640px]">
-          Transparent public reporting of MPLADS works, sanctioned amounts, expenditure and completion across states and districts.
+    <PublicLayout>
+      {/* ------------------------------------------------ hero */}
+      <section aria-labelledby="hero-title" className="pub-card p-6 md:p-12 border-t-4 border-t-blue">
+        <div className="pub-eyebrow">MPLADS Public Transparency Portal</div>
+        <h1 id="hero-title" className="mt-2 text-[30px] md:text-[44px] font-bold text-navy leading-[1.15] max-w-[860px]">
+          Explore MPLADS Development Projects Across India
+        </h1>
+        <p className="mt-4 text-[16.5px] md:text-[18px] text-muted max-w-[720px]">
+          Track sanctioned projects, expenditure, progress and completed works through publicly available MPLADS data.
         </p>
-        {loadingLive && <p className="text-xs text-muted mt-2">Loading national portfolio figures…</p>}
-        {insightsError && <p className="text-xs mt-2" style={{ color: CHART_COLORS.red }}>Could not load public figures: {insightsError}</p>}
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
-          {kpis.map(([label, value, hint]) => (
-            <div className="card p-4" key={label}>
-              <div className="text-xs text-muted">{label}</div>
-              <div className="text-[20px] font-semibold mt-1.5 text-ink">{value}</div>
-              {hint && <div className="text-[11px] text-muted mt-1.5">{hint}</div>}
+        <div className="mt-7 max-w-[860px]"><SearchBox /></div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link to={PORTAL_PATHS.projects} className="pub-btn-primary">Explore Projects <ArrowRight size={16} aria-hidden="true" /></Link>
+          <Link to={PORTAL_PATHS.map} className="pub-btn-secondary"><MapPinned size={16} aria-hidden="true" /> Explore Map</Link>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------ headline numbers */}
+      <section aria-labelledby="overview-title" className="mt-10">
+        <SectionHeading id="overview-title" title="MPLADS at a glance" description="National totals from the public MPLADS records." />
+        {summary.error ? (
+          <PublicError onRetry={summary.retry} />
+        ) : !data ? (
+          <LoadingRegion label="Loading national statistics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[0, 1, 2, 3, 4].map(i => <StatCardSkeleton key={i} />)}
+          </LoadingRegion>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <StatCard icon={FolderKanban} label="Total projects" value={formatCount(data.kpis.totalProjects)}
+                description="Projects recorded in the public MPLADS dataset" />
+              <StatCard icon={BadgeIndianRupee} label="Total sanctioned" value={formatInr(data.kpis.totalSanctioned)}
+                description="Amount approved for these works" />
+              <StatCard icon={Wallet} label="Total expenditure" value={formatInr(data.kpis.totalExpenditure)}
+                description="Amount recorded as spent so far" />
+              <StatCard icon={CheckCircle2} label="Completed projects" value={formatCount(data.kpis.completedProjects)}
+                description={data.kpis.completionRatePercent !== null ? `${formatPercent(data.kpis.completionRatePercent)} of all recorded projects` : 'Works with a completion record'} />
+              <StatCard icon={Clock} label="Ongoing projects" value={formatCount(ongoing)}
+                description="Works recorded as under way" />
             </div>
-          ))}
-        </div>
+            <DataFreshness meta={data.meta} className="mt-4" />
+          </>
+        )}
+      </section>
 
-        {live && (
-          <p className="text-[11px] text-muted mt-2">
-            Covering {formatNumber(kpiData?.statesCovered)} states and {formatNumber(kpiData?.districtsCovered)} districts.
-            {kpiData?.statusNotSpecified
-              ? ` ${formatNumber(kpiData.statusNotSpecified)} works have no recorded lifecycle status and are counted in neither completed nor active.`
-              : ''}
+      {/* ------------------------------------------------ status + funds */}
+      {data && (
+        <section className="mt-10 grid gap-5 lg:grid-cols-2" aria-label="Project status and fund utilization">
+          <div className="pub-card p-6">
+            <h2 className="text-[20px] font-bold text-navy">Project status</h2>
+            <p className="text-[14px] text-muted mt-1 mb-5">How many projects are at each stage.</p>
+            <StatusBars rows={data.statusDistribution} />
+          </div>
+
+          <div className="pub-card p-6">
+            <h2 className="text-[20px] font-bold text-navy">Fund utilization</h2>
+            <p className="text-[14px] text-muted mt-1 mb-5">How much of the sanctioned money has been recorded as spent.</p>
+            {data.utilisation.percent === null ? (
+              <p className="text-[14px] text-muted">Fund utilization cannot be calculated from the current records.</p>
+            ) : (
+              <>
+                <dl className="grid grid-cols-2 gap-4 mb-5">
+                  <div>
+                    <dt className="text-[13px] text-muted">Sanctioned</dt>
+                    <dd className="text-[24px] font-bold text-navy">{showInr(data.utilisation.sanctioned)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[13px] text-muted">Expenditure</dt>
+                    <dd className="text-[24px] font-bold text-navy">{showInr(data.utilisation.expenditureOnThose)}</dd>
+                  </div>
+                </dl>
+                <UtilisationBar percent={data.utilisation.percent} label="utilized" />
+                <p className="text-[13px] text-muted mt-4 leading-relaxed">
+                  Utilization represents expenditure recorded against the sanctioned amount, across the{' '}
+                  {formatCount(data.utilisation.projectsWithSanction)} projects that have a sanctioned amount recorded.
+                  {data.utilisation.projectsWithExpenditureRecord < data.utilisation.totalProjects && (
+                    <> Expenditure is recorded for {formatCount(data.utilisation.projectsWithExpenditureRecord)} of {formatCount(data.utilisation.totalProjects)} projects.</>
+                  )}
+                  {data.kpis.totalExpenditure - data.utilisation.expenditureOnThose > 0 && (
+                    <> Total expenditure above also includes {formatInr(data.kpis.totalExpenditure - data.utilisation.expenditureOnThose)} spent on works with no sanctioned amount recorded.</>
+                  )}
+                </p>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ------------------------------------------------ how funds are used */}
+      <section className="mt-12" aria-labelledby="how-title">
+        <SectionHeading id="how-title" title="How MPLADS funds are used"
+          description="A project moves through these stages. The numbers on this portal come from the records kept at each stage." />
+        <LifecycleSteps />
+      </section>
+
+      {/* ------------------------------------------------ by location */}
+      <section className="mt-12" aria-labelledby="loc-title">
+        <SectionHeading id="loc-title" title="Explore projects by location"
+          description="Choose a state to see its districts and projects."
+          action={<Link to={PORTAL_PATHS.locations} className="text-[14.5px] font-semibold text-blue hover:underline inline-flex items-center gap-1">All states <ArrowRight size={15} aria-hidden="true" /></Link>} />
+        {!data ? (
+          summary.error ? null : (
+            <LoadingRegion label="Loading states" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-28" />)}
+            </LoadingRegion>
+          )
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {topStates.map(row => (
+              <li key={row.name}>
+                <Link to={locationPath(row.name)} className="pub-card p-5 block h-full hover:shadow-soft hover:border-blue transition">
+                  <div className="text-[16px] font-semibold text-navy">{row.name}</div>
+                  <div className="text-[24px] font-bold text-ink mt-1">{formatCount(row.projectCount)}</div>
+                  <div className="text-[13px] text-muted">projects &middot; {showInr(row.sanctioned)} sanctioned</div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* ------------------------------------------------ recent projects */}
+      <section className="mt-12" aria-labelledby="recent-title">
+        <SectionHeading id="recent-title" title="Recently updated projects"
+          description="Projects with the most recent activity in the records that have a description and a sanctioned amount."
+          action={<Link to={PORTAL_PATHS.projects} className="pub-btn-secondary">View all projects</Link>} />
+        {recent.error ? (
+          <PublicError compact onRetry={recent.retry} />
+        ) : !recent.data ? (
+          <LoadingRegion label="Loading recent projects" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map(i => <ProjectCardSkeleton key={i} />)}
+          </LoadingRegion>
+        ) : (
+          <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {recent.data.items.map(project => <li key={project.id}><ProjectCard project={project} /></li>)}
+          </ul>
+        )}
+      </section>
+
+      {/* ------------------------------------------------ about teaser */}
+      <section className="mt-12 pub-card p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5" aria-labelledby="about-teaser">
+        <div>
+          <h2 id="about-teaser" className="text-[20px] font-bold text-navy flex items-center gap-2">
+            <Landmark size={20} aria-hidden="true" /> New to MPLADS?
+          </h2>
+          <p className="mt-1.5 text-[14.5px] text-muted max-w-[640px]">
+            Learn what the Members of Parliament Local Area Development Scheme is, how a project moves from
+            recommendation to completion, and what this portal shows.
           </p>
-        )}
-
-        <div className="mt-4">
-          <PublicTrends trends={insights?.trends} scopeLabel={scopeLabel} />
         </div>
-
-        <div className="grid lg:grid-cols-5 gap-4 mt-4">
-          <div className="card p-4 lg:col-span-3">
-            <h3 className="text-[13.5px] font-semibold text-ink">State-wise MPLADS Monitoring</h3>
-            <p className="text-xs text-muted mt-0.5 mb-3">
-              {live
-                ? 'By cumulative expenditure — select a state to drill into its districts'
-                : 'State-wise data is not available.'}
-            </p>
-            <IndiaStateGrid
-              data={insights?.byState ?? null}
-              selected={selectedState}
-              onSelect={setSelectedState}
-              lockedMessage="State-wise figures are not available from the current source."
-            />
-          </div>
-          <div className="card p-4 lg:col-span-2">
-            <h3 className="text-[13.5px] font-semibold text-ink">Project Status Distribution</h3>
-            <p className="text-xs text-muted mt-0.5">{live ? 'National lifecycle distribution' : 'Status data is not available.'}</p>
-            {statusData.length ? (
-              <div style={{ height: 230 }}>
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={78} paddingAngle={2}>
-                      {statusData.map(d => <Cell key={d.name} fill={d.color} />)}
-                    </Pie>
-                    <Legend verticalAlign="bottom" height={44} iconSize={9} wrapperStyle={{ fontSize: 11 }} />
-                    <Tooltip formatter={v => Number(v).toLocaleString()} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="py-10">
-                <EmptyState text="Status breakdown not available." />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <StateDistrictInsights
-            states={insights?.byState || []}
-            selectedState={selectedState}
-            onSelectState={setSelectedState}
-            districts={districts}
-            districtsLoading={districtsLoading}
-            districtsError={districtsError}
-          />
-        </div>
-
-        <div className="card mt-4 overflow-hidden">
-          <div className="px-4 pt-4 pb-3">
-            <h3 className="text-[13.5px] font-semibold text-ink">Recently Monitored Projects</h3>
-            <p className="text-xs text-muted mt-0.5">
-              {overview ? 'Public summaries of recently updated works' : 'Project data is not available.'}
-            </p>
-            {overviewError && (
-              <p className="text-xs mt-1" style={{ color: CHART_COLORS.red }}>
-                Could not load public project summaries: {overviewError}
-              </p>
-            )}
-          </div>
-          {overview ? (
-            !recentProjects.length ? (
-              <div className="py-10 px-4"><EmptyState text="No monitored projects found." /></div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="data-table">
-                  <thead><tr>{['Work ID', 'Work', 'State', 'District', 'Constituency', 'Status', 'Sanctioned', 'Expenditure', 'Progress'].map(h => <th key={h}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {recentProjects.map(p => (
-                      <tr
-                        key={p.id}
-                        className={p.id ? 'hover:bg-panel cursor-pointer' : undefined}
-                        onClick={() => p.id && navigate(`/projects/${encodeURIComponent(p.id)}`)}
-                      >
-                        <td className="font-mono font-semibold whitespace-nowrap">
-                          {p.id ? (
-                            <Link to={`/projects/${encodeURIComponent(p.id)}`} onClick={e => e.stopPropagation()} className="text-navy hover:underline">{p.id}</Link>
-                          ) : '—'}
-                        </td>
-                        <td className="whitespace-nowrap">{p.workType ?? '—'}</td>
-                        <td className="whitespace-nowrap">{p.state ?? '—'}</td>
-                        <td className="whitespace-nowrap">{p.district ?? '—'}</td>
-                        <td className="whitespace-nowrap">{p.constituency ?? '—'}</td>
-                        <td className="whitespace-nowrap">{p.status ?? '—'}</td>
-                        <td className="whitespace-nowrap">{formatCurrency(p.sanctioned)}</td>
-                        <td className="whitespace-nowrap">{formatCurrency(p.expenditure)}</td>
-                        <td className="whitespace-nowrap">{p.financialProgress !== null ? `${Math.round(p.financialProgress)}%` : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          ) : (
-            <div className="py-10 px-4"><EmptyState text="Public project data is not available." /></div>
-          )}
-        </div>
-
-        {coverageNotes.length > 0 && (
-          <div className="card p-4 mt-4">
-            <h3 className="text-[13.5px] font-semibold text-ink flex items-center gap-1.5">
-              <Info size={13} /> About this data
-            </h3>
-            <ul className="mt-2 space-y-1.5">
-              {coverageNotes.map(note => (
-                <li key={note} className="text-[11.5px] text-muted leading-snug">— {note}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="mt-4"><Disclaimer /></div>
-      </div>
-
-      <footer className="border-t border-line bg-white mt-10">
-        <div className="max-w-[1200px] mx-auto px-5 py-5 text-xs text-muted flex flex-wrap justify-between gap-3">
-          <span>© 2026 MPLADS AI Shield -- SIH prototype</span>
-          <span className="flex items-center gap-1.5"><Eye size={12} /> Public transparency view -- not an official Government of India portal</span>
-        </div>
-      </footer>
-    </div>
+        <button type="button" className="pub-btn-primary shrink-0" onClick={() => navigate(PORTAL_PATHS.about)}>About MPLADS</button>
+      </section>
+    </PublicLayout>
   )
 }

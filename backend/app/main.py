@@ -46,7 +46,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.routes import alerts, analytics, auth, dashboard, demo, projects, public, reports, upload
+from app.routes import alerts, analytics, auth, dashboard, demo, projects, public, public_explorer, reports, upload
 from app.routes.projects import warm_up_projects
 
 load_dotenv()
@@ -199,6 +199,7 @@ app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(dashboard.router)
 app.include_router(public.router)
+app.include_router(public_explorer.router)
 app.include_router(demo.router)
 app.include_router(alerts.router)
 app.include_router(analytics.router)
@@ -240,6 +241,15 @@ def _warm_up_project_caches() -> None:
             "Project cache warm-up failed at startup; endpoints will "
             "fall back to loading data lazily on first request."
         )
+
+    # Public portal: pre-build the public frame + search index so the
+    # first anonymous visitor does not pay for it.
+    try:
+        from app.public_explorer import prepared_frame
+
+        prepared_frame()
+    except Exception:  # noqa: BLE001 - startup must never crash on this
+        logger.exception("Public explorer warm-up failed; will load lazily.")
 
 
 @app.exception_handler(Exception)
