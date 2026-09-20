@@ -64,6 +64,7 @@ screen -- one code path, one set of numbers.
 
 import csv
 import io
+import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
@@ -83,7 +84,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.aggregations import (
@@ -249,6 +250,31 @@ def _apply_filters(
     return query
 
 
+# Above this many ids, a plain ``column IN (?, ?, ...)`` on SQLite risks
+# "too many SQL variables": every id is a separate bound parameter, and SQLite
+# caps parameters per statement (999 before 3.32, 32766 after -- and some
+# distro builds raise it much higher, which is how this stays invisible on
+# them). The LOW Risk Fusion bucket alone is ~42k projects.
+_SQLITE_MAX_INLINE_IDS = 500
+
+
+def _project_id_in(db: Session, ids: list[str]):
+    """``Project.project_id IN (<ids>)`` that cannot exceed a driver's
+    bound-parameter limit, however many ids there are.
+
+    On SQLite a long id list is passed as ONE bound parameter -- a JSON array
+    -- and expanded server-side with ``json_each``, so the statement's
+    parameter count no longer grows with the list. Every other backend
+    (PostgreSQL in production, via psycopg2's client-side parameter
+    interpolation) keeps the ordinary ``IN`` clause, unchanged.
+    """
+    dialect = db.get_bind().dialect.name
+    if dialect == "sqlite" and len(ids) > _SQLITE_MAX_INLINE_IDS:
+        id_table = func.json_each(json.dumps(ids)).table_valued("value")
+        return Project.project_id.in_(select(id_table.c.value))
+    return Project.project_id.in_(ids)
+
+
 def _scope_query(
     db: Session,
     risk_df: Optional[pd.DataFrame],
@@ -303,7 +329,7 @@ def _scope_query(
         .str.strip()
         .tolist()
     )
-    return query.filter(Project.project_id.in_(matching_ids))
+    return query.filter(_project_id_in(db, matching_ids))
 
 
 def _report_scope_label(user_scope: Optional[UserScope], filter_label: str) -> str:

@@ -372,6 +372,12 @@ def test_public_project_fields_match_the_public_project_contract(client):
         "start_date",
         "expected_completion",
         "actual_completion",
+        # Phase 2 Map fix: district/state-centroid fallback coordinates
+        # (see app/geo_centroids.py) -- added to PublicProjectOut so
+        # this surface matches the protected/demo/public-detail APIs.
+        "latitude",
+        "longitude",
+        "location_precision",
     }
 
     for project in client.get("/public/insights").json()["recent_projects"]:

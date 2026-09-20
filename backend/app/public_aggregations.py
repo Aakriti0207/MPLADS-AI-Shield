@@ -49,6 +49,7 @@ from app.aggregations import (
     CANONICAL_PROJECTS_PATH,
     load_canonical_projects,
 )
+from app.geo_centroids import resolve_coordinates
 
 try:
     from app.geo_centroids import resolve_coordinates

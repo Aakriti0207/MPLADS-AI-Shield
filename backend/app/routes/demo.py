@@ -51,6 +51,14 @@ from app.routes.projects import (
     _load_project_datasets,
     _risk_map,
     _apply_canonical_filters,
+    _cache_get,
+    _cache_put,
+    _rows_to_projects,
+    _OPTIONS_CACHE,
+    _OPTIONS_CACHE_MAX,
+    build_filter_options,
+    filter_by_risk_level,
+    normalize_risk_level_filter,
     enrich_component_details,
     build_component_breakdown_from_legacy,
     DEFAULT_LIMIT,
@@ -59,6 +67,7 @@ from app.routes.projects import (
 
 from app.schemas import (
     DashboardStats,
+    ProjectFilterOptions,
     ProjectOut,
     ProjectPage,
     RiskFusionOut,
@@ -736,6 +745,21 @@ def query_demo_projects(
         alias="status",
         description="Filter by project status.",
     ),
+    district: str | None = Query(
+        None,
+        description="Filter by district.",
+    ),
+    constituency: str | None = Query(
+        None,
+        description="Filter by constituency.",
+    ),
+    risk_level: str | None = Query(
+        None,
+        description=(
+            "Filter by current Risk Fusion level "
+            "(CRITICAL, HIGH, MEDIUM or LOW)."
+        ),
+    ),
     search: str | None = Query(
         None,
         max_length=120,
@@ -748,13 +772,16 @@ def query_demo_projects(
     """
     Return a filtered page from the CURRENT 43,863-project
     canonical universe.
+
+    Demo data is deliberately unscoped (no RBAC), so every filter here
+    applies to the whole demonstration universe. The filter set mirrors
+    /projects/query: state, district, constituency, category, status,
+    risk_level and free-text search.
     """
 
-    canonical_df, risk_df = _load_demo_datasets()
+    canonical_df, _risk_df = _load_demo_datasets()
 
-    risk_lookup = _risk_map(
-        risk_df
-    )
+    normalized_risk = normalize_risk_level_filter(risk_level)
 
     filtered_df = _apply_canonical_filters(
         canonical_df,
@@ -762,6 +789,13 @@ def query_demo_projects(
         category,
         status_value,
         search,
+        district=district,
+        constituency=constituency,
+    )
+
+    filtered_df = filter_by_risk_level(
+        filtered_df,
+        normalized_risk,
     )
 
     filtered_df = (
@@ -773,27 +807,14 @@ def query_demo_projects(
         len(filtered_df)
     )
 
-    page_df = (
-        filtered_df
-        .iloc[skip: skip + limit]
+    # Only the requested page is converted to ProjectOut, using the same
+    # score/level overlay as /projects/query (the light work_id ->
+    # (risk_score, risk_level) lookup built once per process). This
+    # replaces a per-request dict of every Risk Fusion row, which made
+    # each filter change cost ~1s regardless of how few rows matched.
+    items = _rows_to_projects(
+        filtered_df.iloc[skip: skip + limit]
     )
-
-    items = []
-
-    for _, row in page_df.iterrows():
-
-        project = _canonical_row_to_project(
-            row
-        )
-
-        project = _apply_risk_to_project(
-            project,
-            risk_lookup.get(
-                project.project_id
-            ),
-        )
-
-        items.append(project)
 
     return ProjectPage(
         items=items,
@@ -801,6 +822,53 @@ def query_demo_projects(
         skip=skip,
         limit=limit,
     )
+
+
+# =====================================================================
+# DEMO PROJECT FILTER OPTIONS
+#
+# Mirrors GET /projects/filter-options for demo sessions, which carry no
+# JWT and therefore cannot call the protected endpoint. Demo data is
+# unscoped, so nothing is locked and the lists cover the whole
+# demonstration universe. Must be declared BEFORE the
+# /projects/{project_id:path} routes below.
+# =====================================================================
+
+@router.get(
+    "/projects/filter-options",
+    response_model=ProjectFilterOptions,
+)
+def get_demo_project_filter_options(
+    state: str | None = Query(
+        None,
+        description=(
+            "Optional. Limit `districts` and `constituencies` to this "
+            "state (cascading dropdowns)."
+        ),
+    ),
+    district: str | None = Query(
+        None,
+        description=(
+            "Optional. Limit `constituencies` to this district."
+        ),
+    ),
+):
+    canonical_df, _risk_df = _load_demo_datasets()
+
+    key = f"demo-options\x1f{state or ''}\x1f{district or ''}"
+    options = _cache_get(_OPTIONS_CACHE, key)
+    if options is None:
+        options = _cache_put(
+            _OPTIONS_CACHE,
+            key,
+            build_filter_options(
+                canonical_df,
+                state=state,
+                district=district,
+            ),
+            _OPTIONS_CACHE_MAX,
+        )
+    return options
 
 
 # =====================================================================

@@ -40,6 +40,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.geo_centroids import resolve_coordinates
 from app.models import Project
 from app.public_aggregations import (
     compute_category_breakdown,
@@ -76,11 +77,38 @@ PUBLIC_DISCLAIMER = (
 )
 
 
+def _public_project_out(project: Project) -> PublicProjectOut:
+    """
+    Build a PublicProjectOut from a DB `Project` row, with the same
+    documented district/state-centroid coordinate fallback the
+    protected and demo project APIs use (app/geo_centroids.py), so all
+    three surfaces answer the Map feature consistently. `Project.
+    latitude`/`longitude` are read here (via model_validate) but are
+    NULL for essentially every row -- see app/models.py's Phase 2
+    docstring -- so they are overwritten with the resolved fallback,
+    never left silently blank while the other two APIs show a point.
+    """
+    public_project = PublicProjectOut.model_validate(project)
+    latitude, longitude, location_precision = resolve_coordinates(
+        project.state,
+        project.district,
+    )
+    return public_project.model_copy(
+        update={
+            "latitude": latitude,
+            "longitude": longitude,
+            "location_precision": location_precision,
+        }
+    )
+
+
 @router.get("/projects", response_model=PublicProjectPage)
 def list_public_projects(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     state: str | None = Query(None),
+    district: str | None = Query(None),
+    constituency: str | None = Query(None),
     category: str | None = Query(None),
     status_value: str | None = Query(None, alias="status"),
     search: str | None = Query(None, max_length=120),
@@ -90,6 +118,10 @@ def list_public_projects(
     query = db.query(Project)
     if state:
         query = query.filter(Project.state == state)
+    if district:
+        query = query.filter(Project.district == district)
+    if constituency:
+        query = query.filter(Project.constituency == constituency)
     if category:
         query = query.filter(Project.work_type == category)
     if status_value:
@@ -99,6 +131,7 @@ def list_public_projects(
         query = query.filter(or_(
             Project.project_id.ilike(pattern),
             Project.state.ilike(pattern),
+            Project.district.ilike(pattern),
             Project.constituency.ilike(pattern),
             Project.work_type.ilike(pattern),
             Project.mp_name.ilike(pattern),
@@ -106,7 +139,7 @@ def list_public_projects(
     total = query.count()
     items = query.order_by(Project.project_id).offset(skip).limit(limit).all()
     return PublicProjectPage(
-        items=[PublicProjectOut.model_validate(project) for project in items],
+        items=[_public_project_out(project) for project in items],
         total=total,
         skip=skip,
         limit=limit,
@@ -132,7 +165,7 @@ def get_public_project(project_id: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project '{project_id}' not found",
         )
-    return PublicProjectOut.model_validate(project)
+    return _public_project_out(project)
 
 
 @router.get("/overview", response_model=PublicOverview)
@@ -165,8 +198,7 @@ def get_public_overview(
     route's `by_state`/`by_work_type` for filter options, so this was a
     live inconsistency risk, not just a hypothetical one.
 
-    This is now fixed by computing every AGGREGATE field below from the
-    exact same canonical frame and the exact same functions
+    This route's aggregate fields now call the SAME functions
     `GET /public/insights` uses (`compute_public_kpis`,
     `compute_state_insights`, `compute_category_breakdown`,
     `compute_status_distribution`), so the two endpoints can never
@@ -246,7 +278,7 @@ def get_public_overview(
             StatusCount(status=row["status"], count=row["count"])
             for row in compute_public_status_distribution(frame)
         ],
-        recent_projects=[PublicProjectOut.model_validate(project) for project in projects],
+        recent_projects=[_public_project_out(project) for project in projects],
     )
 
 
