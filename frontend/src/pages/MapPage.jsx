@@ -19,10 +19,19 @@ import { useAuth } from '../context/AuthContext'
 
 delete L.Icon.Default.prototype._getIconUrl
 
+// Project coordinates are administrative-area centroids (see
+// location_precision below), not real per-project GPS points, so it is
+// normal/expected for dozens of projects to share the exact same
+// lat/lng. Leaflet's default marker SHADOW is a translucent PNG; when
+// many markers land on the identical pixel, their shadows compose on
+// top of one another and the compounded translucency reads as a solid
+// black blob next to the pin. Disabling the shadow (shadowUrl: null)
+// removes that artifact without changing marker placement, popups, or
+// any other map behavior -- the icon itself is unaffected.
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  shadowUrl: null,
 })
 
 function FitBounds({ projects }) {
