@@ -29,11 +29,24 @@ function buildQuery({
   status = '',
   riskLevel = '',
   search = '',
+  spreadSample = false,
 } = {}) {
   const params = new URLSearchParams({
     skip: String(skip),
     limit: String(limit),
   })
+
+  // Only /projects/query (the real authenticated endpoint) understands
+  // this. It asks the backend for an evenly-spaced sample across the
+  // whole filtered set instead of a straight first-N page -- without
+  // it, a national/state-wide map view can land entirely inside
+  // whichever one or two states sort first alphabetically and looks
+  // like most of the country has no data. Map-only; Projects.jsx (the
+  // Explorer list/pagination) never sets this, so its reading order is
+  // unaffected.
+  if (spreadSample) {
+    params.set('spread_sample', 'true')
+  }
 
   if (state && state !== 'All') {
     params.set('state', state)

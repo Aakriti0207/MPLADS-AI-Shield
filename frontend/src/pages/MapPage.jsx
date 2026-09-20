@@ -148,6 +148,14 @@ export default function MapPage() {
     constituency: constituencyFilter,
     riskLevel: risk,
     search: debouncedSearch,
+    // The canonical universe is sorted alphabetically by state/district,
+    // so a plain first-100 page can sit entirely inside one or two
+    // states and make the rest of the map look empty. This asks the
+    // backend to spread the 100 markers across the whole filtered set
+    // instead. Harmless once a state/district/constituency is picked --
+    // the filtered set is already narrow, so the spread just covers it
+    // evenly rather than changing what's included.
+    spreadSample: true,
   }), [stateFilter, districtFilter, constituencyFilter, risk, debouncedSearch])
 
   React.useEffect(() => {

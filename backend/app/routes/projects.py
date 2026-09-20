@@ -1384,6 +1384,7 @@ def query_projects(
             "Filter by current Risk Fusion level "
             "(CRITICAL, HIGH, MEDIUM or LOW)."
         ),
+    ),
     mp_type: str | None = Query(
         None,
         description="Filter by MP type (e.g. Lok Sabha / Rajya Sabha).",
@@ -1394,6 +1395,23 @@ def query_projects(
         description=(
             "Search project ID, state, district, "
             "constituency, project category, MP, or description."
+        ),
+    ),
+    spread_sample: bool = Query(
+        False,
+        description=(
+            "When true, return an evenly-spaced sample across the whole "
+            "filtered set instead of a sequential page from the top. "
+            "The canonical universe is sorted alphabetically by state "
+            "then district, so a plain first-N slice can land entirely "
+            "inside one or two states (e.g. the map's default 100-row "
+            "page never gets past 'Andaman and Nicobar'/'Andhra "
+            "Pradesh'), which looks like most of the country has no "
+            "data even though `total` is correct. Intended for map "
+            "views; list/pagination callers should leave this off so "
+            "Explorer keeps reading in alphabetical order. Ignored "
+            "when `skip` is not 0, since a spread sample has no stable "
+            "notion of subsequent pages."
         ),
     ),
     db: Session = Depends(get_db),
@@ -1436,6 +1454,7 @@ def query_projects(
         mp_type,
         search,
         risk_level,
+        spread_sample,
     )
     etag = _etag_for(key)
     not_modified = _not_modified(request, etag)
@@ -1455,7 +1474,20 @@ def query_projects(
         )
         filtered_df = filter_by_risk_level(filtered_df, risk_level)
         total = int(len(filtered_df))
-        items = _rows_to_projects(filtered_df.iloc[skip: skip + limit])
+        if spread_sample and skip == 0 and total > limit:
+            # Evenly-spaced positions across the whole filtered frame
+            # (not a random sample -- deterministic and cache-stable)
+            # so the page spans as many distinct states/districts as
+            # the data allows, instead of sitting inside whichever one
+            # or two states sort first alphabetically.
+            step = total / limit
+            row_positions = sorted(
+                {min(int(i * step), total - 1) for i in range(limit)}
+            )
+            page_df = filtered_df.iloc[row_positions]
+        else:
+            page_df = filtered_df.iloc[skip: skip + limit]
+        items = _rows_to_projects(page_df)
         page = _cache_put(
             _PAGE_CACHE,
             key,
